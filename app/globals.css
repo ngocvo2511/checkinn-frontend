@@ -3,13 +3,27 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  
+  --white: #FFF;
+  --primary: #0057FF;
+  --color-pallet-white: #FFF;
+  --decorative-600-red: #E00;
+  --neutral-800: #1F2226;
+  --neutral-600: #383E48;
+  --primary-50: #E8EFFC;
+  --neutral-900: #121316;
+  --primary-200: #99BDFF;
+  --low-opacity-white-20: rgba(255, 255, 255, 0.20);
+  --neutral-50: #F1F2F3;
+  --neutral: #454C58;
+  --neutral-300: #8B94A4;
+  --neutral-100: #DDDFE3;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-roboto);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,5 +36,5 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-roboto), -apple-system, Roboto, Helvetica, sans-serif;
 }
