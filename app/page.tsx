@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { authApi } from "@/lib/api/auth";
+import { LocationSearch } from "@/components/LocationSearch";
 
-const heroBg = "https://www.figma.com/api/mcp/asset/4fd2eff1-ae11-42de-a378-7e5a8847d77f";
+const heroBg = "/hero.png";
 const heroBadgeIcon = "https://www.figma.com/api/mcp/asset/7f84ae0a-9727-4a93-bfaf-6464772bb8df";
 const trendingImages = [
   "https://www.figma.com/api/mcp/asset/02199c7c-1379-4cf7-83e5-d3da96657f55",
@@ -130,6 +132,8 @@ const thingsToDo = [
   "Casa Batllo",
 ];
 
+const propertyTypes = ["Hotels", "Apartments", "Villas", "Cabins", "Glamping", "Domes"];
+
 const testimonials = [
   {
     name: "Sophie Turner",
@@ -149,21 +153,55 @@ const testimonials = [
 ];
 
 export default function Home() {
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
   const [showLogin, setShowLogin] = useState(false);
   const [showSignup, setShowSignup] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    // Load user from localStorage on mount
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch (e) {
+        console.error("Failed to parse user", e);
+      }
+    }
+    setMounted(true);
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setUser(null);
+  };
+
+  const handleEditProfile = () => {
+    router.push("/personal-data");
+  };
+
+  if (!mounted) return null;
 
   return (
     <div className="bg-white text-[#121316]">
-      <Header onLogin={() => setShowLogin(true)} onSignup={() => setShowSignup(true)} />
+      <Header 
+        user={user} 
+        onLogin={() => setShowLogin(true)} 
+        onSignup={() => setShowSignup(true)} 
+        onLogout={handleLogout}
+        onEditProfile={handleEditProfile}
+      />
       <Hero />
       {showLogin ? (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/35 px-4 py-10 sm:py-16">
-          <LoginModal onClose={() => setShowLogin(false)} />
+          <LoginModal onClose={() => { setShowLogin(false); const stored = localStorage.getItem("user"); if (stored) setUser(JSON.parse(stored)); }} />
         </div>
       ) : null}
       {showSignup ? (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/35 px-4 py-10 sm:py-16">
-          <SignupModal onClose={() => setShowSignup(false)} />
+          <SignupModal onClose={() => { setShowSignup(false); const stored = localStorage.getItem("user"); if (stored) setUser(JSON.parse(stored)); }} />
         </div>
       ) : null}
       <main className="mx-auto flex max-w-screen-xl flex-col gap-16 px-4 pb-20 pt-10 md:px-8 lg:px-10">
@@ -182,36 +220,79 @@ export default function Home() {
   );
 }
 
-function Header({ onLogin, onSignup }: { onLogin: () => void; onSignup: () => void }) {
+function Header({ user, onLogin, onSignup, onLogout, onEditProfile }: { user: any; onLogin: () => void; onSignup: () => void; onLogout: () => void; onEditProfile: () => void }) {
+  const [showMenu, setShowMenu] = useState(false);
+
   return (
-    <header className="sticky top-0 z-30 border-b border-[#DDDFE3] bg-white/90 backdrop-blur">
+    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-screen-xl items-center justify-between px-4 md:px-8 lg:px-10">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl font-semibold text-[#0057FF]">tripto</span>
-          <span className="rounded-full bg-[#FFCC00] px-2 py-0.5 text-xs font-semibold text-[#121316]">new</span>
+        <div className="flex items-center gap-1">
+          <span className="text-2xl font-semibold text-[#0057FF]">tript</span>
+          <span className="text-2xl font-semibold text-[#FFCC00]">o</span>
         </div>
-        <nav className="hidden items-center gap-6 text-sm font-medium text-[#383E48] md:flex">
-          <a className="hover:text-[#0057FF]" href="#trending">Destinations</a>
-          <a className="hover:text-[#0057FF]" href="#weekend">Deals</a>
-          <a className="hover:text-[#0057FF]" href="#homes">Homes</a>
-          <a className="hover:text-[#0057FF]" href="#help">Support</a>
-        </nav>
-        <div className="flex items-center gap-3">
-          <button className="hidden rounded-full border border-[#DDDFE3] px-4 py-2 text-sm font-medium text-[#2B3037] hover:bg-[#F1F2F3] md:inline-flex">
-            Support
+        <div className="flex items-center gap-4">
+          <button className="flex items-center gap-1 rounded-full px-2 py-1 text-sm font-semibold text-[#0057FF] hover:bg-[#E8EFFC]">
+            <span role="img" aria-label="us-flag" className="text-lg">🇺🇸</span>
+            <span>USD</span>
           </button>
-          <button
-            className="rounded-xl border border-[#0057FF] bg-white px-4 py-2 text-sm font-medium text-[#0057FF] shadow-sm hover:bg-[#0057FF] hover:text-white"
-            onClick={onSignup}
-          >
-            Sign Up
+          <button className="hidden h-10 w-10 items-center justify-center rounded-full bg-[#F2F3F5] text-[#0057FF] shadow-sm transition hover:bg-[#E8EFFC] md:flex">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 3C7.03 3 3 7.03 3 12V16C3 16.55 3.45 17 4 17H6V11H4.1C4.56 7.93 7.07 6 12 6C16.93 6 19.44 7.93 19.9 11H18V17H20C20.55 17 21 16.55 21 16V12C21 7.03 16.97 3 12 3ZM7 19C7 20.66 8.34 22 10 22H14C15.66 22 17 20.66 17 19V18H7V19Z" fill="#0057FF"/>
+            </svg>
           </button>
-          <button
-            className="rounded-xl bg-[#0057FF] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#0046CC]"
-            onClick={onLogin}
-          >
-            Login
-          </button>
+          <div className="flex items-center gap-3">
+          {user ? (
+            <div className="relative">
+              <button
+                onClick={() => setShowMenu(!showMenu)}
+                className="flex items-center gap-2 rounded-full bg-[#F1F2F3] px-3 py-2 hover:bg-[#E1E2E7]"
+              >
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#0057FF] text-xs font-bold text-white">
+                  {user.fullName?.[0]?.toUpperCase() || 'U'}
+                </div>
+                <span className="text-sm font-medium text-[#2B3037]">{user.fullName || 'User'}</span>
+              </button>
+              {showMenu && (
+                <div className="absolute right-0 mt-2 w-48 rounded-xl border border-[#DDDFE3] bg-white shadow-lg">
+                  <button
+                    onClick={() => { onEditProfile(); setShowMenu(false); }}
+                    className="w-full px-4 py-2 text-left text-sm text-[#2B3037] hover:bg-[#F1F2F3]"
+                  >
+                    Edit Profile
+                  </button>
+                  <button className="w-full px-4 py-2 text-left text-sm text-[#2B3037] hover:bg-[#F1F2F3]">
+                    Booking History
+                  </button>
+                  <hr className="my-1 border-[#DDDFE3]" />
+                  <button
+                    onClick={() => { onLogout(); setShowMenu(false); }}
+                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <button className="hidden rounded-full border border-[#DDDFE3] px-4 py-2 text-sm font-medium text-[#2B3037] hover:bg-[#F1F2F3] md:inline-flex">
+                Support
+              </button>
+              <button
+                className="rounded-xl border border-[#0057FF] bg-white px-4 py-2 text-sm font-medium text-[#0057FF] shadow-sm hover:bg-[#0057FF] hover:text-white"
+                onClick={onSignup}
+              >
+                Sign Up
+              </button>
+              <button
+                className="rounded-xl bg-[#0057FF] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#0046CC]"
+                onClick={onLogin}
+              >
+                Login
+              </button>
+            </>
+          )}
+        </div>
         </div>
       </div>
     </header>
@@ -220,63 +301,64 @@ function Header({ onLogin, onSignup }: { onLogin: () => void; onSignup: () => vo
 
 function Hero() {
   return (
-    <section className="relative overflow-hidden bg-[#0f1829]">
+    <section className="relative overflow-visible bg-gradient-to-b from-[#0057FF] to-[#0f1829]">
       <div className="absolute inset-0">
-        <img src={heroBg} alt="Beach resort" className="h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/35 to-black/15" />
+        <img src={heroBg} alt="Beach resort" className="h-full w-full object-cover opacity-40" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/30 to-black/10" />
       </div>
-      <div className="relative mx-auto flex max-w-screen-xl flex-col gap-8 px-4 pb-14 pt-16 md:px-8 md:pt-20 lg:px-10">
-        <div className="mt-6 flex flex-col items-start gap-4 text-white md:mt-10 md:max-w-2xl">
-          <p className="text-sm font-medium uppercase tracking-[0.08em] text-[#99BDFF]">Luxury stays | Villas | Apartments</p>
-          <h1 className="text-3xl font-semibold leading-tight md:text-5xl">
-            Your Trip Starts Here
-          </h1>
-          <p className="text-lg text-white/90 md:text-xl">
-            Find unique stays across hotels, villas, and more. Instant booking, flexible options, and trusted reviews.
-          </p>
+      <div className="relative mx-auto flex max-w-screen-xl flex-col gap-8 px-4 pb-24 pt-16 md:px-8 md:pb-28 md:pt-20 lg:px-10">
+        <div className="mt-6 flex flex-col items-center gap-4 text-white md:mt-8 md:max-w-4xl md:self-center">
+          <div className="inline-flex items-center gap-2 rounded-full bg-white/15 backdrop-blur px-4 py-2 text-sm font-medium text-white border border-white/20">
+            <span>✨</span>
+            <span>Discover Amazing Places</span>
+          </div>
+          <h1 className="text-4xl font-bold leading-tight text-center md:text-6xl md:leading-[72px]">Your Perfect Journey Awaits</h1>
+          <p className="text-lg text-white/80 text-center md:text-xl md:max-w-2xl">Explore unique accommodations worldwide—from cozy boutiques to luxurious villas. Book with confidence, travel with joy.</p>
         </div>
 
-        <div className="grid gap-3 rounded-2xl bg-white/90 p-4 shadow-2xl backdrop-blur lg:grid-cols-[2fr_2fr_2fr_auto]">
-          <div className="flex flex-col gap-1">
-            <span className="text-sm font-medium text-[#2B3037]">Location</span>
-            <input
-              className="rounded-xl border border-[#DDDFE3] px-3 py-2 text-sm text-[#383E48] outline-none focus:border-[#0057FF]"
-              placeholder="Where are you going?"
-            />
+        <div className="relative w-full max-w-6xl md:mx-auto mt-2">
+          <div className="absolute -top-11 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-[#2f3642] px-4 py-2 text-[13px] font-medium text-white shadow-xl">
+            {[
+              { label: "Hotel", active: true, iconPath: "M6 19h12v2H6v-2Zm10-8H8v6h8v-6Zm2-8H6v2h12V3ZM4 1h16c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H4c-1.11 0-2-.9-2-2V3c0-1.1.89-2 2-2Z" },
+              { label: "House", iconPath: "M3 10.5 12 3l9 7.5V20c0 .55-.45 1-1 1h-5v-5H9v5H4c-.55 0-1-.45-1-1v-9.5Zm8-4.69-6 5V19h2v-5h6v5h2v-8.19l-6-5Z" },
+              { label: "Guest House", iconPath: "M4 10 12 4l8 6v10H4V10Zm2 2v6h12v-6l-6-4.5L6 12Z" },
+              { label: "Cabins", iconPath: "M4 12 12 5l8 7v7h-4v-4H8v4H4v-7Zm8-5.3L6 12.23V16h2v-2h8v2h2v-3.77L12 6.7Z" },
+              { label: "Glamping", iconPath: "M12 3 2 19h20L12 3Zm0 4.3 5.46 9.2H6.54L12 7.3Z" },
+              { label: "Domes", iconPath: "M12 4a8 8 0 0 0-8 8v5h16v-5a8 8 0 0 0-8-8Zm0 2a6 6 0 0 1 6 6v3H6v-3a6 6 0 0 1 6-6Z" },
+            ].map(({ label, active, iconPath }) => (
+              <HeroCategoryChip key={label} label={label} iconPath={iconPath} active={active} />
+            ))}
           </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-sm font-medium text-[#2B3037]">Check in</span>
-            <input
-              className="rounded-xl border border-[#DDDFE3] px-3 py-2 text-sm text-[#383E48] outline-none focus:border-[#0057FF]"
-              placeholder="Add dates"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-sm font-medium text-[#2B3037]">Check out</span>
-            <input
-              className="rounded-xl border border-[#DDDFE3] px-3 py-2 text-sm text-[#383E48] outline-none focus:border-[#0057FF]"
-              placeholder="Add dates"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-sm font-medium text-[#2B3037]">Rooms & guests</span>
-            <div className="flex items-center justify-between rounded-xl border border-[#DDDFE3] px-3 py-2 text-sm text-[#383E48]">
-              <span>1 room, 2 adults</span>
-              <span className="text-[#0057FF]">Edit</span>
+
+          <div className="relative overflow-visible rounded-3xl bg-white shadow-2xl backdrop-blur">
+            <div className="grid grid-cols-1 gap-4 px-4 py-5 md:grid-cols-[repeat(3,minmax(0,1fr))_1.4fr_auto] md:gap-0 md:px-2 md:py-3">
+              <LocationSearch />
+              <SearchField
+                title="Check In"
+                subtitle="Add Dates"
+                iconPath="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H5V10h14v8zm0-10H5V6h14v2z"
+                className="md:border-l md:border-[#E4E6EB]"
+              />
+              <SearchField
+                title="Check Out"
+                subtitle="Add Dates"
+                iconPath="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H5V10h14v8zm0-10H5V6h14v2z"
+                className="md:border-l md:border-[#E4E6EB]"
+              />
+              <SearchField
+                title="Rooms and Guests"
+                subtitle="1 rooms, 1 adults, 0 children"
+                iconPath="M10 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM15 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM10 10c-1.66 0-5 0.83-5 2.5V14h10v-1.5C15 10.83 11.66 10 10 10zm5 0c-.29 0-.62.02-.97.05.58.45.97 1.12.97 1.95V14h4v-1.5C19 10.83 15.66 10 15 10z"
+                className="md:border-l md:border-[#E4E6EB] md:pl-6"
+              />
+              <button className="flex h-full w-full items-center justify-center gap-2 rounded-2xl bg-[#0057FF] px-5 text-base font-semibold text-white shadow-lg transition hover:bg-[#0046CC] md:h-[72px] md:w-32 md:rounded-none md:rounded-r-3xl">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C8.01 14 6 11.99 6 9.5S8.01 5 10.5 5 15 7.01 15 9.5 12.99 14 10.5 14z" fill="white"/>
+                </svg>
+                Search
+              </button>
             </div>
           </div>
-          <button className="col-span-full flex items-center justify-center gap-2 rounded-xl bg-[#0057FF] px-5 py-3 text-white shadow-lg transition hover:bg-[#0046CC] lg:col-span-1 lg:row-span-2 lg:self-end">
-            Search
-          </button>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3 rounded-full bg-white/80 px-3 py-2 text-sm font-medium text-[#2B3037] shadow-md backdrop-blur lg:self-start">
-          <FilterChip label="Hotel" active />
-          <FilterChip label="House" />
-          <FilterChip label="Guest House" />
-          <FilterChip label="Cabins" />
-          <FilterChip label="Glamping" />
-          <FilterChip label="Domes" />
         </div>
       </div>
     </section>
@@ -538,6 +620,49 @@ function SignupModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+function CategoryChip({ label, active }: { label: string; active?: boolean }) {
+  return (
+    <button
+      className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition ${
+        active
+          ? 'border-[#121316] bg-[#121316] text-white'
+          : 'border-[#DDDFE3] bg-white text-[#383E48] hover:border-[#121316] hover:text-[#121316]'
+      }`}
+    >
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function HeroCategoryChip({ label, iconPath, active }: { label: string; iconPath: string; active?: boolean }) {
+  return (
+    <button
+      className={`flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold transition ${
+        active ? 'bg-white text-[#121316] shadow-sm' : 'text-white/90 hover:text-white'
+      }`}
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d={iconPath} fill={active ? '#121316' : 'currentColor'} />
+      </svg>
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function SearchField({ title, subtitle, iconPath, className }: { title: string; subtitle: string; iconPath: string; className?: string }) {
+  return (
+    <div className={`flex min-h-[72px] min-w-[180px] flex-1 items-start gap-3 px-3 py-3 md:px-4 md:py-4 ${className ?? ''}`}>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d={iconPath} fill="#0057FF" />
+      </svg>
+      <div className="flex flex-col leading-tight">
+        <span className="text-sm font-semibold text-[#2B3037]">{title}</span>
+        <span className="text-sm text-[#8B94A4]">{subtitle}</span>
+      </div>
+    </div>
+  );
+}
+
 function FilterChip({ label, active }: { label: string; active?: boolean }) {
   return (
     <span
@@ -555,7 +680,7 @@ function FilterChip({ label, active }: { label: string; active?: boolean }) {
 function SectionHeader({ id, title, action }: { id?: string; title: string; action?: React.ReactNode }) {
   return (
     <div id={id} className="flex flex-wrap items-center justify-between gap-3">
-      <h2 className="text-2xl font-semibold text-[#121316] md:text-[40px] md:leading-[52px]">{title}</h2>
+      <h2 className="text-3xl font-bold text-[#121316] md:text-4xl md:leading-[52px]">{title}</h2>
       {action}
     </div>
   );
@@ -566,34 +691,37 @@ function WhyTripto() {
     {
       title: "No hidden fees",
       desc: "Transparent pricing with no surprises at checkout.",
+      icon: "💰"
     },
     {
       title: "Instant booking",
       desc: "Get confirmation right after you reserve.",
+      icon: "⚡"
     },
     {
       title: "Flexibility",
       desc: "Free cancellation on many listings for peace of mind.",
+      icon: "🔄"
     },
   ];
 
   return (
     <section className="flex flex-col gap-8">
       <div className="text-center">
-        <h2 className="text-[36px] font-semibold leading-[46px] text-[#121316]">Why Travellers Trust Tripto</h2>
+        <h2 className="text-3xl font-bold leading-[48px] text-[#121316] md:text-4xl">Why Travellers Trust Tripto</h2>
       </div>
       <div className="grid gap-6 md:grid-cols-3">
         {features.map((feature) => (
           <div
             key={feature.title}
-            className="flex flex-col items-center gap-4 rounded-2xl border border-[#E8EFFC] bg-[#F9FBFF] p-6 text-center shadow-sm"
+            className="flex flex-col items-center gap-4 rounded-3xl border border-[#E8EFFC] bg-gradient-to-br from-[#F9FBFF] to-[#F5F8FE] p-8 text-center shadow-sm hover:shadow-lg hover:border-[#0057FF] transition-all duration-300"
           >
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#E8EFFC]">
-              <span className="text-xl text-[#0057FF]">★</span>
+            <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-[#E8EFFC] to-[#D8E5FF]">
+              <span className="text-4xl">{feature.icon}</span>
             </div>
             <div className="space-y-2">
-              <p className="text-xl font-semibold text-[#383E48]">{feature.title}</p>
-              <p className="text-sm text-[#656F81]">{feature.desc}</p>
+              <p className="text-xl font-bold text-[#121316]">{feature.title}</p>
+              <p className="text-sm text-[#656F81] leading-relaxed">{feature.desc}</p>
             </div>
           </div>
         ))}
@@ -610,18 +738,18 @@ function TrendingDestinations() {
         action={<div className="flex gap-2 text-sm text-[#383E48]">Spring picks | 2025 spotlight</div>}
       />
       <div className="flex flex-wrap gap-3 text-sm font-medium text-[#383E48]">
-        <CategoryChip label="Spring Picks" active />
-        <CategoryChip label="Summer Hotspot" />
-        <CategoryChip label="Autumn Escape" />
-        <CategoryChip label="Winter Getaway" />
+        <CategoryFilterChip label="Spring Picks" active />
+        <CategoryFilterChip label="Summer Hotspot" />
+        <CategoryFilterChip label="Autumn Escape" />
+        <CategoryFilterChip label="Winter Getaway" />
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {trendingImages.map((img, idx) => (
-          <div key={img} className="group relative h-[320px] overflow-hidden rounded-2xl shadow-lg">
-            <img src={img} alt="Destination" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/35 to-transparent" />
-            <div className="absolute bottom-4 left-4 space-y-2 text-white">
-              <p className="text-xl font-semibold">{["Paris, France", "Santorini, Greece", "Bali, Indonesia", "Kyoto, Japan"][idx]}</p>
+          <div key={img} className="group relative h-[320px] overflow-hidden rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500">
+            <img src={img} alt="Destination" className="h-full w-full object-cover transition duration-500 group-hover:scale-110" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+            <div className="absolute bottom-0 left-0 right-0 space-y-3 bg-gradient-to-t from-black to-transparent p-6 text-white">
+              <p className="text-2xl font-bold">{["Paris, France", "Santorini, Greece", "Bali, Indonesia", "Kyoto, Japan"][idx]}</p>
               <p className="text-sm text-white/90">From ${[128, 225, 26, 190][idx]} / night</p>
               <p className="text-xs text-white/80">{["Romantic escapes, art, and cafes.", "Sunsets, sea views, and serenity.", "Beaches, nature, and calm vibes.", "Cherry blossoms and temples."][idx]}</p>
             </div>
@@ -632,7 +760,7 @@ function TrendingDestinations() {
   );
 }
 
-function CategoryChip({ label, active }: { label: string; active?: boolean }) {
+function CategoryFilterChip({ label, active }: { label: string; active?: boolean }) {
   return (
     <button
       className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition ${
@@ -660,23 +788,23 @@ function WeekendDeals() {
       />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {weekendDeals.map((deal) => (
-          <div key={deal.title} className="flex h-full flex-col overflow-hidden rounded-2xl border border-[#DDDFE3] bg-white shadow-sm">
-            <div className="relative h-44">
-              <img src={deal.img} alt={deal.title} className="h-full w-full object-cover" />
-              <div className="absolute right-3 top-3 rounded-full bg-white p-2 shadow">
-                <span className="text-[#383E48]">♡</span>
+          <div key={deal.title} className="flex h-full flex-col overflow-hidden rounded-3xl border border-[#DDDFE3] bg-white shadow-sm hover:shadow-xl hover:border-[#0057FF] transition-all duration-300">
+            <div className="relative h-48 overflow-hidden group">
+              <img src={deal.img} alt={deal.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-110" />
+              <div className="absolute right-4 top-4 rounded-full bg-white/90 backdrop-blur p-2.5 shadow-md hover:bg-white transition-colors cursor-pointer">
+                <span className="text-lg">♡</span>
               </div>
             </div>
-            <div className="flex flex-1 flex-col gap-2 px-4 pb-4 pt-3">
-              <span className="inline-flex w-fit rounded-full bg-[#049153] px-3 py-1 text-xs font-medium text-white">{deal.badge}</span>
+            <div className="flex flex-1 flex-col gap-3 px-5 pb-5 pt-4">
+              <span className="inline-flex w-fit rounded-full bg-gradient-to-r from-[#049153] to-[#05a860] px-3 py-1 text-xs font-bold text-white shadow-sm">{deal.badge}</span>
               <div className="space-y-1">
-                <p className="text-lg font-semibold text-[#1F2226]">{deal.title}</p>
-                <p className="text-sm font-medium text-[#2B3037]">{deal.location}</p>
+                <p className="text-lg font-bold text-[#1F2226]">{deal.title}</p>
+                <p className="text-sm font-medium text-[#656F81]">{deal.location}</p>
               </div>
-              <div className="mt-auto flex items-center gap-2 text-right text-sm text-[#8B94A4]">
-                <span className="line-through">${deal.oldPrice}</span>
-                <span className="text-lg font-semibold text-[#1F2226]">${deal.price}</span>
-                <span className="text-xs">per night</span>
+              <div className="mt-auto flex items-center gap-2 text-right text-sm">
+                <span className="line-through text-[#8B94A4]">${deal.oldPrice}</span>
+                <span className="text-lg font-bold text-[#0057FF]">${deal.price}</span>
+                <span className="text-xs text-[#8B94A4]">per night</span>
               </div>
             </div>
           </div>
@@ -721,12 +849,12 @@ function TopSights() {
       <SectionHeader title="Top Sights to See" />
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {sights.map((sight) => (
-          <div key={sight.title} className="relative h-60 overflow-hidden rounded-2xl shadow-lg">
-            <img src={sight.img} alt={sight.title} className="h-full w-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-            <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-2 text-sm font-semibold text-[#121316] backdrop-blur">
+          <div key={sight.title} className="group relative h-64 overflow-hidden rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-300">
+            <img src={sight.img} alt={sight.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-110" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+            <div className="absolute left-5 top-5 inline-flex items-center gap-2 rounded-2xl bg-white/95 backdrop-blur px-4 py-2.5 text-sm font-bold text-[#121316] shadow-lg">
               {sight.title}
-              <span className="rounded bg-[#121316] px-1.5 py-0.5 text-xs text-white">{sight.flag}</span>
+              <span className="ml-1 rounded-lg bg-[#0057FF] px-2.5 py-1 text-xs font-bold text-white">{sight.flag}</span>
             </div>
           </div>
         ))}
@@ -812,24 +940,24 @@ function HomesGuestsLove() {
       />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {homes.map((home) => (
-          <div key={home.title} className="flex h-full flex-col overflow-hidden rounded-2xl border border-[#DDDFE3] bg-white shadow-sm">
-            <div className="relative h-40">
-              <img src={home.img} alt={home.title} className="h-full w-full object-cover" />
-              <div className="absolute right-3 top-3 rounded-full bg-white p-2 shadow">
-                <span className="text-[#383E48]">♡</span>
+          <div key={home.title} className="flex h-full flex-col overflow-hidden rounded-3xl border border-[#DDDFE3] bg-white shadow-sm hover:shadow-xl hover:border-[#0057FF] transition-all duration-300">
+            <div className="relative h-44 overflow-hidden group">
+              <img src={home.img} alt={home.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-110" />
+              <div className="absolute right-4 top-4 rounded-full bg-white/90 backdrop-blur p-2.5 shadow-md hover:bg-white transition-colors cursor-pointer">
+                <span className="text-lg">♡</span>
               </div>
             </div>
-            <div className="flex flex-1 flex-col gap-2 px-4 pb-4 pt-3">
+            <div className="flex flex-1 flex-col gap-2 px-5 pb-5 pt-4">
               <div className="flex items-center gap-2 text-sm">
-                <span className="rounded-md bg-[#F1F2F3] px-2 py-1 font-semibold text-[#003499]">{home.rating}</span>
-                <span className="text-[#0046CC]">Excellent</span>
+                <span className="rounded-lg bg-[#0057FF] px-2.5 py-1 font-bold text-white text-xs">{home.rating}</span>
+                <span className="font-semibold text-[#0057FF]">Excellent</span>
               </div>
               <div className="space-y-1">
-                <p className="text-lg font-semibold text-[#1F2226]">{home.title}</p>
-                <p className="text-sm font-medium text-[#2B3037]">{home.location}</p>
+                <p className="text-lg font-bold text-[#1F2226]">{home.title}</p>
+                <p className="text-sm font-medium text-[#656F81]">{home.location}</p>
               </div>
               <div className="mt-auto flex items-center gap-2 text-sm text-[#8B94A4]">
-                <span className="text-lg font-semibold text-[#1F2226]">${home.price}</span>
+                <span className="text-lg font-bold text-[#0057FF]">${home.price}</span>
                 <span>per night</span>
               </div>
             </div>
@@ -846,10 +974,17 @@ function Testimonials() {
       <SectionHeader title="What travellers say" />
       <div className="grid gap-4 md:grid-cols-3">
         {testimonials.map((item) => (
-          <div key={item.name} className="flex flex-col gap-3 rounded-2xl border border-[#DDDFE3] bg-[#F8FAFF] p-5 shadow-sm">
-            <p className="text-lg font-semibold text-[#121316]">{item.name}</p>
-            <p className="text-sm font-medium text-[#383E48]">{item.location}</p>
-            <p className="text-sm text-[#656F81]">“{item.text}”</p>
+          <div key={item.name} className="flex flex-col gap-3 rounded-3xl border border-[#DDDFE3] bg-gradient-to-br from-[#F8FAFF] to-[#F0F5FF] p-6 shadow-sm hover:shadow-lg hover:border-[#0057FF] transition-all duration-300">
+            <div className="flex gap-1">
+              {[...Array(5)].map((_, i) => (
+                <span key={i} className="text-lg">⭐</span>
+              ))}
+            </div>
+            <p className="text-base font-semibold text-[#121316]">"{item.text}"</p>
+            <div className="mt-2 pt-3 border-t border-[#E0E2E7]">
+              <p className="font-bold text-[#121316]">{item.name}</p>
+              <p className="text-sm text-[#656F81]">{item.location}</p>
+            </div>
           </div>
         ))}
       </div>
@@ -868,10 +1003,10 @@ function Footer() {
               We help you find and book the perfect stay—from cozy guesthouses to top hotels—with ease, trust, and the best deals.
             </p>
             <div className="flex gap-3 text-lg text-white/80">
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
             </div>
           </div>
           <div className="space-y-3 text-sm">

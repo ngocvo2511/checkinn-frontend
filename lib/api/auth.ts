@@ -31,8 +31,16 @@ export const authApi = {
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(error || 'Registration failed');
+      const text = await response.text();
+      try {
+        const json = JSON.parse(text);
+        throw new Error(json.message || json.error || 'Registration failed');
+      } catch (err) {
+        if (err instanceof Error && err.message !== text) {
+          throw err;
+        }
+        throw new Error(text || 'Registration failed');
+      }
     }
 
     return response.json();
@@ -48,8 +56,18 @@ export const authApi = {
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(error || 'Login failed');
+      const text = await response.text();
+      try {
+        const json = JSON.parse(text);
+        // Lấy message từ JSON error response
+        const errorMsg = json.message || json.error || text;
+        throw new Error(errorMsg);
+      } catch (err) {
+        if (err instanceof Error && err.message !== text) {
+          throw err;
+        }
+        throw new Error(text || 'Login failed');
+      }
     }
 
     return response.json();
