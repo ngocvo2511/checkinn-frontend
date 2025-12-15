@@ -157,6 +157,7 @@ export default function Home() {
   const [user, setUser] = useState<any>(null);
   const [showLogin, setShowLogin] = useState(false);
   const [showSignup, setShowSignup] = useState(false);
+  const [signupVariant, setSignupVariant] = useState<'user' | 'host'>('user');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -189,19 +190,25 @@ export default function Home() {
       <Header 
         user={user} 
         onLogin={() => setShowLogin(true)} 
-        onSignup={() => setShowSignup(true)} 
+        onSignup={() => { setSignupVariant('user'); setShowSignup(true); }} 
         onLogout={handleLogout}
         onEditProfile={handleEditProfile}
       />
       <Hero />
       {showLogin ? (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/35 px-4 py-10 sm:py-16">
-          <LoginModal onClose={() => { setShowLogin(false); const stored = localStorage.getItem("user"); if (stored) setUser(JSON.parse(stored)); }} />
+          <LoginModal
+            onClose={() => { setShowLogin(false); const stored = localStorage.getItem("user"); if (stored) setUser(JSON.parse(stored)); }}
+            onOpenHostSignup={() => { setShowLogin(false); setSignupVariant('host'); setShowSignup(true); }}
+          />
         </div>
       ) : null}
       {showSignup ? (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/35 px-4 py-10 sm:py-16">
-          <SignupModal onClose={() => { setShowSignup(false); const stored = localStorage.getItem("user"); if (stored) setUser(JSON.parse(stored)); }} />
+          <SignupModal
+            variant={signupVariant}
+            onClose={() => { setShowSignup(false); const stored = localStorage.getItem("user"); if (stored) setUser(JSON.parse(stored)); }}
+          />
         </div>
       ) : null}
       <main className="mx-auto flex max-w-screen-xl flex-col gap-16 px-4 pb-20 pt-10 md:px-8 lg:px-10">
@@ -365,7 +372,8 @@ function Hero() {
   );
 }
 
-function LoginModal({ onClose }: { onClose: () => void }) {
+function LoginModal({ onClose, onOpenHostSignup }: { onClose: () => void; onOpenHostSignup: () => void }) {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -389,8 +397,15 @@ function LoginModal({ onClose }: { onClose: () => void }) {
       localStorage.setItem("token", response.token);
       localStorage.setItem("user", JSON.stringify(response));
 
-      alert("Login successful!");
-      onClose();
+      const role = response.role?.toLowerCase?.() || "";
+      if (role.includes("admin")) {
+        router.push("/admin/dashboard");
+      } else if (role.includes("owner") || role.includes("host")) {
+        router.push("/host/dashboard");
+      } else {
+        alert("Login successful!");
+        onClose();
+      }
     } catch (err: any) {
       setError(err.message || "Login failed");
     } finally {
@@ -454,6 +469,14 @@ function LoginModal({ onClose }: { onClose: () => void }) {
           {loading ? "Loading..." : "Continue"}
         </button>
 
+        <button
+          type="button"
+          onClick={onOpenHostSignup}
+          className="w-full rounded-xl border border-[#0057FF] bg-white py-3 text-sm font-semibold text-[#0057FF] shadow-sm hover:bg-[#0057FF] hover:text-white"
+        >
+          Bạn là chủ khách sạn? Đăng ký ngay
+        </button>
+
         <div className="relative py-2">
           <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-[#E0E2E7]" />
           <span className="relative mx-auto block w-fit bg-white px-3 text-sm font-semibold text-[#656F81]">or</span>
@@ -471,7 +494,8 @@ function LoginModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function SignupModal({ onClose }: { onClose: () => void }) {
+function SignupModal({ onClose, variant = 'user' }: { onClose: () => void; variant?: 'user' | 'host' }) {
+  const router = useRouter();
   const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -479,6 +503,11 @@ function SignupModal({ onClose }: { onClose: () => void }) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [selectedVariant, setSelectedVariant] = useState<'user' | 'host'>(variant);
+
+  useEffect(() => {
+    setSelectedVariant(variant);
+  }, [variant]);
 
   const handleSubmit = async () => {
     if (!fullName || !username || !email || !password || !confirmPassword) {
@@ -505,8 +534,15 @@ function SignupModal({ onClose }: { onClose: () => void }) {
       localStorage.setItem("token", response.token);
       localStorage.setItem("user", JSON.stringify(response));
 
-      alert("Registration successful!");
-      onClose();
+      const role = response.role?.toLowerCase?.() || "";
+      if (role.includes("admin")) {
+        router.push("/admin/dashboard");
+      } else if (role.includes("owner") || role.includes("host") || selectedVariant === "host") {
+        router.push("/host/dashboard");
+      } else {
+        alert("Registration successful!");
+        onClose();
+      }
     } catch (err: any) {
       setError(err.message || "Registration failed");
     } finally {
@@ -517,7 +553,9 @@ function SignupModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="pointer-events-auto w-full max-w-xl rounded-2xl border border-[#E8E9F1] bg-white/95 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.16)] backdrop-blur sm:p-8">
       <div className="relative flex items-center justify-center pb-2">
-        <p className="text-sm font-semibold text-[#2B3037]">Sign up</p>
+        <p className="text-sm font-semibold text-[#2B3037]">
+          {selectedVariant === 'host' ? 'Đăng ký chủ khách sạn' : 'Sign up'}
+        </p>
         <button
           type="button"
           aria-label="Close"
@@ -529,8 +567,39 @@ function SignupModal({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className="space-y-6">
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex w-full justify-center gap-2 rounded-2xl bg-[#F1F2F5] p-1">
+            <button
+              type="button"
+              onClick={() => setSelectedVariant('user')}
+              className={`flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                selectedVariant === 'user'
+                  ? 'bg-white text-[#0057FF] shadow-sm'
+                  : 'text-[#656F81] hover:text-[#2B3037]'
+              }`}
+            >
+              Customer
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedVariant('host')}
+              className={`flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                selectedVariant === 'host'
+                  ? 'bg-white text-[#0057FF] shadow-sm'
+                  : 'text-[#656F81] hover:text-[#2B3037]'
+              }`}
+            >
+              Hotel owner
+            </button>
+          </div>
+          <p className="text-xs font-medium text-[#656F81]">
+            Select the account type that best describes you.
+          </p>
+        </div>
         <div className="text-center">
-          <p className="text-xl font-bold text-[#1F2226]">Create your Tripto account</p>
+          <p className="text-xl font-bold text-[#1F2226]">
+            {selectedVariant === 'host' ? 'Create your hotel owner account' : 'Create your customer account'}
+          </p>
         </div>
 
         {error && (

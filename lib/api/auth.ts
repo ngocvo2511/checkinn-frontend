@@ -46,6 +46,31 @@ export const authApi = {
     return response.json();
   },
 
+  registerOwner: async (data: RegisterData): Promise<AuthResponse> => {
+    const response = await fetch(`${API_BASE_URL}/register-owner`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      try {
+        const json = JSON.parse(text);
+        throw new Error(json.message || json.error || 'Registration failed');
+      } catch (err) {
+        if (err instanceof Error && err.message !== text) {
+          throw err;
+        }
+        throw new Error(text || 'Registration failed');
+      }
+    }
+
+    return response.json();
+  },
+
   login: async (data: LoginData): Promise<AuthResponse> => {
     const response = await fetch(`${API_BASE_URL}/login`, {
       method: 'POST',
