@@ -3,12 +3,10 @@ const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhos
 export interface City {
   id: string;
   name: string;
-  code: string;
   latitude: number;
   longitude: number;
   parentId?: string | null;
   parentName?: string | null;
-  parentCode?: string | null;
   hotelCount?: number | null;
   createdAt: string;
   type?: string;  // "PROVINCE" or "CITY"

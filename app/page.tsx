@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { authApi } from "@/lib/api/auth";
 import { LocationSearch } from "@/components/LocationSearch";
+import { DateRangePicker } from "@/components/DateRangePicker";
+import { RoomGuestPicker } from "@/components/RoomGuestPicker";
 
 const heroBg = "/hero.png";
 const heroBadgeIcon = "https://www.figma.com/api/mcp/asset/7f84ae0a-9727-4a93-bfaf-6464772bb8df";
@@ -307,6 +309,40 @@ function Header({ user, onLogin, onSignup, onLogout, onEditProfile }: { user: an
 }
 
 function Hero() {
+  const router = useRouter();
+  const [selectedCity, setSelectedCity] = useState<any>(null);
+  const [checkInDate, setCheckInDate] = useState<Date | null>(null);
+  const [checkOutDate, setCheckOutDate] = useState<Date | null>(null);
+  const [rooms, setRooms] = useState(1);
+  const [adults, setAdults] = useState(1);
+  const [children, setChildren] = useState(0);
+
+  const handleSearch = () => {
+    // Validate required fields
+    if (!selectedCity) {
+      alert("Please select a destination");
+      return;
+    }
+    if (!checkInDate || !checkOutDate) {
+      alert("Please select check-in and check-out dates");
+      return;
+    }
+
+    // Build search params
+    const searchParams = new URLSearchParams({
+      cityId: selectedCity.id,
+      cityName: selectedCity.name,
+      checkIn: checkInDate.toISOString().split('T')[0],
+      checkOut: checkOutDate.toISOString().split('T')[0],
+      rooms: rooms.toString(),
+      adults: adults.toString(),
+      children: children.toString(),
+    });
+
+    // Navigate to search results page
+    router.push(`/search?${searchParams.toString()}`);
+  };
+
   return (
     <section className="relative overflow-visible bg-gradient-to-b from-[#0057FF] to-[#0f1829]">
       <div className="absolute inset-0">
@@ -338,27 +374,27 @@ function Hero() {
           </div>
 
           <div className="relative overflow-visible rounded-3xl bg-white shadow-2xl backdrop-blur">
-            <div className="grid grid-cols-1 gap-4 px-4 py-5 md:grid-cols-[repeat(3,minmax(0,1fr))_1.4fr_auto] md:gap-0 md:px-2 md:py-3">
-              <LocationSearch />
-              <SearchField
-                title="Check In"
-                subtitle="Add Dates"
-                iconPath="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H5V10h14v8zm0-10H5V6h14v2z"
-                className="md:border-l md:border-[#E4E6EB]"
+            <div className="grid grid-cols-1 gap-4 px-4 py-5 md:grid-cols-[repeat(2,minmax(0,1fr))_1.4fr_auto] md:gap-0 md:px-2 md:py-3 items-stretch">
+              <LocationSearch onCitySelect={setSelectedCity} />
+              <DateRangePicker
+                checkInLabel="Check In"
+                checkOutLabel="Check Out"
+                onDatesChange={(checkIn, checkOut) => {
+                  setCheckInDate(checkIn);
+                  setCheckOutDate(checkOut);
+                }}
               />
-              <SearchField
-                title="Check Out"
-                subtitle="Add Dates"
-                iconPath="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H5V10h14v8zm0-10H5V6h14v2z"
-                className="md:border-l md:border-[#E4E6EB]"
+              <RoomGuestPicker 
+                onSelectionChange={(r, a, c) => {
+                  setRooms(r);
+                  setAdults(a);
+                  setChildren(c);
+                }}
               />
-              <SearchField
-                title="Rooms and Guests"
-                subtitle="1 rooms, 1 adults, 0 children"
-                iconPath="M10 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM15 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM10 10c-1.66 0-5 0.83-5 2.5V14h10v-1.5C15 10.83 11.66 10 10 10zm5 0c-.29 0-.62.02-.97.05.58.45.97 1.12.97 1.95V14h4v-1.5C19 10.83 15.66 10 15 10z"
-                className="md:border-l md:border-[#E4E6EB] md:pl-6"
-              />
-              <button className="flex h-full w-full items-center justify-center gap-2 rounded-2xl bg-[#0057FF] px-5 text-base font-semibold text-white shadow-lg transition hover:bg-[#0046CC] md:h-[72px] md:w-32 md:rounded-none md:rounded-r-3xl">
+              <button 
+                onClick={handleSearch}
+                className="flex h-full w-full items-center justify-center gap-2 rounded-2xl bg-[#0057FF] px-5 text-base font-semibold text-white shadow-lg transition hover:bg-[#0046CC] md:h-[72px] md:w-32 md:rounded-none md:rounded-r-3xl"
+              >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C8.01 14 6 11.99 6 9.5S8.01 5 10.5 5 15 7.01 15 9.5 12.99 14 10.5 14z" fill="white"/>
                 </svg>
@@ -720,8 +756,8 @@ function HeroCategoryChip({ label, iconPath, active }: { label: string; iconPath
 
 function SearchField({ title, subtitle, iconPath, className }: { title: string; subtitle: string; iconPath: string; className?: string }) {
   return (
-    <div className={`flex min-h-[72px] min-w-[180px] flex-1 items-start gap-3 px-3 py-3 md:px-4 md:py-4 ${className ?? ''}`}>
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <div className={`flex min-h-[72px] min-w-[180px] h-full flex-1 items-center gap-5 px-3 py-3 md:px-4 md:py-4 ${className ?? ''}`}>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0 mr-1">
         <path d={iconPath} fill="#0057FF" />
       </svg>
       <div className="flex flex-col leading-tight">

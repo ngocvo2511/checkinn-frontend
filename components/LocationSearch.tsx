@@ -1,7 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { cityApi, type City } from "@/lib/api/cities";
 
-export function LocationSearch() {
+interface LocationSearchProps {
+  onCitySelect?: (city: City | null) => void;
+}
+
+export function LocationSearch({ onCitySelect }: LocationSearchProps = {}) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [cities, setCities] = useState<City[]>([]);
@@ -91,6 +95,7 @@ export function LocationSearch() {
     setSelectedCity(city);
     setIsOpen(false);
     setSearchQuery("");
+    onCitySelect?.(city);
   };
 
   const selectByCode = (code: string, fallbackName: string) => {
@@ -114,7 +119,7 @@ export function LocationSearch() {
     <div className="relative w-full" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full text-left rounded-2xl border border-[#E4E6EB] bg-white px-6 py-4 hover:border-[#0057FF] hover:bg-[#F7FAFF] transition md:rounded-none md:border-r-0 md:border-l md:border-l-[#E4E6EB] md:px-6 md:py-3"
+        className="w-full h-full min-h-[72px] text-left rounded-2xl border border-[#E4E6EB] bg-white px-6 py-4 hover:border-[#0057FF] hover:bg-[#F7FAFF] transition md:rounded-none md:border-0 md:border-r md:border-r-[#E4E6EB] md:px-6 md:py-3 flex items-center"
       >
         <div className="space-y-1">
           <p className="text-xs font-semibold uppercase tracking-wide text-[#8B94A4]">
@@ -169,7 +174,7 @@ export function LocationSearch() {
                   <p className="text-xs mt-1">{error}</p>
                 </div>
                 <p className="text-xs text-[#8B94A4] text-center">
-                  Make sure the backend is running on port 8222
+                  Make sure the backend API Gateway is running on port 8080
                 </p>
               </div>
             )}
