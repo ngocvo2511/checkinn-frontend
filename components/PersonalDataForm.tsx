@@ -86,6 +86,7 @@ export default function PersonalDataForm() {
         fullName: data.fullName || '',
         email: data.email || '',
         phone: data.phone || '',
+        countryCode: data.countryCode || '+84',
         birthday: data.birthday || '',
         address: data.address || '',
         gender: data.gender || '',

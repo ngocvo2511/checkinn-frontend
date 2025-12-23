@@ -123,7 +123,7 @@ export default function HostHotelsPage() {
                   <p className="text-base font-semibold text-[#1F2226]">Chưa có khách sạn nào</p>
                   <p className="text-sm text-[#656F81]">Hãy thêm khách sạn mới để bắt đầu quản lý.</p>
                   <button
-                    onClick={() => router.push('/host/hotels/new')}
+                    onClick={() => router.push('/host/hotels/newHotel')}
                     className="rounded-xl bg-[#0057FF] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#0046CC]"
                   >
                     Thêm khách sạn
