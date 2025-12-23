@@ -83,7 +83,7 @@ export interface SearchHotelsParams {
   maxPrice?: number;
 }
 
-const hotelApi = {
+export const hotelApi = {
   /**
    * Search hotels by city
    */
