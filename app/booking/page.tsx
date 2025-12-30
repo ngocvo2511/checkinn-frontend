@@ -1,9 +1,11 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { bookingApi, type CreateBookingPayload } from "@/lib/api/booking";
+import { type AuthResponse } from "@/lib/api/auth";
 
 const formatPrice = (value?: number) => {
   if (value === undefined || value === null) return "Liên hệ";
@@ -12,6 +14,7 @@ const formatPrice = (value?: number) => {
 
 export default function BookingPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   const hotelId = searchParams.get("hotelId") || "";
   const hotelName = searchParams.get("hotelName") || "";
@@ -23,6 +26,7 @@ export default function BookingPage() {
   const adults = searchParams.get("adults") || "1";
   const children = searchParams.get("children") || "0";
   const rooms = searchParams.get("rooms") || "1";
+  const quantity = Number(searchParams.get("quantity") || "1");
 
   const [guestName, setGuestName] = useState("");
   const [guestInfoName, setGuestInfoName] = useState("");
@@ -32,6 +36,19 @@ export default function BookingPage() {
   const [bookForSelf, setBookForSelf] = useState(true);
   const [isEditingGuestName, setIsEditingGuestName] = useState(false);
   const [hasManuallyEditedGuestName, setHasManuallyEditedGuestName] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [user, setUser] = useState<AuthResponse | null>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("user");
+    if (!stored) return;
+    try {
+      setUser(JSON.parse(stored));
+    } catch (err) {
+      console.error("Failed to parse user", err);
+    }
+  }, []);
 
   // Validation states
   const [errors, setErrors] = useState({
@@ -42,7 +59,15 @@ export default function BookingPage() {
 
   const basePrice = Number(roomPrice);
   const taxAndFees = 0;
-  const totalPrice = basePrice + taxAndFees;
+  const subtotalPerRoom = basePrice;
+  const nights = useMemo(() => {
+    if (!checkIn || !checkOut) return 1;
+    const start = new Date(checkIn);
+    const end = new Date(checkOut);
+    const diff = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    return diff > 0 ? diff : 1;
+  }, [checkIn, checkOut]);
+  const totalPrice = subtotalPerRoom * quantity * nights;
 
   // Validation functions
   const validateName = (value: string) => {
@@ -109,10 +134,60 @@ export default function BookingPage() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // TODO: Implement booking submission
-    alert("Đặt phòng thành công! (Chức năng đang phát triển)");
+  const runValidation = () => {
+    const newErrors = {
+      guestName: validateName(guestName),
+      guestEmail: validateEmail(guestEmail),
+      guestPhone: validatePhone(guestPhone),
+    };
+    setErrors(newErrors);
+    return !newErrors.guestName && !newErrors.guestEmail && !newErrors.guestPhone;
+  };
+
+  const handleProceed = async () => {
+    const isValid = runValidation();
+    if (!isValid) return;
+
+    setSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const payload: CreateBookingPayload = {
+        userId: user ? String(user.userId) : undefined,
+        hotelId,
+        hotelName,
+        checkInDate: checkIn,
+        checkOutDate: checkOut,
+        adults: Number(adults),
+        children: Number(children),
+        contactName: guestName,
+        contactEmail: guestEmail,
+        contactPhone: guestPhone,
+        specialRequests,
+        items: [
+          {
+            roomTypeId: roomId,
+            roomTypeName: roomName,
+            ratePlanId: roomId,
+            checkInDate: checkIn,
+            checkOutDate: checkOut,
+            quantity,
+            unitPrice: Number(roomPrice),
+            nights,
+            guestName: guestInfoName || guestName,
+            cancellationPolicy: "",
+          },
+        ],
+      };
+
+      const booking = await bookingApi.createBooking(payload);
+      const params = new URLSearchParams({ bookingId: booking.id });
+      router.push(`/booking/payment?${params.toString()}`);
+    } catch (error: any) {
+      setSubmitError(error?.message || "Không thể tạo đơn đặt phòng");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -139,7 +214,7 @@ export default function BookingPage() {
                   Thêm liên hệ để nhận xác nhận đặt chỗ.
                 </p>
 
-                <form onSubmit={handleSubmit} className="space-y-4" onBlur={handleContactBlur}>
+                <form className="space-y-4" onBlur={handleContactBlur}>
                   <div>
                     <label className="block text-sm font-semibold text-[#0F172A] mb-2">
                       Họ tên<span className="text-red-600">*</span>
@@ -229,6 +304,9 @@ export default function BookingPage() {
                 <p className="text-sm text-[#6B7280] mb-4">
                   Vui lòng điền đầy đủ các thông tin để nhận xác nhận đơn hàng
                 </p>
+                {submitError && (
+                  <p className="text-sm text-red-600 mb-2">{submitError}</p>
+                )}
 
                 <div className="space-y-4">
                   <div>
@@ -319,14 +397,14 @@ export default function BookingPage() {
             </div>
 
             {/* Right: Price Summary */}
-            <div className="space-y-6">
+              <div className="space-y-6">
               <div className="rounded-2xl border border-[#E5E7EB] bg-white shadow-sm p-6 sticky top-20">
                 <div className="mb-4 rounded-lg bg-[#E0F2FE] p-3 text-sm text-[#075985]">
                   ⏰ Đừng khoảnh chứng là 2 giây! Chỉ còn <span className="font-bold">1 phòng</span> có giá thấp nhất này!
                 </div>
 
                 <div className="mb-4">
-                  <p className="text-sm font-semibold text-[#0F172A]">(1x) {roomName}</p>
+                  <p className="text-sm font-semibold text-[#0F172A]">({quantity}x) {roomName}</p>
                   <p className="text-xs text-[#6B7280] mt-1">Chỉ còn 1 phòng</p>
                 </div>
 
@@ -345,7 +423,7 @@ export default function BookingPage() {
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-[#6B7280]">Phòng</span>
-                    <span className="font-semibold text-[#0F172A]">1 phòng</span>
+                    <span className="font-semibold text-[#0F172A]">{quantity} phòng</span>
                   </div>
                 </div>
 
@@ -362,9 +440,15 @@ export default function BookingPage() {
 
                 <div className="space-y-2 border-t border-[#E5E7EB] pt-4 mt-4">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-[#6B7280]">Giá phòng</span>
-                    <span className="text-[#0F172A]">{formatPrice(basePrice)}</span>
+                    <span className="text-[#6B7280]">Giá phòng/đêm</span>
+                    <span className="text-[#0F172A]">{formatPrice(subtotalPerRoom)}</span>
                   </div>
+                  {quantity > 1 && (
+                    <div className="flex items-center justify-between text-sm text-[#6B7280]">
+                      <span className="text-[#6B7280]">Số phòng</span>
+                      <span className="text-[#0F172A]">× {quantity}</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-[#6B7280]">Thuế và phí</span>
                     <span className="text-[#0F172A]">{formatPrice(taxAndFees)}</span>
@@ -379,27 +463,25 @@ export default function BookingPage() {
                   </div>
                 </div>
 
-                <p className="text-xs text-[#6B7280] mt-2">1 phòng, 1 đêm</p>
+                <p className="text-xs text-[#6B7280] mt-2">{quantity} phòng, {nights} đêm</p>
 
                 <button
-                  onClick={handleSubmit}
-                  className="w-full mt-6 rounded-lg bg-[#0EA5E9] px-4 py-3 text-white font-semibold shadow hover:bg-[#0284C7] transition"
+                  onClick={handleProceed}
+                  disabled={submitting}
+                  className={`w-full mt-6 rounded-lg px-4 py-3 text-white font-semibold shadow transition ${
+                    submitting ? "bg-[#93C5FD]" : "bg-[#2563EB] hover:bg-[#1D4ED8]"
+                  }`}
                 >
-                  Tiếp tục
+                  {submitting ? "Đang xử lý..." : "Tiếp tục"}
                 </button>
 
-                <div className="mt-4 flex items-center justify-center gap-4 text-xs text-[#6B7280]">
-                  <span>Bằng cách liên hành thành toán, bạn đã đồng ý với</span>
-                </div>
-                <div className="flex items-center justify-center gap-2 mt-2">
-                  <a href="#" className="text-xs text-[#2563EB] underline">Điều khoản và Điều kiện</a>
-                  <span className="text-xs text-[#6B7280]">,</span>
-                  <a href="#" className="text-xs text-[#2563EB] underline">Chính sách Bảo mật</a>
-                </div>
-                <div className="flex items-center justify-center gap-2 mt-1">
-                  <span className="text-xs text-[#6B7280]">và</span>
-                  <a href="#" className="text-xs text-[#2563EB] underline">Quy trình Hoàn tiền Lưu trú</a>
-                  <span className="text-xs text-[#6B7280]">của Traveloka</span>
+                <div className="mt-2 flex flex-wrap items-center justify-center gap-1 text-xs text-[#6B7280]">
+                  <span>Nhấn Tiếp tục nghĩa là bạn đồng ý</span>
+                  <a href="#" className="text-[#2563EB] underline">Điều khoản và Điều kiện</a>
+                  <span>,</span>
+                  <a href="#" className="text-[#2563EB] underline">Chính sách Bảo mật</a>
+                  <span>và</span>
+                  <a href="#" className="text-[#2563EB] underline">Quy trình Hoàn tiền Lưu trú</a>
                 </div>
 
                 <div className="mt-4 flex items-center justify-center gap-2">

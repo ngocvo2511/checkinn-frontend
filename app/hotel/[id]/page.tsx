@@ -39,6 +39,7 @@ export default function HotelDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState("photos");
   const [showAllImages, setShowAllImages] = useState(false);
+  const [selectedRoomType, setSelectedRoomType] = useState<string | null>(null);
 
   const checkIn = searchParams.get("checkIn") || "";
   const checkOut = searchParams.get("checkOut") || "";
@@ -167,6 +168,13 @@ export default function HotelDetailPage() {
   };
 
   const handleBookRoom = (room: RoomType) => {
+    // Check if selecting different room type when quantity > 1
+    const roomQuantity = Number(rooms) || 1;
+    if (roomQuantity > 1 && selectedRoomType && selectedRoomType !== room.id) {
+      alert("Khi đặt nhiều hơn 1 phòng, bạn phải chọn cùng loại phòng");
+      return;
+    }
+
     const bookingParams = new URLSearchParams({
       hotelId: hotel?.id || "",
       hotelName: hotel?.name || "",
@@ -178,6 +186,7 @@ export default function HotelDetailPage() {
       adults: adults,
       children: children,
       rooms: rooms,
+      quantity: rooms,
     });
     router.push(`/booking?${bookingParams.toString()}`);
   };
@@ -342,6 +351,14 @@ export default function HotelDetailPage() {
             <span className="text-sm text-[#6B7280]">Giá theo mỗi phòng/đêm, chưa gồm thuế & phí</span>
           </div>
 
+          {Number(rooms) > 1 && (
+            <div className="mb-6 p-4 rounded-lg bg-[#F0F9FF] border border-[#0284C7]">
+              <p className="text-sm text-[#0F172A] font-semibold">
+                ℹ️ Bạn cần chọn <span className="font-bold text-[#DC2626]">{rooms} phòng cùng loại</span>
+              </p>
+            </div>
+          )}
+
           <div className="space-y-4">
             {availableRooms.length === 0 && (
               <div className="rounded-xl border border-dashed border-[#E5E7EB] bg-white p-6 text-[#6B7280]">
@@ -410,11 +427,22 @@ export default function HotelDetailPage() {
                     <div className="text-right space-y-1">
                       <p className="text-xs text-[#9CA3AF]">Giá/phòng/đêm</p>
                       <p className="text-2xl font-bold text-[#DC2626]">{formatPrice(Number(roomPrice))}</p>
+                      {Number(rooms) > 1 && (
+                        <p className="text-xs font-semibold text-[#0F172A]">= {formatPrice(Number(roomPrice) * Number(rooms))}/{rooms} phòng</p>
+                      )}
                       <p className="text-[11px] text-[#9CA3AF]">Chưa bao gồm thuế & phí</p>
                     </div>
                     <button 
-                      onClick={() => handleBookRoom(room)}
-                      className="rounded-lg bg-[#2563EB] px-4 py-2 text-white font-semibold shadow hover:bg-[#1D4ED8] transition"
+                      onClick={() => {
+                        setSelectedRoomType(room.id);
+                        handleBookRoom(room);
+                      }}
+                      disabled={Number(rooms) > 1 && selectedRoomType && selectedRoomType !== room.id}
+                      className={`rounded-lg px-4 py-2 text-white font-semibold shadow transition ${
+                        Number(rooms) > 1 && selectedRoomType && selectedRoomType !== room.id
+                          ? "bg-[#9CA3AF] cursor-not-allowed"
+                          : "bg-[#2563EB] hover:bg-[#1D4ED8]"
+                      }`}
                     >
                       Chọn
                     </button>

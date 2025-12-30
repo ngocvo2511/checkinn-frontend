@@ -231,6 +231,7 @@ export default function Home() {
 
 function Header({ user, onLogin, onSignup, onLogout, onEditProfile }: { user: any; onLogin: () => void; onSignup: () => void; onLogout: () => void; onEditProfile: () => void }) {
   const [showMenu, setShowMenu] = useState(false);
+  const router = useRouter();
 
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur">
@@ -269,7 +270,10 @@ function Header({ user, onLogin, onSignup, onLogout, onEditProfile }: { user: an
                   >
                     Edit Profile
                   </button>
-                  <button className="w-full px-4 py-2 text-left text-sm text-[#2B3037] hover:bg-[#F1F2F3]">
+                  <button
+                    onClick={() => { router.push('/booking/history'); setShowMenu(false); }}
+                    className="w-full px-4 py-2 text-left text-sm text-[#2B3037] hover:bg-[#F1F2F3]"
+                  >
                     Booking History
                   </button>
                   <hr className="my-1 border-[#DDDFE3]" />
