@@ -763,7 +763,7 @@ export default function HostCreateHotelPage() {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-base text-[#656F81]">Có thể chọn nhiều ảnh, sortOrder sẽ theo thứ tự chọn.</p>
+                      <p className="text-base text-[#656F81]">Có thể chọn nhiều ảnh.</p>
                     )}
                   </div>
                 </div>

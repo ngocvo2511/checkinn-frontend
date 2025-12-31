@@ -26,12 +26,28 @@ export interface MediaAsset {
   url: string;
   type: string;
   isThumbnail?: boolean;
-  displayOrder?: number;
+  sortOrder?: number;
 }
 
 export interface CapacityDto {
   adults: number;
   children: number;
+}
+
+export interface PolicyResponse {
+  title: string;
+  content: string;
+}
+
+export interface AmenityItemResponse {
+  id: string;
+  title: string;
+}
+
+export interface AmenityResponse {
+  id: string;
+  title: string;
+  items: AmenityItemResponse[];
 }
 
 export interface RoomType {
@@ -69,7 +85,11 @@ export interface Hotel {
   lowestPrice?: number;
   starRating?: number;
   description?: string;
-  amenities?: string[];
+  policies?: PolicyResponse[];
+  amenityCategories?: AmenityResponse[];
+  amenities?: AmenityResponse[]; // legacy name for amenityCategories
+  contactEmail?: string;
+  contactPhone?: string;
 }
 
 export interface SearchHotelsParams {
@@ -274,10 +294,10 @@ export const hotelApi = {
     }
   },
 
-  // Get pending hotels for approval
+  // Get pending hotels for approval (admin, requires JWT)
   getPendingHotels: async (): Promise<Hotel[]> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/pending`, {
+      const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/pending`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -299,7 +319,7 @@ export const hotelApi = {
   // Get pending hotel detail
   getPendingHotelDetail: async (hotelId: string): Promise<PendingHotelDetail> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/pending/${hotelId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/pending/${hotelId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -321,7 +341,7 @@ export const hotelApi = {
   // Approve a hotel
   approveHotel: async (hotelId: string): Promise<void> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/${hotelId}/approve`, {
+      const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/approve`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -341,7 +361,7 @@ export const hotelApi = {
   // Reject a hotel
   rejectHotel: async (hotelId: string, note: string): Promise<void> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/${hotelId}/reject`, {
+      const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/reject`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -358,6 +378,169 @@ export const hotelApi = {
       throw error;
     }
   },
+
+  // Activate a hotel
+  activateHotel: async (hotelId: string): Promise<void> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/activate`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders(),
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to activate hotel: ${response.status} ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Error activating hotel:', error);
+      throw error;
+    }
+  },
+
+  // Deactivate a hotel
+  deactivateHotel: async (hotelId: string): Promise<void> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/deactivate`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders(),
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to deactivate hotel: ${response.status} ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Error deactivating hotel:', error);
+      throw error;
+    }
+  },
+
+  // Update hotel information
+  updateHotel: async (hotelId: string, data: {
+    name: string;
+    description: string;
+    starRating: number;
+    cityId: string;
+    address: HotelAddress;
+    contactEmail?: string;
+    contactPhone?: string;
+  }): Promise<Hotel> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders(),
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update hotel: ${response.status} ${response.statusText}`);
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error('Error updating hotel:', error);
+      throw error;
+    }
+  },
+
+  // Get all cities
+  getCities: async (): Promise<City[]> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/hotel/cities`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to get cities: ${response.status} ${response.statusText}`);
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error('Error getting cities:', error);
+      throw error;
+    }
+  },
+
+  // Upload media (image) for hotel or room
+  uploadMedia: async (targetId: string, targetType: 'HOTEL' | 'ROOM_TYPE', file: File, isThumbnail: boolean = false, sortOrder: number = 0): Promise<MediaAsset> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('targetId', targetId);
+      formData.append('targetType', targetType);
+      formData.append('isThumbnail', String(isThumbnail));
+      formData.append('sortOrder', String(sortOrder));
+
+      const response = await fetch(`${API_BASE_URL}/api/hotel/medias`, {
+        method: 'POST',
+        headers: {
+          ...authHeaders(),
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to upload media: ${response.status} ${response.statusText}`);
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error('Error uploading media:', error);
+      throw error;
+    }
+  },
+
+  // Delete media by ID
+  deleteMedia: async (mediaId: string): Promise<void> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/hotel/medias/${mediaId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders(),
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete media: ${response.status} ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Error deleting media:', error);
+      throw error;
+    }
+  },
+
+  // Set media as thumbnail
+  setThumbnail: async (mediaId: string): Promise<MediaAsset> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/hotel/medias/${mediaId}/thumbnail`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders(),
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to set thumbnail: ${response.status} ${response.statusText}`);
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error('Error setting thumbnail:', error);
+      throw error;
+    }
+  },
 };
 
 const authHeaders = (): Record<string, string> => {
@@ -365,6 +548,8 @@ const authHeaders = (): Record<string, string> => {
   const token = localStorage.getItem('token');
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
+
+export default hotelApi;
 
 export interface Address {
   street: string;

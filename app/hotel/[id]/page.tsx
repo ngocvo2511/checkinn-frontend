@@ -123,7 +123,15 @@ export default function HotelDetailPage() {
   }, [hotel]);
 
   const amenityList = useMemo(() => {
-    if (hotel?.amenities && hotel.amenities.length > 0) return hotel.amenities;
+    const categories = hotel?.amenityCategories || hotel?.amenities || [];
+    const categoryItems = categories.flatMap((category) =>
+      (category.items || []).map((item) => item.title).filter(Boolean)
+    );
+
+    if (categoryItems.length > 0) {
+      return Array.from(new Set(categoryItems));
+    }
+
     const collected = new Set<string>();
     (hotel?.roomTypes || []).forEach((rt) => {
       (rt.amenities || []).forEach((a) => collected.add(a));

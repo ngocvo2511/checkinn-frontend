@@ -12,15 +12,9 @@ export const adminMenuItems: AdminMenuItem[] = [
     iconPath: 'M4 10L12 4L20 10V20H14V13H10V20H4V10Z',
   },
   {
-    label: 'Duyệt khách sạn',
-    href: '/admin/hotels',
-    iconPath: 'M6 8L12 4L18 8V20H6V8ZM8 10V18H10V10H8ZM14 10V18H16V10H14Z',
-  },
-  {
     label: 'Yêu cầu chờ duyệt',
     href: '/admin/pending',
     iconPath: 'M5 3H19V21H5V3ZM7 5V19H17V5H7ZM9 9H15V11H9V9ZM9 13H15V15H9V13Z',
-    badge: '14',
   },
   {
     label: 'Người dùng & phân quyền',
