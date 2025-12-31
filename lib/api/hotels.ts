@@ -32,6 +32,10 @@ export interface MediaAsset {
 export interface CapacityDto {
   adults: number;
   children: number;
+  bedType?: string;
+  roomSize?: number;
+  breakfastIncluded?: boolean;
+  breakfastQuantity?: number;
 }
 
 export interface RoomType {
@@ -70,6 +74,12 @@ export interface Hotel {
   starRating?: number;
   description?: string;
   amenities?: string[];
+  policies?: string[];
+  amenityCategories?: Array<{
+    id?: string;
+    title: string;
+    items?: Array<{ id?: string; title: string }>;
+  }>;
 }
 
 export interface SearchHotelsParams {

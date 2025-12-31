@@ -43,6 +43,8 @@ export default function PaymentPage() {
   const [timeRemaining, setTimeRemaining] = useState(15 * 60); // default 15 minutes
   const expiresAtRef = useRef<number | null>(null);
   const HOLD_TTL_SECONDS = 15 * 60;
+  const payableStatuses = useMemo(() => new Set(["PENDING", "PENDING_PAYMENT"]), []);
+  const isPayableStatus = booking ? payableStatuses.has(booking.status) : true;
 
   const taxAndFees = 0;
   const derivedItem = booking?.items?.[0];
@@ -75,13 +77,48 @@ export default function PaymentPage() {
 
   useEffect(() => {
     if (!bookingId) return;
+
+    // Client-side auth check: if no token, force login before fetching booking details
+    const token = typeof window !== "undefined"
+      ? (localStorage.getItem("token") || localStorage.getItem("accessToken") || sessionStorage.getItem("token") || sessionStorage.getItem("accessToken") || (() => {
+          const m = document.cookie.match(/(?:^|; )(?:token|accessToken)=([^;]+)/);
+          return m ? decodeURIComponent(m[1]) : null;
+        })())
+      : null;
+    if (!token) {
+      const redirect = encodeURIComponent(`/booking/payment?bookingId=${bookingId}`);
+      router.replace(`/login?redirect=${redirect}`);
+      return;
+    }
+
     setFetchingBooking(true);
     bookingApi
       .getBooking(bookingId)
       .then((data) => setBooking(data))
-      .catch((err) => setError(err?.message || "Không lấy được thông tin đặt phòng"))
+      .catch((err) => {
+        const msg = err?.message || "Không lấy được thông tin đặt phòng";
+        setError(msg);
+        // If backend enforces auth and we hit 401/403, send user to login instead of showing booking info
+        if (msg.includes("401") || msg.toLowerCase().includes("unauthorized") || msg.includes("403")) {
+          const redirect = encodeURIComponent(`/booking/payment?bookingId=${bookingId}`);
+          router.replace(`/login?redirect=${redirect}`);
+        }
+      })
       .finally(() => setFetchingBooking(false));
   }, [bookingId]);
+
+  useEffect(() => {
+    if (!booking) return;
+    if (!isPayableStatus) {
+      const statusMsg = ["CONFIRMED", "CHECKED_IN", "CHECKED_OUT"].includes(booking.status)
+        ? "Đơn đã được xác nhận/thanh toán, trang thanh toán này không còn hiệu lực."
+        : ["CANCELLED", "NO_SHOW"].includes(booking.status)
+        ? "Đơn đã bị hủy hoặc hết hiệu lực. Vui lòng đặt lại."
+        : "Trang thanh toán không khả dụng cho trạng thái đơn hiện tại.";
+      setError(statusMsg);
+      router.replace(`/booking/${booking.id}`);
+    }
+  }, [booking, isPayableStatus, router]);
 
   useEffect(() => {
     // Initialize remaining time from server expiry
@@ -331,7 +368,7 @@ export default function PaymentPage() {
               {successMessage && <p className="text-sm text-green-600">{successMessage}</p>}
               <button
                 onClick={handleConfirm}
-                disabled={loading || fetchingBooking}
+                disabled={loading || fetchingBooking || !isPayableStatus}
                 className={`w-full rounded-lg px-4 py-3 text-white font-semibold shadow transition ${
                   loading || fetchingBooking ? "bg-[#93C5FD]" : "bg-[#2563EB] hover:bg-[#1D4ED8]"
                 }`}

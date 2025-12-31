@@ -6,7 +6,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { HotelCard } from "@/components/HotelCard";
 import { SearchFilters } from "@/components/SearchFilters";
-import hotelApi, { Hotel as ApiHotel } from "@/lib/api/hotels";
+import { hotelApi, Hotel as ApiHotel } from "@/lib/api/hotels";
 
 interface Hotel {
   id: string;
