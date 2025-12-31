@@ -88,6 +88,14 @@ export interface PaymentResponse {
   updatedAt?: string;
 }
 
+function getAuthToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  const fromStorage = localStorage.getItem('token') || localStorage.getItem('accessToken') || sessionStorage.getItem('token') || sessionStorage.getItem('accessToken');
+  if (fromStorage) return fromStorage;
+  const match = document.cookie.match(/(?:^|; )(?:token|accessToken)=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 async function handleJsonResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const text = await res.text();
@@ -96,30 +104,35 @@ async function handleJsonResponse<T>(res: Response): Promise<T> {
   return res.json();
 }
 
+function authHeaders(): HeadersInit {
+  const token = getAuthToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export const bookingApi = {
   async createBooking(payload: CreateBookingPayload): Promise<BookingResponse> {
     const res = await fetch(`${BOOKING_API_BASE}/api/bookings`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify(payload),
     });
     return handleJsonResponse<BookingResponse>(res);
   },
 
   async getBooking(id: string): Promise<BookingResponse> {
-    const res = await fetch(`${BOOKING_API_BASE}/api/bookings/${id}`);
+    const res = await fetch(`${BOOKING_API_BASE}/api/bookings/${id}`, { headers: { ...authHeaders() } });
     return handleJsonResponse<BookingResponse>(res);
   },
 
   async getUserBookings(userId: string): Promise<BookingResponse[]> {
-    const res = await fetch(`${BOOKING_API_BASE}/api/bookings/user/${encodeURIComponent(userId)}`);
+    const res = await fetch(`${BOOKING_API_BASE}/api/bookings/user/${encodeURIComponent(userId)}`, { headers: { ...authHeaders() } });
     return handleJsonResponse<BookingResponse[]>(res);
   },
 
   async createPayment(bookingId: string, amount: number, method: PaymentMethod) {
     const res = await fetch(`${BOOKING_API_BASE}/api/payments`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ bookingId, amount, method }),
     });
     return handleJsonResponse(res);
@@ -128,12 +141,13 @@ export const bookingApi = {
   async initVnPay(bookingId: string): Promise<VnPayInitResponse> {
     const res = await fetch(`${BOOKING_API_BASE}/api/payments/vnpay/create?bookingId=${encodeURIComponent(bookingId)}`, {
       method: 'POST',
+      headers: { ...authHeaders() },
     });
     return handleJsonResponse<VnPayInitResponse>(res);
   },
 
   async processVnPayReturn(queryString: string) {
-    const res = await fetch(`${BOOKING_API_BASE}/api/payments/vnpay/return?${queryString}`);
+    const res = await fetch(`${BOOKING_API_BASE}/api/payments/vnpay/return?${queryString}`, { headers: { ...authHeaders() } });
     return handleJsonResponse<PaymentResponse>(res);
   },
 };

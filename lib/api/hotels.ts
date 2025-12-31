@@ -32,6 +32,26 @@ export interface MediaAsset {
 export interface CapacityDto {
   adults: number;
   children: number;
+  bedType?: string;
+  roomSize?: number;
+  breakfastIncluded?: boolean;
+  breakfastQuantity?: number;
+}
+
+export interface PolicyResponse {
+  title: string;
+  content: string;
+}
+
+export interface AmenityItemResponse {
+  id: string;
+  title: string;
+}
+
+export interface AmenityResponse {
+  id: string;
+  title: string;
+  items: AmenityItemResponse[];
 }
 
 export interface PolicyResponse {

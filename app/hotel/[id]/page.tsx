@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import hotelApi, { Hotel as ApiHotel, RoomType, MediaAsset } from "@/lib/api/hotels";
+import { hotelApi, Hotel as ApiHotel, RoomType, MediaAsset } from "@/lib/api/hotels";
 
 type Review = {
   id: string;
@@ -16,7 +16,7 @@ type Review = {
 
 const formatPrice = (value?: number) => {
   if (value === undefined || value === null) return "Liên hệ";
-  return `${value.toLocaleString("vi-VN")} VND`;
+  return value.toLocaleString("vi-VN");
 };
 
 const fallbackAmenities = [
@@ -26,6 +26,12 @@ const fallbackAmenities = [
   "Lễ tân 24h",
   "Chỗ đậu xe",
   "Máy lạnh",
+];
+
+const fallbackPolicies = [
+  "Nhận phòng từ 14:00 · Trả phòng trước 12:00",
+  "Hủy phòng tùy điều kiện từng hạng phòng",
+  "Xuất trình CMND/CCCD khi nhận phòng",
 ];
 
 export default function HotelDetailPage() {
@@ -40,6 +46,7 @@ export default function HotelDetailPage() {
   const [activeSection, setActiveSection] = useState("photos");
   const [showAllImages, setShowAllImages] = useState(false);
   const [selectedRoomType, setSelectedRoomType] = useState<string | null>(null);
+  const [roomModal, setRoomModal] = useState<{ room: RoomType | null; index: number }>({ room: null, index: 0 });
 
   const checkIn = searchParams.get("checkIn") || "";
   const checkOut = searchParams.get("checkOut") || "";
@@ -140,6 +147,11 @@ export default function HotelDetailPage() {
     return items.length > 0 ? items : fallbackAmenities;
   }, [hotel]);
 
+  const policyList = useMemo(() => {
+    if (hotel?.policies && hotel.policies.length > 0) return hotel.policies;
+    return fallbackPolicies;
+  }, [hotel]);
+
   const reviews: Review[] = useMemo(
     () => [
       {
@@ -166,6 +178,24 @@ export default function HotelDetailPage() {
   const ratingScore = hotel?.starRating ?? 8.9;
   const lowestPrice = hotel?.lowestPrice ?? 0;
   const reviewCount = (hotel as any)?.reviewCount ?? reviews.length ?? 0;
+  const amenityCategories = hotel?.amenityCategories || [];
+  const hasAmenityCategories = amenityCategories.length > 0;
+
+  const modalImages = useMemo(() => {
+    if (!roomModal.room) return [];
+    const assets = roomModal.room.mediaAssets || [];
+    // Sắp xếp: thumbnail lên đầu, sau đó sort_order tăng dần
+    const sorted = [...assets].sort((a, b) => {
+      if (a.is_thumbnail && !b.is_thumbnail) return -1;
+      if (!a.is_thumbnail && b.is_thumbnail) return 1;
+      // Nếu cùng loại, sort theo sort_order (null/undefined về cuối)
+      const aOrder = a.sort_order ?? 9999;
+      const bOrder = b.sort_order ?? 9999;
+      return aOrder - bOrder;
+    });
+    const imgs = sorted.map((m) => m.url).filter(Boolean);
+    return imgs.length > 0 ? imgs : ["/placeholder-room.jpg"];
+  }, [roomModal]);
 
   const handleScrollTo = (id: string) => {
     const el = document.getElementById(id);
@@ -354,7 +384,7 @@ export default function HotelDetailPage() {
 
         {/* Rooms */}
         <section id="rooms" className="mx-auto max-w-screen-xl px-4 md:px-8 lg:px-12 pt-10">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold text-[#0F172A]">Những phòng còn trống</h2>
             <span className="text-sm text-[#6B7280]">Giá theo mỗi phòng/đêm, chưa gồm thuế & phí</span>
           </div>
@@ -367,98 +397,132 @@ export default function HotelDetailPage() {
             </div>
           )}
 
-          <div className="space-y-4">
-            {availableRooms.length === 0 && (
-              <div className="rounded-xl border border-dashed border-[#E5E7EB] bg-white p-6 text-[#6B7280]">
-                Chưa có phòng khả dụng.
-              </div>
-            )}
+          {availableRooms.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-[#E5E7EB] bg-white p-6 text-[#6B7280]">
+              Chưa có phòng khả dụng.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {availableRooms.map((room) => {
+                const roomPrice = room.basePrice ?? room.pricePerNight ?? 0;
+                const roomImage = room.mediaAssets?.[0]?.url || "/placeholder-room.jpg";
+                const roomName = room.name?.replace(/^"(.*)"$/, "$1") || room.name;
+                const roomAdults = room.capacity?.adults || 2;
+                const roomChildren = room.capacity?.children || 0;
+                return (
+                  <div key={room.id} className="grid gap-4 rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm md:grid-cols-[280px_1fr]">
+                    {/* Left: Image and Name */}
+                    <div className="flex flex-col gap-3">
+                      <div>
+                        <h3 className="text-lg font-semibold text-[#0F172A] mb-2">{roomName}</h3>
+                      </div>
+                      <div className="relative h-48 w-full overflow-hidden rounded-xl">
+                        <img src={roomImage} alt={room.name} className="h-full w-full object-cover" />
+                        {room.totalRooms !== undefined && (
+                          <span className="absolute top-3 right-3 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-[#DC2626] shadow">Chỉ còn {room.totalRooms} phòng</span>
+                        )}
+                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2">
+                          <div className="flex items-center gap-1 bg-white/85 px-3 py-1 rounded-full text-xs text-[#111827] shadow">
+                            <span className="inline-block h-2 w-2 rounded-full bg-[#111827]"></span>
+                            {room.mediaAssets?.length || 1} ảnh
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setRoomModal({ room, index: 0 })}
+                        className="text-sm font-semibold text-[#2563EB] hover:underline text-left"
+                      >
+                        Xem chi tiết phòng
+                      </button>
+                    </div>
 
-            {availableRooms.map((room) => {
-              const roomPrice = room.basePrice ?? room.pricePerNight ?? 0;
-              const roomImage = room.mediaAssets?.[0]?.url || "/placeholder-room.jpg";
-              const capacityText = room.capacity
-                ? `${room.capacity.adults} người lớn${room.capacity.children ? `, ${room.capacity.children} trẻ em` : ""}`
-                : "Tối đa 2 khách";
-              const roomArea = room.roomSize ? `${room.roomSize} m²` : null;
-              const roomAmenities = (room.amenities && room.amenities.length > 0 ? room.amenities : amenityList).slice(0, 6);
-              return (
-                <div key={room.id} className="grid gap-4 rounded-2xl border border-[#E5E7EB] bg-white p-4 shadow-sm md:grid-cols-[280px_1.2fr_0.9fr_130px]">
-                  <div className="relative h-48 md:h-52 w-full overflow-hidden rounded-xl">
-                    <img src={roomImage} alt={room.name} className="h-full w-full object-cover" />
-                    {room.totalRooms !== undefined && (
-                      <span className="absolute top-3 right-3 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-[#DC2626] shadow">Chỉ còn {room.totalRooms} phòng</span>
-                    )}
-                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white/80 px-3 py-1 rounded-full text-xs text-[#111827] shadow">
-                      <span className="inline-block h-2 w-2 rounded-full bg-[#111827]"></span>
-                      {room.mediaAssets?.length || 1} ảnh
+                    {/* Right: Table */}
+                    <div className="flex flex-col mt-[48px] border border-[#E5E7EB] rounded-lg overflow-hidden h-fit w-full">
+                      {/* Table Header */}
+                      <div className="grid grid-cols-[1fr_120px_140px_80px_100px] gap-0 bg-[#F9FAFB] border-b border-[#E5E7EB]">
+                        <div className="text-sm font-semibold text-[#0F172A] border-r border-[#E5E7EB] px-4 py-3">Lựa chọn phòng</div>
+                        <div className="text-sm font-semibold text-[#0F172A] text-center border-r border-[#E5E7EB] px-4 py-3">Khách</div>
+                        <div className="text-sm font-semibold text-[#0F172A] border-r border-[#E5E7EB] px-4 py-3">Giá/phòng/đêm</div>
+                        <div className="text-sm font-semibold text-[#0F172A] text-center border-r border-[#E5E7EB] px-4 py-3">Phòng</div>
+                        <div className="px-4 py-3"></div>
+                      </div>
+
+                      {/* Table Body */}
+                      <div className="grid grid-cols-[1fr_120px_140px_80px_100px] gap-0 items-start hover:bg-[#F9FAFB] transition">
+                        {/* Column 1: Room Details */}
+                        <div className="flex flex-col gap-2 flex-1 border-r border-[#E5E7EB] px-4 py-3">
+                          {room.capacity?.breakfastIncluded ? (
+                            <p className="text-sm text-[#374151] font-medium">Bữa sáng cho {room.capacity.breakfastQuantity || (roomAdults + roomChildren)} người</p>
+                          ) : (
+                            <p className="text-sm text-[#9CA3AF]">Không bao gồm bữa sáng</p>
+                          )}
+                          <div className="flex items-center gap-2 text-sm text-[#6B7280]">
+                            <span>🛏</span>
+                            <span>{room.capacity?.bedType || "Giường linh hoạt"}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-[#6B7280]">
+                            <span>✅</span>
+                            <span>Không được hoàn tiền</span>
+                          </div>
+                        </div>
+
+                        {/* Column 2: Guests */}
+                        <div className="flex items-start gap-3 justify-center border-r border-[#E5E7EB] px-4 py-3 h-full">
+                          <div className="flex items-center gap-1">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M3.44954 20.6443C3.3058 21.3665 3.88623 22 4.62267 22H19.3773C20.1138 22 20.6942 21.3665 20.5505 20.6443C19.9516 17.635 17.9884 13 12 13C6.01165 13 4.04844 17.635 3.44954 20.6443Z" fill="#687176"/>
+                              <path d="M7 7.5C7 10.2614 9.23858 12.5 12 12.5C14.7614 12.5 17 10.2614 17 7.5V6.5C17 3.73858 14.7614 1.5 12 1.5C9.23858 1.5 7 3.73858 7 6.5V7.5Z" fill="#687176"/>
+                            </svg>
+                            <span className="text-sm font-semibold text-[#0F172A]">{roomAdults}</span>
+                          </div>
+                          {roomChildren > 0 && (
+                            <div className="flex items-center gap-1">
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M9.24994 5.375C11.7944 5.375 13.8574 7.43797 13.8574 9.98242V10.7188C13.8574 12.3416 13.0169 13.7672 11.749 14.5879C12.8584 14.9509 13.7447 15.5503 14.4404 16.2803C15.5741 17.4702 16.1635 18.9559 16.4667 20.1738C16.8042 21.5298 15.687 22.625 14.455 22.625H4.04486C2.81305 22.6248 1.69572 21.5297 2.03314 20.1738C2.33632 18.9559 2.92581 17.4702 4.05951 16.2803C4.75496 15.5504 5.64097 14.9509 6.74994 14.5879C5.48246 13.7671 4.64252 12.3412 4.64252 10.7188V9.98242C4.64252 7.43807 6.70563 5.37516 9.24994 5.375Z" fill="#687176"/>
+                              </svg>
+                              <span className="text-sm font-semibold text-[#0F172A]">{roomChildren}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Column 3: Price */}
+                        <div className="text-right border-r border-[#E5E7EB] px-4 py-3 h-full">
+                          <p className="text-lg font-bold text-[#DC2626]">{formatPrice(Number(roomPrice))} VND</p>
+                          {Number(rooms) > 1 && (
+                            <p className="text-xs text-[#6B7280] mt-1">= {formatPrice(Number(roomPrice) * Number(rooms))} VND</p>
+                          )}
+                          <p className="text-xs text-[#6B7280] mt-1">Chưa bao gồm thuế và phí</p>
+                        </div>
+
+                        {/* Column 4: Quantity */}
+                        <div className="text-center border-r border-[#E5E7EB] px-4 py-3 h-full">
+                          <p className="text-sm font-semibold text-[#0F172A]">×{rooms}</p>
+                        </div>
+
+                        {/* Column 5: Button */}
+                        <div className="flex justify-end px-4 py-3">
+                          <button 
+                            onClick={() => {
+                              setSelectedRoomType(room.id);
+                              handleBookRoom(room);
+                            }}
+                            disabled={Number(rooms) > 1 && selectedRoomType && selectedRoomType !== room.id}
+                            className={`rounded-lg px-4 py-2 text-white text-sm font-semibold shadow transition ${
+                              Number(rooms) > 1 && selectedRoomType && selectedRoomType !== room.id
+                                ? "bg-[#9CA3AF] cursor-not-allowed"
+                                : "bg-[#2563EB] hover:bg-[#1D4ED8]"
+                            }`}
+                          >
+                            Chọn
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-lg font-semibold text-[#0F172A]">{room.name}</h3>
-                      {roomArea && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-[#E5E7EB] px-2 py-1 text-xs text-[#374151]">
-                          {roomArea}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-[#4B5563]">{room.description || "Phòng đầy đủ tiện nghi, phù hợp cho chuyến đi nghỉ dưỡng."}</p>
-                    <div className="text-sm text-[#4B5563] flex items-center gap-2">
-                      <span className="font-semibold">Sức chứa:</span>
-                      <span>{capacityText}</span>
-                    </div>
-                    <div className="flex flex-wrap gap-2 text-xs text-[#374151]">
-                      {roomAmenities.map((a) => (
-                        <span key={a} className="inline-flex items-center gap-1 rounded-full bg-[#F3F4F6] px-3 py-1">
-                          {a}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-2 text-sm text-[#4B5563]">
-                    <p className="text-base font-semibold text-[#0F172A]">Lựa chọn phòng</p>
-                    <p className="font-semibold">Bữa sáng cho 3 người</p>
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">🛏</span>
-                      <span>{room.bedType || "Giường linh hoạt"}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">✅</span>
-                      <span>Không được hoàn tiền</span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-end justify-between">
-                    <div className="text-right space-y-1">
-                      <p className="text-xs text-[#9CA3AF]">Giá/phòng/đêm</p>
-                      <p className="text-2xl font-bold text-[#DC2626]">{formatPrice(Number(roomPrice))}</p>
-                      {Number(rooms) > 1 && (
-                        <p className="text-xs font-semibold text-[#0F172A]">= {formatPrice(Number(roomPrice) * Number(rooms))}/{rooms} phòng</p>
-                      )}
-                      <p className="text-[11px] text-[#9CA3AF]">Chưa bao gồm thuế & phí</p>
-                    </div>
-                    <button 
-                      onClick={() => {
-                        setSelectedRoomType(room.id);
-                        handleBookRoom(room);
-                      }}
-                      disabled={Number(rooms) > 1 && selectedRoomType && selectedRoomType !== room.id}
-                      className={`rounded-lg px-4 py-2 text-white font-semibold shadow transition ${
-                        Number(rooms) > 1 && selectedRoomType && selectedRoomType !== room.id
-                          ? "bg-[#9CA3AF] cursor-not-allowed"
-                          : "bg-[#2563EB] hover:bg-[#1D4ED8]"
-                      }`}
-                    >
-                      Chọn
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         {/* Amenities */}
@@ -467,14 +531,35 @@ export default function HotelDetailPage() {
             <h2 className="text-xl font-semibold text-[#0F172A]">Tiện ích của khách sạn</h2>
           </div>
           <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {amenityList.map((a) => (
-                <div key={a} className="flex items-center gap-2 text-sm text-[#374151]">
-                  <span className="h-2 w-2 rounded-full bg-[#2563EB]"></span>
-                  {a}
-                </div>
-              ))}
-            </div>
+            {hasAmenityCategories ? (
+              <div className="space-y-4">
+                {amenityCategories.map((cat) => (
+                  <div key={cat.id || cat.title}>
+                    <p className="text-sm font-semibold text-[#0F172A] mb-2">{cat.title}</p>
+                    <div className="flex flex-wrap gap-2 text-sm text-[#374151]">
+                      {(cat.items || []).length > 0 ? (
+                        (cat.items || []).map((item) => (
+                          <span key={item.id || item.title} className="inline-flex items-center gap-1 rounded-full bg-[#F3F4F6] px-3 py-1">
+                            {item.title}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-[#9CA3AF]">Chưa cập nhật tiện ích cho nhóm này</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                {(hotel?.amenities || []).map((a) => (
+                  <div key={a} className="flex items-center gap-2 text-sm text-[#374151]">
+                    <span className="h-2 w-2 rounded-full bg-[#2563EB]"></span>
+                    {a}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
 
@@ -484,9 +569,12 @@ export default function HotelDetailPage() {
             <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
               <h3 className="text-lg font-semibold text-[#0F172A] mb-3">Chính sách</h3>
               <ul className="space-y-2 text-sm text-[#4B5563]">
-                <li>Nhận phòng từ 14:00 · Trả phòng trước 12:00</li>
-                <li>Hủy phòng tùy điều kiện từng hạng phòng</li>
-                <li>Xuất trình CMND/CCCD khi nhận phòng</li>
+                {policyList.map((p, idx) => (
+                  <li key={`${idx}-${p}`} className="flex items-start gap-2">
+                    <span className="mt-[6px] inline-block h-1.5 w-1.5 rounded-full bg-[#2563EB]"></span>
+                    <span>{p}</span>
+                  </li>
+                ))}
               </ul>
             </div>
 
@@ -509,6 +597,111 @@ export default function HotelDetailPage() {
             </div>
           </div>
         </section>
+
+        {roomModal.room && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-8">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full overflow-hidden">
+              <div className="px-6 pt-6 pb-3 border-b border-[#E5E7EB]">
+                <h3 className="text-xl font-bold text-[#0F172A]">{roomModal.room.name?.replace(/^"(.*)"$/, "$1") || roomModal.room.name}</h3>
+              </div>
+              <div className="grid lg:grid-cols-[1.4fr_1fr]">
+                <div className="relative bg-[#1F2937] p-4 pb-24">
+                <img
+                  src={modalImages[roomModal.index]}
+                  alt={roomModal.room.name}
+                  className="h-[420px] w-full object-cover rounded-lg"
+                />
+                {modalImages.length > 1 && (
+                  <>
+                    <button
+                      onClick={() => setRoomModal((prev) => ({ ...prev, index: (prev.index - 1 + modalImages.length) % modalImages.length }))}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/80 p-2 text-[#0F172A] shadow hover:bg-white"
+                    >
+                      ◀
+                    </button>
+                    <button
+                      onClick={() => setRoomModal((prev) => ({ ...prev, index: (prev.index + 1) % modalImages.length }))}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/80 p-2 text-[#0F172A] shadow hover:bg-white"
+                    >
+                      ▶
+                    </button>
+                  </>
+                )}
+                <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs px-3 py-1 rounded-full">
+                  {roomModal.index + 1} / {modalImages.length}
+                </div>
+                <button
+                  onClick={() => setRoomModal({ room: null, index: 0 })}
+                  className="absolute top-3 right-3 rounded-full bg-white/90 px-3 py-1 text-sm font-semibold text-[#0F172A] shadow hover:bg-white"
+                >
+                  Đóng
+                </button>
+
+                {/* Thumbnail List */}
+                {modalImages.length > 1 && (
+                  <div className="absolute bottom-4 left-4 right-4 flex gap-2 overflow-x-auto">
+                    {modalImages.map((img, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setRoomModal((prev) => ({ ...prev, index: idx }))}
+                        className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition ${
+                          idx === roomModal.index
+                            ? "border-white shadow-lg"
+                            : "border-white/40 hover:border-white/70"
+                        }`}
+                      >
+                        <img
+                          src={img}
+                          alt={`Thumbnail ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+                <div className="p-6 space-y-4 text-sm text-[#374151]">
+                <div>
+                  <h4 className="text-base font-semibold text-[#0F172A] mb-3">Thông tin phòng</h4>
+                  <div className="space-y-2 text-sm text-[#4B5563]">
+                    {roomModal.room.capacity?.roomSize && (
+                      <div className="flex items-center gap-2">
+                        <span>📏</span>
+                        <span>Diện tích: {roomModal.room.capacity.roomSize} m²</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <span>👥</span>
+                      <span>
+                        {roomModal.room.capacity?.adults || 0} người lớn
+                        {roomModal.room.capacity?.children ? `, ${roomModal.room.capacity.children} trẻ em` : ""}
+                      </span>
+                    </div>
+                    {roomModal.room.capacity?.bedType && (
+                      <div className="flex items-center gap-2">
+                        <span>🛏</span>
+                        <span>{roomModal.room.capacity.bedType}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-base font-semibold text-[#0F172A] mb-3">Tiện nghi</h4>
+                  <div className="flex flex-wrap gap-2 text-xs text-[#374151]">
+                    {(roomModal.room.amenities && roomModal.room.amenities.length > 0 ? roomModal.room.amenities : amenityList).map((a) => (
+                      <span key={a} className="inline-flex items-center gap-1 rounded-full bg-[#F3F4F6] px-3 py-1">
+                        {a}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          </div>
+        )}
 
         {/* Reviews */}
         <section id="reviews" className="mx-auto max-w-screen-xl px-4 md:px-8 lg:px-12 pt-10">
