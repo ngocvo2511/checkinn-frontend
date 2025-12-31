@@ -1,12 +1,62 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
 
+// Helper function to parse double-stringified values from backend
+const parseStringValue = (value: any): any => {
+  if (value === 'null' || value === 'undefined') return null;
+  if (typeof value === 'string' && value.startsWith('"') && value.endsWith('"')) {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value;
+    }
+  }
+  return value;
+};
+
+// Clean hotel data from backend
+const cleanHotelData = (hotel: any): Hotel => {
+  return {
+    ...hotel,
+    name: parseStringValue(hotel.name),
+    description: parseStringValue(hotel.description),
+    contactEmail: parseStringValue(hotel.contactEmail),
+    contactPhone: parseStringValue(hotel.contactPhone),
+    city: hotel.city ? {
+      ...hotel.city,
+      name: parseStringValue(hotel.city.name),
+      parentName: parseStringValue(hotel.city.parentName),
+    } : undefined,
+    policies: hotel.policies?.map((p: any) => ({
+      ...p,
+      title: parseStringValue(p.title),
+      content: parseStringValue(p.content),
+    })),
+    faqs: hotel.faqs?.map((f: any) => ({
+      ...f,
+      question: parseStringValue(f.question),
+      answer: parseStringValue(f.answer),
+    })),
+    amenityCategories: hotel.amenityCategories?.map((cat: any) => ({
+      ...cat,
+      title: parseStringValue(cat.title),
+      items: cat.items?.map((item: any) => ({
+        ...item,
+        title: parseStringValue(item.title),
+      })),
+    })),
+    roomTypes: hotel.roomTypes?.map((rt: any) => ({
+      ...rt,
+      name: parseStringValue(rt.name),
+      description: parseStringValue(rt.description),
+      bedType: parseStringValue(rt.bedType),
+    })),
+  };
+};
+
 export interface HotelAddress {
-  street?: string;
-  ward?: string;
-  district?: string;
-  city?: string;
-  country?: string;
-  postalCode?: string;
+  street: string;
+  city: string;
+  country: string;
   latitude?: number;
   longitude?: number;
 }
@@ -41,6 +91,11 @@ export interface CapacityDto {
 export interface PolicyResponse {
   title: string;
   content: string;
+}
+
+export interface QuestionResponse {
+  question: string;
+  answer: string;
 }
 
 export interface AmenityItemResponse {
@@ -106,6 +161,7 @@ export interface Hotel {
   starRating?: number;
   description?: string;
   policies?: PolicyResponse[];
+  faqs?: QuestionResponse[];
   amenityCategories?: AmenityResponse[];
   amenities?: AmenityResponse[]; // legacy name for amenityCategories
   contactEmail?: string;
@@ -140,7 +196,8 @@ export const hotelApi = {
         throw new Error(`Failed to search hotels: ${response.status} ${response.statusText}`);
       }
 
-      return await response.json();
+      const data = await response.json();
+      return data.map((hotel: any) => cleanHotelData(hotel));
     } catch (error) {
       console.error('Error searching hotels by city:', error);
       throw error;
@@ -163,7 +220,8 @@ export const hotelApi = {
         throw new Error(`Failed to get hotel: ${response.status} ${response.statusText}`);
       }
 
-      return await response.json();
+      const data = await response.json();
+      return cleanHotelData(data);
     } catch (error) {
       console.error('Error getting hotel details:', error);
       throw error;
@@ -187,7 +245,8 @@ export const hotelApi = {
         throw new Error(`Failed to get owner hotels: ${response.status} ${response.statusText}`);
       }
 
-      return await response.json();
+      const data = await response.json();
+      return data.map((hotel: any) => cleanHotelData(hotel));
     } catch (error) {
       console.error('Error getting owner hotels:', error);
       throw error;
@@ -463,9 +522,82 @@ export const hotelApi = {
         throw new Error(`Failed to update hotel: ${response.status} ${response.statusText}`);
       }
 
-      return response.json();
+      const result = await response.json();
+      return cleanHotelData(result);
     } catch (error) {
       console.error('Error updating hotel:', error);
+      throw error;
+    }
+  },
+
+  // Update hotel amenities
+  updateAmenities: async (hotelId: string, amenityCategories: any[]): Promise<Hotel> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/amenities`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders(),
+        },
+        body: JSON.stringify({ amenityCategories }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update amenities: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      return cleanHotelData(result);
+    } catch (error) {
+      console.error('Error updating amenities:', error);
+      throw error;
+    }
+  },
+
+  // Update hotel policies
+  updatePolicies: async (hotelId: string, policies: { title: string; content: string }[]): Promise<Hotel> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/policies`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders(),
+        },
+        body: JSON.stringify(policies),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update policies: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      return cleanHotelData(result);
+    } catch (error) {
+      console.error('Error updating policies:', error);
+      throw error;
+    }
+  },
+
+  // Update hotel FAQs (questions)
+  updateQuestions: async (hotelId: string, faqs: { question: string; answer: string }[]): Promise<Hotel> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/questions`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders(),
+        },
+        body: JSON.stringify(faqs),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update questions: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      return cleanHotelData(result);
+    } catch (error) {
+      console.error('Error updating questions:', error);
       throw error;
     }
   },

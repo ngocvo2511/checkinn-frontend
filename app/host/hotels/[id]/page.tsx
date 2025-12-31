@@ -6,6 +6,21 @@ import Header from "@/components/Header";
 import HostMenu from "@/components/host/menu/HostMenu";
 import { hotelApi, Hotel as ApiHotel, RoomType, MediaAsset } from "@/lib/api/hotels";
 
+type AmenityFormCategory = {
+  title: string;
+  items: string[];
+};
+
+type PolicyFormItem = {
+  title: string;
+  content: string;
+};
+
+type QuestionFormItem = {
+  question: string;
+  answer: string;
+};
+
 const formatPrice = (value?: number) => {
   if (value === undefined || value === null) return "Liên hệ";
   return `${value.toLocaleString("vi-VN")} VND`;
@@ -59,6 +74,18 @@ export default function HostHotelDetailPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [cities, setCities] = useState<any[]>([]);
+  const [cityInput, setCityInput] = useState('');
+  const [showCitySuggestions, setShowCitySuggestions] = useState(false);
+  const [citySelected, setCitySelected] = useState(false);
+  const [amenityForm, setAmenityForm] = useState<AmenityFormCategory[]>([]);
+  const [showAmenityModal, setShowAmenityModal] = useState(false);
+  const [amenitySaving, setAmenitySaving] = useState(false);
+  const [policyForm, setPolicyForm] = useState<PolicyFormItem[]>([]);
+  const [showPolicyModal, setShowPolicyModal] = useState(false);
+  const [policySaving, setPolicySaving] = useState(false);
+  const [questionForm, setQuestionForm] = useState<QuestionFormItem[]>([]);
+  const [showQuestionModal, setShowQuestionModal] = useState(false);
+  const [questionSaving, setQuestionSaving] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -68,11 +95,8 @@ export default function HostHotelDetailPage() {
     contactPhone: '',
     address: {
       street: '',
-      ward: '',
-      district: '',
       city: '',
       country: '',
-      postalCode: '',
     }
   });
 
@@ -83,9 +107,20 @@ export default function HostHotelDetailPage() {
       { id: "rooms", label: "Phòng" },
       { id: "amenities", label: "Tiện ích" },
       { id: "policies", label: "Chính sách" },
+      { id: "faqs", label: "FAQ" },
     ],
     []
   );
+
+  const filteredCities = useMemo(() => {
+    if (!cityInput.trim()) return cities;
+    const searchTerm = cityInput.toLowerCase().trim();
+    return cities.filter(
+      (city) =>
+        city.name.toLowerCase().includes(searchTerm) ||
+        (city.parentName && city.parentName.toLowerCase().includes(searchTerm))
+    );
+  }, [cityInput, cities]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -106,6 +141,7 @@ export default function HostHotelDetailPage() {
       setError(null);
       try {
         const data = await hotelApi.getHotelById(hotelId);
+        console.log('Fetched hotel data:', data);
         setHotel(data);
       } catch (err: any) {
         setError(err?.message || "Không thể tải thông tin khách sạn");
@@ -376,6 +412,14 @@ export default function HostHotelDetailPage() {
   const handleEdit = () => {
     if (!hotel) return;
     
+    // Find city name from cityId
+    const selectedCity = cities.find(c => c.id === hotel.cityId);
+    const cityName = selectedCity?.name || hotel.city?.name || hotel.address?.city || '';
+    const amenities = (hotel.amenityCategories || hotel.amenities || []).map((cat: any) => ({
+      title: cat.title || '',
+      items: (cat.items || []).map((i: any) => i.title || '')
+    }));
+    
     setFormData({
       name: hotel.name || '',
       description: hotel.description || '',
@@ -385,14 +429,43 @@ export default function HostHotelDetailPage() {
       contactPhone: hotel.contactPhone || '',
       address: {
         street: hotel.address?.street || '',
-        ward: hotel.address?.ward || '',
-        district: hotel.address?.district || '',
-        city: hotel.address?.city || '',
+        city: cityName,
         country: hotel.address?.country || '',
-        postalCode: hotel.address?.postalCode || '',
       }
     });
+    setCityInput(cityName);
+    setCitySelected(true);
     setShowEditModal(true);
+  };
+
+  const handleEditAmenities = () => {
+    if (!hotel) return;
+    const amenities = (hotel.amenityCategories || hotel.amenities || []).map((cat: any) => ({
+      title: cat.title || '',
+      items: (cat.items || []).map((i: any) => i.title || '')
+    }));
+    setAmenityForm(amenities.length ? amenities : [{ title: '', items: [''] }]);
+    setShowAmenityModal(true);
+  };
+
+  const handleEditPolicies = () => {
+    if (!hotel) return;
+    const policies = (hotel.policies || []).map((p: any) => ({
+      title: p.title || '',
+      content: p.content || '',
+    }));
+    setPolicyForm(policies.length ? policies : [{ title: '', content: '' }]);
+    setShowPolicyModal(true);
+  };
+
+  const handleEditQuestions = () => {
+    if (!hotel) return;
+    const faqs = (hotel.faqs || []).map((q: any) => ({
+      question: q.question || '',
+      answer: q.answer || '',
+    }));
+    setQuestionForm(faqs.length ? faqs : [{ question: '', answer: '' }]);
+    setShowQuestionModal(true);
   };
 
   const handleSaveEdit = async (e: React.FormEvent) => {
@@ -427,16 +500,20 @@ export default function HostHotelDetailPage() {
       alert('Địa chỉ đường không được để trống');
       return;
     }
-    if (!formData.address.district?.trim()) {
-      alert('Quận/Huyện không được để trống');
+    if (!formData.address.city?.trim()) {
+      alert('Thành phố không được để trống');
+      return;
+    }
+    if (!formData.address.country?.trim()) {
+      alert('Quốc gia không được để trống');
       return;
     }
     if (formData.contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contactEmail)) {
       alert('Email không hợp lệ');
       return;
     }
-    if (formData.contactPhone && !/^[0-9]{10,11}$/.test(formData.contactPhone.replace(/[\s-]/g, ''))) {
-      alert('Số điện thoại phải có 10-11 chữ số');
+    if (formData.contactPhone && !/^\+?[0-9]{7,15}$/.test(formData.contactPhone.replace(/[\s-]/g, ''))) {
+      alert('Số điện thoại phải có 7-15 chữ số');
       return;
     }
 
@@ -462,6 +539,90 @@ export default function HostHotelDetailPage() {
       setError(err?.message || 'Không thể cập nhật thông tin');
     } finally {
       setEditLoading(false);
+    }
+  };
+
+  const handleSaveAmenities = async () => {
+    if (!hotel) return;
+
+    const sanitizedAmenities = amenityForm
+      .map(cat => ({
+        title: cat.title.trim(),
+        amenities: cat.items
+          .map(item => item.trim())
+          .filter(Boolean)
+          .map(title => ({ title }))
+      }))
+      .filter(cat => cat.title || cat.amenities.length > 0);
+
+    setAmenitySaving(true);
+    setError(null);
+
+    try {
+      const updated = await hotelApi.updateAmenities(hotelId, sanitizedAmenities);
+
+      setHotel(updated);
+      setShowAmenityModal(false);
+      setSuccessMessage('Đã cập nhật tiện ích thành công!');
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: any) {
+      setError(err?.message || 'Không thể cập nhật tiện ích');
+    } finally {
+      setAmenitySaving(false);
+    }
+  };
+
+  const handleSavePolicies = async () => {
+    if (!hotel) return;
+
+    const sanitizedPolicies = policyForm
+      .map(p => ({
+        title: p.title.trim(),
+        content: p.content.trim(),
+      }))
+      .filter(p => p.title || p.content);
+
+    setPolicySaving(true);
+    setError(null);
+
+    try {
+      const updated = await hotelApi.updatePolicies(hotelId, sanitizedPolicies);
+
+      setHotel(updated);
+      setShowPolicyModal(false);
+      setSuccessMessage('Đã cập nhật chính sách thành công!');
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: any) {
+      setError(err?.message || 'Không thể cập nhật chính sách');
+    } finally {
+      setPolicySaving(false);
+    }
+  };
+
+  const handleSaveQuestions = async () => {
+    if (!hotel) return;
+
+    const sanitizedQuestions = questionForm
+      .map(q => ({
+        question: q.question.trim(),
+        answer: q.answer.trim(),
+      }))
+      .filter(q => q.question || q.answer);
+
+    setQuestionSaving(true);
+    setError(null);
+
+    try {
+      const updated = await hotelApi.updateQuestions(hotelId, sanitizedQuestions);
+
+      setHotel(updated);
+      setShowQuestionModal(false);
+      setSuccessMessage('Đã cập nhật FAQ thành công!');
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: any) {
+      setError(err?.message || 'Không thể cập nhật FAQ');
+    } finally {
+      setQuestionSaving(false);
     }
   };
 
@@ -560,7 +721,12 @@ export default function HostHotelDetailPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="rounded-2xl border border-[#E8E9F1] bg-white p-5 shadow-[0_12px_28px_rgba(0,0,0,0.08)]">
                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#8B94A4]">Đánh giá</p>
-                  <p className="mt-2 text-2xl font-semibold text-[#1F2226]">{hotel.starRating || 0}/5</p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <p className="text-2xl font-semibold text-[#1F2226]">{hotel.starRating || 0}</p>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="text-[#FFA500]" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                    </svg>
+                  </div>
                 </div>
                 <div className="rounded-2xl border border-[#E8E9F1] bg-white p-5 shadow-[0_12px_28px_rgba(0,0,0,0.08)]">
                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#8B94A4]">Giá thấp nhất</p>
@@ -931,7 +1097,7 @@ export default function HostHotelDetailPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-[#0F172A]">Tiện ích của khách sạn</h2>
               <button
-                onClick={() => alert("Tính năng đang phát triển")}
+                onClick={handleEditAmenities}
                 className="inline-flex items-center gap-2 rounded-lg border border-[#0057FF] px-3 py-1.5 text-xs font-semibold text-[#0057FF] transition hover:bg-[#0057FF] hover:text-white"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -973,7 +1139,7 @@ export default function HostHotelDetailPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-[#0F172A]">Chính sách</h2>
               <button
-                onClick={() => alert("Tính năng đang phát triển")}
+                onClick={handleEditPolicies}
                 className="inline-flex items-center gap-2 rounded-lg border border-[#0057FF] px-3 py-1.5 text-xs font-semibold text-[#0057FF] transition hover:bg-[#0057FF] hover:text-white"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -994,6 +1160,37 @@ export default function HostHotelDetailPage() {
               ) : (
                 <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
                   <p className="text-[#6B7280]">Chưa có chính sách nào</p>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* FAQs */}
+          <section id="faqs" className="mx-auto max-w-5xl px-4 md:px-8 lg:px-12 pb-10">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-[#0F172A]">Câu hỏi thường gặp</h2>
+              <button
+                onClick={handleEditQuestions}
+                className="inline-flex items-center gap-2 rounded-lg border border-[#0057FF] px-3 py-1.5 text-xs font-semibold text-[#0057FF] transition hover:bg-[#0057FF] hover:text-white"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M11 4H4C3.44772 4 3 4.44772 3 5V20C3 20.5523 3.44772 21 4 21H19C19.5523 21 20 20.5523 20 20V13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M17.378 2.61799C17.7231 2.27287 18.2769 2.27287 18.622 2.61799L21.382 5.378C21.7271 5.72312 21.7271 6.27688 21.382 6.622L11 17H8V14L17.378 2.61799Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Chỉnh sửa
+              </button>
+            </div>
+            <div className="space-y-4">
+              {hotel.faqs && hotel.faqs.length > 0 ? (
+                hotel.faqs.map((faq, index) => (
+                  <div key={index} className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
+                    <h3 className="text-base font-semibold text-[#0F172A] mb-2">{faq.question}</h3>
+                    <p className="text-sm text-[#4B5563] leading-relaxed">{faq.answer}</p>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
+                  <p className="text-[#6B7280]">Chưa có câu hỏi nào</p>
                 </div>
               )}
             </div>
@@ -1077,17 +1274,68 @@ export default function HostHotelDetailPage() {
                       <label className="block text-sm font-semibold text-[#374151] mb-2">
                         Thành phố <span className="text-red-600">*</span>
                       </label>
-                      <select
-                        value={formData.cityId}
-                        onChange={(e) => setFormData({...formData, cityId: e.target.value})}
-                        className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
-                        required
-                      >
-                        <option value="">Chọn thành phố</option>
-                        {cities.map((city) => (
-                          <option key={city.id} value={city.id}>{city.name}</option>
-                        ))}
-                      </select>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={cityInput}
+                          onChange={(e) => {
+                            setCityInput(e.target.value);
+                            setCitySelected(false);
+                          }}
+                          onFocus={() => setShowCitySuggestions(true)}
+                          onBlur={() => {
+                            if (!citySelected) {
+                              // Tìm exact match trước
+                              let matched = cities.find(c => c.name.toLowerCase() === cityInput.toLowerCase().trim());
+                              
+                              // Nếu không tìm thấy exact match, tìm closest match
+                              if (!matched && cityInput.trim()) {
+                                matched = cities.find(c => 
+                                  c.name.toLowerCase().includes(cityInput.toLowerCase().trim()) || 
+                                  cityInput.toLowerCase().trim().includes(c.name.toLowerCase())
+                                );
+                              }
+                              
+                              if (matched) {
+                                setFormData(prev => ({ ...prev, cityId: matched.id, address: {...prev.address, city: matched.name} }));
+                                setCityInput(matched.name);
+                              } else if (cityInput.trim()) {
+                                setFormData(prev => ({ ...prev, cityId: '', address: {...prev.address, city: cityInput.trim()} }));
+                              } else {
+                                setCityInput('');
+                                setFormData(prev => ({ ...prev, cityId: '', address: {...prev.address, city: ''} }));
+                              }
+                            }
+                            setCitySelected(false);
+                            setTimeout(() => setShowCitySuggestions(false), 200);
+                          }}
+                          className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
+                          placeholder="Nhập tên thành phố..."
+                          required
+                        />
+                        {showCitySuggestions && filteredCities.length > 0 && (
+                          <div className="absolute z-50 w-full mt-1 bg-white border border-[#E5E7EB] rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                            {filteredCities.map((city) => (
+                              <button
+                                type="button"
+                                key={city.id}
+                                onMouseDown={() => {
+                                  setCityInput(city.name);
+                                  setFormData((prev) => ({ ...prev, cityId: city.id, address: {...prev.address, city: city.name} }));
+                                  setCitySelected(true);
+                                  setShowCitySuggestions(false);
+                                }}
+                                className="flex w-full items-center justify-between px-4 py-2 text-left hover:bg-[#F7F8FA] transition"
+                              >
+                                <span className="font-semibold text-[#0F172A]">{city.name}</span>
+                                {city.parentName && (
+                                  <span className="text-sm text-[#6B7280]">{city.parentName}</span>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1112,84 +1360,68 @@ export default function HostHotelDetailPage() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-semibold text-[#374151] mb-2">Phường/Xã</label>
+                      <label className="block text-sm font-semibold text-[#374151] mb-2">
+                        Thành phố <span className="text-red-600">*</span>
+                      </label>
                       <input
                         type="text"
-                        value={formData.address.ward}
-                        onChange={(e) => setFormData({...formData, address: {...formData.address, ward: e.target.value}})}
+                        value={formData.address.city}
+                        onChange={(e) => setFormData({...formData, address: {...formData.address, city: e.target.value}})}
                         className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
-                        placeholder="Nhập phường/xã"
+                        placeholder="Nhập tên thành phố"
+                        required
                       />
                     </div>
 
                     <div>
                       <label className="block text-sm font-semibold text-[#374151] mb-2">
-                        Quận/Huyện <span className="text-red-600">*</span>
+                        Quốc gia <span className="text-red-600">*</span>
                       </label>
-                      <input
-                        type="text"
-                        value={formData.address.district}
-                        onChange={(e) => setFormData({...formData, address: {...formData.address, district: e.target.value}})}
-                        className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
-                        placeholder="Nhập quận/huyện"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-[#374151] mb-2">Quốc gia</label>
                       <input
                         type="text"
                         value={formData.address.country}
                         onChange={(e) => setFormData({...formData, address: {...formData.address, country: e.target.value}})}
                         className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
                         placeholder="Nhập quốc gia"
+                        required
                       />
                     </div>
+                  </div>
 
-                    <div>
-                      <label className="block text-sm font-semibold text-[#374151] mb-2">Mã bưu điện</label>
-                      <input
-                        type="text"
-                        value={formData.address.postalCode}
-                        onChange={(e) => setFormData({...formData, address: {...formData.address, postalCode: e.target.value}})}
-                        className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
-                        placeholder="Nhập mã bưu điện"
-                      />
+                  {/* Thông tin liên lạc */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-[#0F172A]">Thông tin liên lạc</h3>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-[#374151] mb-2">
+                          Email
+                        </label>
+                        <input
+                          type="email"
+                          value={formData.contactEmail}
+                          onChange={(e) => setFormData({...formData, contactEmail: e.target.value})}
+                          className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
+                          placeholder="Nhập email liên hệ (không bắt buộc)"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-[#374151] mb-2">
+                          Số điện thoại
+                        </label>
+                        <input
+                          type="tel"
+                          value={formData.contactPhone}
+                          onChange={(e) => setFormData({...formData, contactPhone: e.target.value})}
+                          className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
+                          placeholder="Nhập số điện thoại (không bắt buộc)"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Thông tin liên lạc */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-[#0F172A]">Thông tin liên lạc</h3>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-[#374151] mb-2">Email</label>
-                      <input
-                        type="email"
-                        value={formData.contactEmail}
-                        onChange={(e) => setFormData({...formData, contactEmail: e.target.value})}
-                        className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
-                        placeholder="example@email.com"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-[#374151] mb-2">Số điện thoại</label>
-                      <input
-                        type="tel"
-                        value={formData.contactPhone}
-                        onChange={(e) => setFormData({...formData, contactPhone: e.target.value})}
-                        className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
-                        placeholder="0123456789"
-                      />
-                    </div>
-                  </div>
-                </div>
               </div>
 
               {/* Modal Footer */}
@@ -1221,6 +1453,381 @@ export default function HostHotelDetailPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Amenities Edit Modal */}
+      {showAmenityModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-[#E5E7EB] px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-[#0F172A]">Chỉnh sửa tiện ích</h2>
+              <button
+                type="button"
+                onClick={() => setShowAmenityModal(false)}
+                className="rounded-full p-2 hover:bg-[#F3F4F6] transition"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="px-6 py-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-[#0F172A]">Danh mục tiện ích</h3>
+                <button
+                  type="button"
+                  onClick={() => setAmenityForm(prev => [...prev, { title: '', items: [''] }])}
+                  className="inline-flex items-center gap-2 rounded-lg border border-[#0057FF] px-3 py-1.5 text-xs font-semibold text-[#0057FF] transition hover:bg-[#0057FF] hover:text-white"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  Thêm danh mục
+                </button>
+              </div>
+
+              {amenityForm.length === 0 && (
+                <div className="rounded-xl border border-dashed border-[#E5E7EB] bg-white p-4 text-sm text-[#6B7280]">
+                  Chưa có tiện ích. Nhấn "Thêm danh mục" để bắt đầu.
+                </div>
+              )}
+
+              <div className="space-y-5">
+                {amenityForm.map((cat, catIndex) => (
+                  <div key={catIndex} className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 space-y-3">
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="text"
+                            value={cat.title}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setAmenityForm(prev => prev.map((c, idx) => idx === catIndex ? { ...c, title: value } : c));
+                            }}
+                            className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
+                            placeholder="Tên danh mục (vd: Dịch vụ lễ tân)"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setAmenityForm(prev => prev.filter((_, idx) => idx !== catIndex))}
+                            className="rounded-lg border border-[#E5E7EB] px-3 py-2 text-[#9CA3AF] hover:text-[#EF4444] hover:border-[#EF4444] transition"
+                            title="Xóa danh mục"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </button>
+                        </div>
+
+                        <div className="space-y-2">
+                          {cat.items.map((item, itemIndex) => (
+                            <div key={itemIndex} className="flex items-center gap-3">
+                              <input
+                                type="text"
+                                value={item}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  setAmenityForm(prev => prev.map((c, idx) => {
+                                    if (idx !== catIndex) return c;
+                                    const newItems = [...c.items];
+                                    newItems[itemIndex] = value;
+                                    return { ...c, items: newItems };
+                                  }));
+                                }}
+                                className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
+                                placeholder="Nhập tiện ích (vd: Lễ tân 24h)"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setAmenityForm(prev => prev.map((c, idx) => {
+                                  if (idx !== catIndex) return c;
+                                  const newItems = c.items.filter((_, i) => i !== itemIndex);
+                                  return { ...c, items: newItems.length ? newItems : [''] };
+                                }))}
+                                className="rounded-lg border border-[#E5E7EB] px-3 py-2 text-[#9CA3AF] hover:text-[#EF4444] hover:border-[#EF4444] transition"
+                                title="Xóa tiện ích"
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                  <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                              </button>
+                            </div>
+                          ))}
+
+                          <button
+                            type="button"
+                            onClick={() => setAmenityForm(prev => prev.map((c, idx) => idx === catIndex ? { ...c, items: [...c.items, ''] } : c))}
+                            className="inline-flex items-center gap-2 rounded-lg border border-[#10B981] px-3 py-1.5 text-xs font-semibold text-[#10B981] transition hover:bg-[#10B981] hover:text-white"
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                            Thêm tiện ích
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="sticky bottom-0 bg-white border-t border-[#E5E7EB] px-6 py-4 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowAmenityModal(false)}
+                disabled={amenitySaving}
+                className="px-4 py-2 rounded-lg border border-[#E5E7EB] text-[#374151] font-semibold hover:bg-[#F3F4F6] transition disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAmenities}
+                disabled={amenitySaving}
+                className="px-4 py-2 rounded-lg bg-[#0057FF] text-white font-semibold hover:bg-[#0046CC] transition disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+              >
+                {amenitySaving ? (
+                  <>
+                    <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Đang lưu...
+                  </>
+                ) : (
+                  'Lưu tiện ích'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Policies Edit Modal */}
+      {showPolicyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-[#E5E7EB] px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-[#0F172A]">Chỉnh sửa chính sách</h2>
+              <button
+                type="button"
+                onClick={() => setShowPolicyModal(false)}
+                className="rounded-full p-2 hover:bg-[#F3F4F6] transition"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="px-6 py-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-[#0F172A]">Danh sách chính sách</h3>
+                <button
+                  type="button"
+                  onClick={() => setPolicyForm(prev => [...prev, { title: '', content: '' }])}
+                  className="inline-flex items-center gap-2 rounded-lg border border-[#0057FF] px-3 py-1.5 text-xs font-semibold text-[#0057FF] transition hover:bg-[#0057FF] hover:text-white"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  Thêm chính sách
+                </button>
+              </div>
+
+              {policyForm.length === 0 && (
+                <div className="rounded-xl border border-dashed border-[#E5E7EB] bg-white p-4 text-sm text-[#6B7280]">
+                  Chưa có chính sách. Nhấn "Thêm chính sách" để bắt đầu.
+                </div>
+              )}
+
+              <div className="space-y-5">
+                {policyForm.map((policy, index) => (
+                  <div key={index} className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm space-y-3">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="text"
+                        value={policy.title}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setPolicyForm(prev => prev.map((p, idx) => idx === index ? { ...p, title: value } : p));
+                        }}
+                        className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
+                        placeholder="Tiêu đề chính sách (vd: Nhận phòng)"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setPolicyForm(prev => prev.filter((_, idx) => idx !== index))}
+                        className="rounded-lg border border-[#E5E7EB] px-3 py-2 text-[#9CA3AF] hover:text-[#EF4444] hover:border-[#EF4444] transition"
+                        title="Xóa chính sách"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    <textarea
+                      value={policy.content}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setPolicyForm(prev => prev.map((p, idx) => idx === index ? { ...p, content: value } : p));
+                      }}
+                      className="w-full px-4 py-3 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF] min-h-[120px]"
+                      placeholder="Nội dung chính sách"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="sticky bottom-0 bg-white border-t border-[#E5E7EB] px-6 py-4 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowPolicyModal(false)}
+                disabled={policySaving}
+                className="px-4 py-2 rounded-lg border border-[#E5E7EB] text-[#374151] font-semibold hover:bg-[#F3F4F6] transition disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleSavePolicies}
+                disabled={policySaving}
+                className="px-4 py-2 rounded-lg bg-[#0057FF] text-white font-semibold hover:bg-[#0046CC] transition disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+              >
+                {policySaving ? (
+                  <>
+                    <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Đang lưu...
+                  </>
+                ) : (
+                  'Lưu chính sách'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FAQs Edit Modal */}
+      {showQuestionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-[#E5E7EB] px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-[#0F172A]">Chỉnh sửa FAQ</h2>
+              <button
+                type="button"
+                onClick={() => setShowQuestionModal(false)}
+                className="rounded-full p-2 hover:bg-[#F3F4F6] transition"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="px-6 py-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-[#0F172A]">Danh sách câu hỏi</h3>
+                <button
+                  type="button"
+                  onClick={() => setQuestionForm(prev => [...prev, { question: '', answer: '' }])}
+                  className="inline-flex items-center gap-2 rounded-lg border border-[#0057FF] px-3 py-1.5 text-xs font-semibold text-[#0057FF] transition hover:bg-[#0057FF] hover:text-white"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  Thêm câu hỏi
+                </button>
+              </div>
+
+              {questionForm.length === 0 && (
+                <div className="rounded-xl border border-dashed border-[#E5E7EB] bg-white p-4 text-sm text-[#6B7280]">
+                  Chưa có câu hỏi. Nhấn "Thêm câu hỏi" để bắt đầu.
+                </div>
+              )}
+
+              <div className="space-y-5">
+                {questionForm.map((faq, index) => (
+                  <div key={index} className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm space-y-3">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 space-y-3">
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="text"
+                            value={faq.question}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setQuestionForm(prev => prev.map((q, idx) => idx === index ? { ...q, question: value } : q));
+                            }}
+                            className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
+                            placeholder="Câu hỏi (vd: Giờ nhận phòng?)"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setQuestionForm(prev => prev.filter((_, idx) => idx !== index))}
+                            className="rounded-lg border border-[#E5E7EB] px-3 py-2 text-[#9CA3AF] hover:text-[#EF4444] hover:border-[#EF4444] transition"
+                            title="Xóa câu hỏi"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </button>
+                        </div>
+
+                        <textarea
+                          value={faq.answer}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setQuestionForm(prev => prev.map((q, idx) => idx === index ? { ...q, answer: value } : q));
+                          }}
+                          className="w-full px-4 py-3 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF] min-h-[120px]"
+                          placeholder="Câu trả lời"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="sticky bottom-0 bg-white border-t border-[#E5E7EB] px-6 py-4 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowQuestionModal(false)}
+                disabled={questionSaving}
+                className="px-4 py-2 rounded-lg border border-[#E5E7EB] text-[#374151] font-semibold hover:bg-[#F3F4F6] transition disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveQuestions}
+                disabled={questionSaving}
+                className="px-4 py-2 rounded-lg bg-[#0057FF] text-white font-semibold hover:bg-[#0046CC] transition disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+              >
+                {questionSaving ? (
+                  <>
+                    <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Đang lưu...
+                  </>
+                ) : (
+                  'Lưu FAQ'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
