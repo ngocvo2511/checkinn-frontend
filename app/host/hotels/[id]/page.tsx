@@ -80,6 +80,9 @@ export default function HostHotelDetailPage() {
   const [amenityForm, setAmenityForm] = useState<AmenityFormCategory[]>([]);
   const [showAmenityModal, setShowAmenityModal] = useState(false);
   const [amenitySaving, setAmenitySaving] = useState(false);
+  const [availableAmenityCategories, setAvailableAmenityCategories] = useState<string[]>([]);
+  const [loadingAmenityCategories, setLoadingAmenityCategories] = useState(false);
+  const [openAmenityPicker, setOpenAmenityPicker] = useState<number | null>(null);
   const [policyForm, setPolicyForm] = useState<PolicyFormItem[]>([]);
   const [showPolicyModal, setShowPolicyModal] = useState(false);
   const [policySaving, setPolicySaving] = useState(false);
@@ -187,18 +190,31 @@ export default function HostHotelDetailPage() {
     return () => observer.disconnect();
   }, [sectionList]);
 
+  useEffect(() => {
+    const fetchAmenityCategories = async () => {
+      if (availableAmenityCategories.length > 0 || loadingAmenityCategories || !showAmenityModal) return;
+      setLoadingAmenityCategories(true);
+      try {
+        const categories = await hotelApi.getAmenityCategories();
+        setAvailableAmenityCategories(categories.map((c) => c.type));
+      } catch (err) {
+        console.error('Failed to fetch amenity categories:', err);
+      } finally {
+        setLoadingAmenityCategories(false);
+      }
+    };
+    fetchAmenityCategories();
+  }, [showAmenityModal, availableAmenityCategories.length, loadingAmenityCategories]);
+
+  useEffect(() => {
+    if (!showAmenityModal) setOpenAmenityPicker(null);
+  }, [showAmenityModal]);
+
   const heroImages: MediaAsset[] = useMemo(() => {
     if (!hotel) return [];
+    // Chỉ lấy hình ảnh của khách sạn, không bao gồm hình ảnh phòng
     const hotelImages = hotel.mediaAssets || [];
-    const roomImages = (hotel.roomTypes || []).flatMap((rt) => rt.mediaAssets || []);
-    const merged = [...hotelImages, ...roomImages];
-    const uniqueByUrl = new Map<string, MediaAsset>();
-    merged.forEach((m) => {
-      if (!uniqueByUrl.has(m.url)) {
-        uniqueByUrl.set(m.url, m);
-      }
-    });
-    const sorted = Array.from(uniqueByUrl.values()).sort((a, b) => {
+    const sorted = hotelImages.sort((a, b) => {
       // Sort by thumbnail first (thumbnail comes first), then by sortOrder
       if (a.isThumbnail && !b.isThumbnail) return -1;
       if (!a.isThumbnail && b.isThumbnail) return 1;
@@ -438,6 +454,10 @@ export default function HostHotelDetailPage() {
     setShowEditModal(true);
   };
 
+  const setAmenityCategoryTitle = (index: number, title: string) => {
+    setAmenityForm(prev => prev.map((c, idx) => idx === index ? { ...c, title } : c));
+  };
+
   const handleEditAmenities = () => {
     if (!hotel) return;
     const amenities = (hotel.amenityCategories || hotel.amenities || []).map((cat: any) => ({
@@ -553,7 +573,20 @@ export default function HostHotelDetailPage() {
           .filter(Boolean)
           .map(title => ({ title }))
       }))
-      .filter(cat => cat.title || cat.amenities.length > 0);
+      .filter(cat => cat.title && cat.amenities.length > 0);
+
+    // Validation: Check if there are any valid amenity categories
+    if (sanitizedAmenities.length === 0) {
+      alert('Vui lòng thêm ít nhất một danh mục tiện ích với tên danh mục và các tiện ích bên trong');
+      return;
+    }
+
+    // Validation: Check each category has a title
+    const hasEmptyTitle = amenityForm.some(cat => !cat.title.trim() && cat.items.some(item => item.trim()));
+    if (hasEmptyTitle) {
+      alert('Vui lòng nhập tên danh mục cho tất cả các danh mục có tiện ích');
+      return;
+    }
 
     setAmenitySaving(true);
     setError(null);
@@ -1003,7 +1036,7 @@ export default function HostHotelDetailPage() {
               <div className="flex items-center gap-3">
                 <span className="text-sm text-[#6B7280]">{hotel.roomTypes?.length || 0} loại phòng</span>
                 <button
-                  onClick={() => alert("Tính năng đang phát triển")}
+                    onClick={() => router.push(`/host/hotels/${hotelId}/rooms/new`)}
                   className="inline-flex items-center gap-2 rounded-lg border border-[#10B981] px-3 py-1.5 text-xs font-semibold text-[#10B981] transition hover:bg-[#10B981] hover:text-white"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1026,7 +1059,9 @@ export default function HostHotelDetailPage() {
                   const capacityText = room.capacity
                     ? `${room.capacity.adults} người lớn${room.capacity.children ? `, ${room.capacity.children} trẻ em` : ""}`
                     : "Tối đa 2 khách";
-                  const roomArea = room.roomSize ? `${room.roomSize} m²` : null;
+                  const roomAreaValue = room.roomSize ?? room.capacity?.roomSize;
+                  const roomArea = roomAreaValue ? `${roomAreaValue} m²` : null;
+                  const totalRooms = room.roomAmount ?? room.totalRooms;
                   const roomAmenities = (room.amenities && room.amenities.length > 0 ? room.amenities : flatAmenityList).slice(0, 4);
 
                   return (
@@ -1036,9 +1071,9 @@ export default function HostHotelDetailPage() {
                     >
                       <div className="relative h-48 md:h-52 w-full overflow-hidden rounded-xl">
                         <img src={roomImage} alt={room.name} className="h-full w-full object-cover" />
-                        {room.totalRooms !== undefined && (
+                        {totalRooms !== undefined && (
                           <span className="absolute top-3 right-3 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-[#DC2626] shadow">
-                            {room.totalRooms} phòng
+                            {totalRooms} phòng
                           </span>
                         )}
                       </div>
@@ -1057,12 +1092,12 @@ export default function HostHotelDetailPage() {
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-[#4B5563]">{room.description || "Phòng tiêu chuẩn"}</p>
                         <div className="text-sm text-[#4B5563] flex items-center gap-2">
                           <span className="font-semibold">Sức chứa:</span>
                           <span>{capacityText}</span>
                         </div>
                         <div className="flex flex-wrap gap-2 text-xs text-[#374151]">
+                          <span className="font-semibold">Tiện ích:</span>
                           {roomAmenities.map((a) => (
                             <span key={a} className="inline-flex items-center gap-1 rounded-full bg-[#F3F4F6] px-3 py-1">
                               {a}
@@ -1489,6 +1524,10 @@ export default function HostHotelDetailPage() {
                 </button>
               </div>
 
+              {loadingAmenityCategories && (
+                <p className="text-sm text-[#6B7280]">Đang tải danh mục tiện ích sẵn có...</p>
+              )}
+
               {amenityForm.length === 0 && (
                 <div className="rounded-xl border border-dashed border-[#E5E7EB] bg-white p-4 text-sm text-[#6B7280]">
                   Chưa có tiện ích. Nhấn "Thêm danh mục" để bắt đầu.
@@ -1499,75 +1538,128 @@ export default function HostHotelDetailPage() {
                 {amenityForm.map((cat, catIndex) => (
                   <div key={catIndex} className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
                     <div className="flex items-start gap-3">
-                      <div className="flex-1 space-y-3">
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="text"
-                            value={cat.title}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              setAmenityForm(prev => prev.map((c, idx) => idx === catIndex ? { ...c, title: value } : c));
-                            }}
-                            className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
-                            placeholder="Tên danh mục (vd: Dịch vụ lễ tân)"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setAmenityForm(prev => prev.filter((_, idx) => idx !== catIndex))}
-                            className="rounded-lg border border-[#E5E7EB] px-3 py-2 text-[#9CA3AF] hover:text-[#EF4444] hover:border-[#EF4444] transition"
-                            title="Xóa danh mục"
-                          >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          </button>
-                        </div>
-
+                      <div className="flex-1 space-y-4">
+                        {/* Category Title Section */}
                         <div className="space-y-2">
-                          {cat.items.map((item, itemIndex) => (
-                            <div key={itemIndex} className="flex items-center gap-3">
+                          <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">
+                            Tên danh mục
+                          </label>
+                          <div className="flex items-center gap-3 relative">
+                            <div className="flex-1 relative">
                               <input
                                 type="text"
-                                value={item}
+                                value={cat.title}
+                                onFocus={() => availableAmenityCategories.length > 0 && setOpenAmenityPicker(catIndex)}
+                                onBlur={() => {
+                                  // Delay to allow onMouseDown to fire first
+                                  setTimeout(() => setOpenAmenityPicker(null), 150);
+                                }}
                                 onChange={(e) => {
                                   const value = e.target.value;
-                                  setAmenityForm(prev => prev.map((c, idx) => {
-                                    if (idx !== catIndex) return c;
-                                    const newItems = [...c.items];
-                                    newItems[itemIndex] = value;
-                                    return { ...c, items: newItems };
-                                  }));
+                                  setAmenityForm(prev => prev.map((c, idx) => idx === catIndex ? { ...c, title: value } : c));
+                                  // Show suggestions if user is typing and there are matches
+                                  if (value && availableAmenityCategories.some(name => 
+                                    name.toLowerCase().includes(value.toLowerCase())
+                                  )) {
+                                    setOpenAmenityPicker(catIndex);
+                                  }
                                 }}
-                                className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
-                                placeholder="Nhập tiện ích (vd: Lễ tân 24h)"
+                                className="w-full px-4 py-2 border-2 border-[#0057FF] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF] font-medium text-[#0F172A] bg-[#F8FAFC]"
+                                placeholder="Nhấn để chọn hoặc nhập danh mục"
                               />
-                              <button
-                                type="button"
-                                onClick={() => setAmenityForm(prev => prev.map((c, idx) => {
-                                  if (idx !== catIndex) return c;
-                                  const newItems = c.items.filter((_, i) => i !== itemIndex);
-                                  return { ...c, items: newItems.length ? newItems : [''] };
-                                }))}
-                                className="rounded-lg border border-[#E5E7EB] px-3 py-2 text-[#9CA3AF] hover:text-[#EF4444] hover:border-[#EF4444] transition"
-                                title="Xóa tiện ích"
-                              >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                  <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                              </button>
+                              {openAmenityPicker === catIndex && availableAmenityCategories.length > 0 && (() => {
+                                const searchTerm = cat.title.toLowerCase();
+                                const filtered = searchTerm 
+                                  ? availableAmenityCategories.filter(name => 
+                                      name.toLowerCase().includes(searchTerm)
+                                    )
+                                  : availableAmenityCategories;
+                                
+                                return filtered.length > 0 && (
+                                  <div className="absolute z-10 w-full mt-1 max-h-48 overflow-y-auto rounded-lg border border-[#E5E7EB] bg-white shadow-lg">
+                                    {filtered.map((name) => (
+                                      <button
+                                        key={`${catIndex}-${name}`}
+                                        type="button"
+                                        onMouseDown={(e) => {
+                                          e.preventDefault();
+                                          setAmenityCategoryTitle(catIndex, name);
+                                          setOpenAmenityPicker(null);
+                                        }}
+                                        className="w-full text-left px-4 py-2 hover:bg-[#F3F4F6] transition text-sm font-medium"
+                                      >
+                                        {name}
+                                      </button>
+                                    ))}
+                                  </div>
+                                );
+                              })()}
                             </div>
-                          ))}
+                            <button
+                              type="button"
+                              onClick={() => setAmenityForm(prev => prev.filter((_, idx) => idx !== catIndex))}
+                              className="rounded-lg border border-[#E5E7EB] px-3 py-2 text-[#9CA3AF] hover:text-[#EF4444] hover:border-[#EF4444] transition"
+                              title="Xóa danh mục"
+                            >
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
 
-                          <button
-                            type="button"
-                            onClick={() => setAmenityForm(prev => prev.map((c, idx) => idx === catIndex ? { ...c, items: [...c.items, ''] } : c))}
-                            className="inline-flex items-center gap-2 rounded-lg border border-[#10B981] px-3 py-1.5 text-xs font-semibold text-[#10B981] transition hover:bg-[#10B981] hover:text-white"
-                          >
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                            Thêm tiện ích
-                          </button>
+                        {/* Amenities Items Section */}
+                        <div className="space-y-2 pl-4 border-l-2 border-[#E5E7EB]">
+                          <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">
+                            Các tiện ích trong danh mục
+                          </label>
+                          <div className="space-y-2">
+                            {cat.items.map((item, itemIndex) => (
+                              <div key={itemIndex} className="flex items-center gap-3">
+                                <span className="text-[#9CA3AF] text-sm">•</span>
+                                <input
+                                  type="text"
+                                  value={item}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    setAmenityForm(prev => prev.map((c, idx) => {
+                                      if (idx !== catIndex) return c;
+                                      const newItems = [...c.items];
+                                      newItems[itemIndex] = value;
+                                      return { ...c, items: newItems };
+                                    }));
+                                  }}
+                                  className="flex-1 px-3 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#10B981] text-sm bg-white"
+                                  placeholder="Nhập tiện ích (vd: Lễ tân 24h)"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setAmenityForm(prev => prev.map((c, idx) => {
+                                    if (idx !== catIndex) return c;
+                                    const newItems = c.items.filter((_, i) => i !== itemIndex);
+                                    return { ...c, items: newItems.length ? newItems : [''] };
+                                  }))}
+                                  className="rounded-lg border border-[#E5E7EB] px-2 py-2 text-[#9CA3AF] hover:text-[#EF4444] hover:border-[#EF4444] transition"
+                                  title="Xóa tiện ích"
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                  </svg>
+                                </button>
+                              </div>
+                            ))}
+
+                            <button
+                              type="button"
+                              onClick={() => setAmenityForm(prev => prev.map((c, idx) => idx === catIndex ? { ...c, items: [...c.items, ''] } : c))}
+                              className="inline-flex items-center gap-2 rounded-lg border border-[#10B981] px-3 py-1.5 text-xs font-semibold text-[#10B981] transition hover:bg-[#10B981] hover:text-white ml-5"
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                              Thêm tiện ích
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>

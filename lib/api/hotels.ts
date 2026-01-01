@@ -3,12 +3,17 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8
 // Helper function to parse double-stringified values from backend
 const parseStringValue = (value: any): any => {
   if (value === 'null' || value === 'undefined') return null;
-  if (typeof value === 'string' && value.startsWith('"') && value.endsWith('"')) {
-    try {
-      return JSON.parse(value);
-    } catch {
-      return value;
+  if (typeof value === 'string') {
+    // Keep trying to parse until we get a non-string or a string without quotes
+    let parsed = value;
+    while (typeof parsed === 'string' && parsed.startsWith('"') && parsed.endsWith('"')) {
+      try {
+        parsed = JSON.parse(parsed);
+      } catch {
+        break;
+      }
     }
+    return parsed;
   }
   return value;
 };
@@ -50,6 +55,20 @@ const cleanHotelData = (hotel: any): Hotel => {
       description: parseStringValue(rt.description),
       bedType: parseStringValue(rt.bedType),
     })),
+  };
+};
+
+// Clean room type data from backend
+const cleanRoomTypeData = (roomType: any): RoomType => {
+  return {
+    ...roomType,
+    name: parseStringValue(roomType.name),
+    description: parseStringValue(roomType.description),
+    bedType: parseStringValue(roomType.bedType),
+    capacity: roomType.capacity ? {
+      ...roomType.capacity,
+      bedType: parseStringValue(roomType.capacity.bedType),
+    } : undefined,
   };
 };
 
@@ -109,6 +128,10 @@ export interface AmenityResponse {
   items: AmenityItemResponse[];
 }
 
+export interface AmenityCategoryOption {
+  type: string;
+}
+
 export interface PolicyResponse {
   title: string;
   content: string;
@@ -139,6 +162,7 @@ export interface RoomType {
   amenities?: string[];
   isActive?: boolean;
   totalRooms?: number;
+  roomAmount?: number;
   mediaAssets?: MediaAsset[];
 }
 
@@ -554,6 +578,31 @@ export const hotelApi = {
     }
   },
 
+  // Get available amenity categories (for selection when editing amenities)
+  getAmenityCategories: async (): Promise<AmenityCategoryOption[]> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/amenities/categories`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders(),
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch amenity categories: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      return (result || []).map((cat: AmenityCategoryOption) => ({
+        type: parseStringValue(cat.type),
+      })).filter((c: AmenityCategoryOption) => !!c.type);
+    } catch (error) {
+      console.error('Error fetching amenity categories:', error);
+      throw error;
+    }
+  },
+
   // Update hotel policies
   updatePolicies: async (hotelId: string, policies: { title: string; content: string }[]): Promise<Hotel> => {
     try {
@@ -645,7 +694,8 @@ export const hotelApi = {
         throw new Error(`Failed to upload media: ${response.status} ${response.statusText}`);
       }
 
-      return response.json();
+      const result = await response.json();
+      return cleanRoomTypeData(result);
     } catch (error) {
       console.error('Error uploading media:', error);
       throw error;
@@ -690,6 +740,129 @@ export const hotelApi = {
       return response.json();
     } catch (error) {
       console.error('Error setting thumbnail:', error);
+      throw error;
+    }
+  },
+
+  // Room Type APIs
+  getRoomTypeById: async (roomTypeId: string): Promise<RoomType> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/hotel/api/v1/${roomTypeId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders(),
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to get room type: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return cleanRoomTypeData(data);
+    } catch (error) {
+      console.error('Error getting room type:', error);
+      throw error;
+    }
+  },
+
+    createRoomType: async (data: {
+      hotelId: string;
+      name: string;
+      basePrice: number;
+      capacity: CapacityDto;
+      roomAmount: number;
+      description?: string;
+      amenities?: string[];
+    }): Promise<RoomType> => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/hotel/api/v1`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...authHeaders(),
+          },
+          body: JSON.stringify(data),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to create room type: ${response.status} ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        return cleanRoomTypeData(result);
+      } catch (error) {
+        console.error('Error creating room type:', error);
+        throw error;
+      }
+    },
+
+    updateRoomType: async (roomTypeId: string, data: {
+      name?: string;
+      basePrice?: number;
+      capacity?: CapacityDto;
+      amenities?: string[];
+      isActive?: boolean;
+      roomAmount?: number;
+      description?: string;
+    }): Promise<RoomType> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/hotel/api/v1/${roomTypeId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders(),
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update room type: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return cleanRoomTypeData(data);
+    } catch (error) {
+      console.error('Error updating room type:', error);
+      throw error;
+    }
+  },
+
+  activateRoomType: async (roomTypeId: string): Promise<void> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/hotel/api/v1/${roomTypeId}/activate`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders(),
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to activate room type: ${response.status} ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Error activating room type:', error);
+      throw error;
+    }
+  },
+
+  deactivateRoomType: async (roomTypeId: string): Promise<void> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/hotel/api/v1/${roomTypeId}/deactivate`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders(),
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to deactivate room type: ${response.status} ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Error deactivating room type:', error);
       throw error;
     }
   },
