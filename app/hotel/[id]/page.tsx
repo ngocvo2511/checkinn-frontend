@@ -57,6 +57,20 @@ const getCriteriasLabel = (key: string) => {
   return labels[key] || key;
 };
 
+const categoryIconUrls: Record<string, string> = {
+  'Tiện nghi công cộng': 'https://s3-ap-southeast-1.amazonaws.com/cntres-assets-ap-southeast-1-250226768838-cf675839782fd369/imageResource/2016/12/21/1482303125539-7b3d286227796ff15b7ea10423eed047.png',
+  'Vận chuyển': 'https://s3-ap-southeast-1.amazonaws.com/cntres-assets-ap-southeast-1-250226768838-cf675839782fd369/imageResource/2016/12/21/1482303369740-ad3659ca926b2a531848e977419027a3.png',
+  'Ẩm thực': 'https://s3-ap-southeast-1.amazonaws.com/cntres-assets-ap-southeast-1-250226768838-cf675839782fd369/imageResource/2016/12/21/1482303254515-bd78d369590cba427807f5b7b3df6022.png',
+  'Dịch vụ khách sạn': 'https://s3-ap-southeast-1.amazonaws.com/cntres-assets-ap-southeast-1-250226768838-cf675839782fd369/imageResource/2016/12/23/1482486478659-e5dc2da7d82c6e7f84df2d6da0cc611b.png',
+  'Tiện nghi phòng': 'https://s3-ap-southeast-1.amazonaws.com/cntres-assets-ap-southeast-1-250226768838-cf675839782fd369/imageResource/2016/12/21/1482303267558-027736faae615602d02d68900e440901.png',
+  'Tiện nghi chung': 'https://s3-ap-southeast-1.amazonaws.com/cntres-assets-ap-southeast-1-250226768838-cf675839782fd369/imageResource/2016/12/23/1482486531890-cbaee7be1e0c71e690dba61a3ea68ae0.png',
+  'Các tiện ích lân cận': 'https://s3-ap-southeast-1.amazonaws.com/cntres-assets-ap-southeast-1-250226768838-cf675839782fd369/imageResource/2016/12/21/1482303291459-90dd5748fca9d3c23751e007e6033cf2.png',
+  'Các hoạt động': 'https://s3-ap-southeast-1.amazonaws.com/cntres-assets-ap-southeast-1-250226768838-cf675839782fd369/imageResource/2016/12/21/1482303445040-27efd5874b7249a341778d5bb6c013f1.png',
+  'Đưa đón': 'https://s3-ap-southeast-1.amazonaws.com/cntres-assets-ap-southeast-1-250226768838-cf675839782fd369/imageResource/2017/01/13/1484279826660-8a7e1f372132eb0f711c3a3a2ac5d057.png',
+  'Kết nối mạng': 'https://s3-ap-southeast-1.amazonaws.com/cntres-assets-ap-southeast-1-250226768838-cf675839782fd369/imageResource/2016/12/21/1482303184657-1997b10ede4170e61600e707c818f0cf.png',
+  'Tiện nghi văn phòng': 'https://s3-ap-southeast-1.amazonaws.com/cntres-assets-ap-southeast-1-250226768838-cf675839782fd369/imageResource/2016/12/21/1482303162984-24ed7bc5b92323ed368b29084492c2ce.png',
+};
+
 export default function HotelDetailPage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -77,6 +91,7 @@ export default function HotelDetailPage() {
   const [expandedReviewId, setExpandedReviewId] = useState<string | null>(null);
   const [feedbackStatus, setFeedbackStatus] = useState<Record<string, 'helpful' | 'unhelpful' | null>>({});
   const [feedbackLoading, setFeedbackLoading] = useState<Record<string, boolean>>({});
+  const [showAllPoliciesModal, setShowAllPoliciesModal] = useState(false);
 
   const checkIn = searchParams.get("checkIn") || "";
   const checkOut = searchParams.get("checkOut") || "";
@@ -192,37 +207,76 @@ export default function HotelDetailPage() {
   }, [hotel]);
 
   const amenityList = useMemo(() => {
-    const categories = hotel?.amenityCategories || hotel?.amenities || [];
-    const categoryItems = categories.flatMap((category) =>
-      (category.items || []).map((item) => item.title).filter(Boolean)
-    );
-
-    if (categoryItems.length > 0) {
-      return Array.from(new Set(categoryItems));
-    }
-
-    const collected = new Set<string>();
-    (hotel?.roomTypes || []).forEach((rt) => {
-      (rt.amenities || []).forEach((a) => collected.add(a));
+    // Lấy tất cả items từ amenityCategories
+    const items: string[] = [];
+    (hotel?.amenityCategories || []).forEach((cat) => {
+      (cat.items || []).forEach((item) => {
+        if (item.title) items.push(item.title);
+      });
     });
-    const items = Array.from(collected);
     return items.length > 0 ? items : fallbackAmenities;
   }, [hotel]);
 
   const policyList = useMemo(() => {
-    if (hotel?.policies && hotel.policies.length > 0) return hotel.policies;
-    return fallbackPolicies;
+    if (hotel?.policies && hotel.policies.length > 0) {
+      // Handle both old (with title) and new (without title) policy structures
+      return hotel.policies.map((p: any) => {
+        if (typeof p === 'string') {
+          return { category: 'Chính sách chung', content: p };
+        }
+        return {
+          category: p.category || 'Chính sách chung',
+          content: p.content || p.title || ''
+        };
+      });
+    }
+    // Fallback with category structure
+    return fallbackPolicies.map(p => ({ category: 'Chính sách chung', content: p }));
   }, [hotel]);
 
+  // Policy category icons - paste your icon URLs here
+  const policyCategoryIcons: Record<string, string> = {
+    'Thời gian nhận phòng/trả phòng': 'https://via.placeholder.com/24?text=T',
+    'Giấy Tờ Bắt Buộc': 'https://ik.imagekit.io/tvlk/image/imageResource/2022/07/20/1658303062126-7ff2e4dee7cbfef2179ab8692cdb8445.png?tr=dpr-2,h-24,q-75,w-24',
+    'Bữa sáng': 'https://ik.imagekit.io/tvlk/image/imageResource/2022/07/20/1658303044943-16a7f9237ecc5f8ef53017f20f9352e1.png?tr=dpr-2,h-24,q-75,w-24',
+    'Hút thuốc': 'https://ik.imagekit.io/tvlk/image/imageResource/2022/07/20/1658303183805-1f9089402093bca18a74f87786ff4db7.png?tr=dpr-2,h-24,q-75,w-24',
+    'Thú cưng': 'https://ik.imagekit.io/tvlk/image/imageResource/2022/07/20/1658303178485-041b197f4a58d8b0a7d3df8e479a2a31.png?tr=dpr-2,h-24,q-75,w-24',
+    'Chính Sách Bổ Sung': 'https://ik.imagekit.io/tvlk/image/imageResource/2022/07/20/1658303039228-e8d58e0c5637ec0f262ac2a18b5b3796.png?tr=dpr-2,h-24,q-75,w-24',
+    'Đưa đón sân bay': 'https://ik.imagekit.io/tvlk/image/imageResource/2022/07/20/1658303042410-47c7c45550cb8dca266638e558a33c6c.png?tr=dpr-2,h-24,q-75,w-24',
+    'Hướng Dẫn Nhận Phòng Chung': 'https://ik.imagekit.io/tvlk/image/imageResource/2022/07/20/1658303166332-9509e705d4f7add6f628bb488b7a39f8.png?tr=dpr-2,h-24,q-75,w-24',
+    'Chính sách về độ tuổi tối thiểu': 'https://ik.imagekit.io/tvlk/image/imageResource/2022/07/20/1658303171533-933466334334be7c091b64037e4d92c8.png?tr=dpr-2,h-24,q-75,w-24',
+    'Khác': 'https://via.placeholder.com/24?text=O',
+    'Nhận phòng sớm': 'https://ik.imagekit.io/tvlk/image/imageResource/2022/07/20/1658303114232-d7a69eda4caa4afa1fc05ae83c404731.png?tr=dpr-2,h-24,q-75,w-24',
+    'Trả phòng trễ': 'https://ik.imagekit.io/tvlk/image/imageResource/2022/07/20/1658303169127-17694cc343283908e1d04723a09f5002.png?tr=dpr-2,h-24,q-75,w-24'
+  };
+
+  // SVG icons for specific categories
+  const PolicyIcon = ({ category }: { category: string }) => {
+    if (category === 'Thời gian nhận phòng/trả phòng') {
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-6 h-6 flex-shrink-0 mt-0.5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+        </svg>
+      );
+    }
+    if (category === 'Khác') {
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-6 h-6 flex-shrink-0 mt-0.5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+        </svg>
+      );
+    }
+    const iconUrl = policyCategoryIcons[category] || 'https://via.placeholder.com/24';
+    return <img src={iconUrl} alt={category} className="w-6 h-6 object-contain flex-shrink-0 mt-0.5" />;
+  };
+
   const primaryImage = heroImages[0]?.url || "/placeholder-hotel.jpg";
-  const secondaryImages = heroImages.slice(1, 4);
-  const hasMoreImages = heroImages.length > secondaryImages.length + 1;
-  const overlayImage = hasMoreImages
-    ? heroImages[secondaryImages.length + 1]?.url || secondaryImages[secondaryImages.length - 1]?.url || primaryImage
-    : null;
-  const ratingScore = hotel?.starRating ?? 8.9;
+  const secondaryImages = heroImages.slice(1, 2); // Chỉ lấy 1 ảnh phụ
+  const hasMoreImages = heroImages.length > 2; // Nếu có > 2 ảnh
+  const overlayImage = heroImages[2]?.url || heroImages[1]?.url || primaryImage;
+  const ratingScore = reviewStats?.averageRating ?? 0;
   const lowestPrice = hotel?.lowestPrice ?? 0;
-  const reviewCount = (hotel as any)?.reviewCount ?? reviews.length ?? 0;
+  const reviewCount = reviewStats?.totalReviews ?? 0;
   const amenityCategories = hotel?.amenityCategories || [];
   const hasAmenityCategories = amenityCategories.length > 0;
 
@@ -405,9 +459,6 @@ export default function HotelDetailPage() {
                   className="h-[420px] w-full object-cover rounded-2xl shadow-sm"
                 />
                 <div className="pointer-events-none absolute inset-0 rounded-2xl bg-black/0 transition group-hover:bg-black/15"></div>
-                <span className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-[#0F172A] shadow">
-                  Xem ảnh
-                </span>
               </button>
 
               {secondaryImages.map((img, idx) => (
@@ -415,7 +466,7 @@ export default function HotelDetailPage() {
                   type="button"
                   key={img.id || img.url}
                   onClick={() => openGalleryAt(idx + 1)}
-                  className="relative h-48 w-full overflow-hidden rounded-2xl shadow-sm group"
+                  className="relative h-[204px] w-full overflow-hidden rounded-2xl shadow-sm group"
                 >
                   <img
                     src={img.url}
@@ -426,30 +477,27 @@ export default function HotelDetailPage() {
                 </button>
               ))}
 
-              {hasMoreImages && (
+              {/* Luôn hiển thị nút "Xem tất cả" nếu có ảnh */}
+              {heroImages.length > 0 && (
                 <button
                   type="button"
                   onClick={() => openGalleryAt(0)}
-                  className="relative h-48 w-full overflow-hidden rounded-2xl shadow-sm"
+                  className="relative h-[204px] w-full overflow-hidden rounded-2xl shadow-sm group"
                 >
                   <img
-                    src={overlayImage || "/placeholder-hotel.jpg"}
+                    src={overlayImage}
                     alt="Xem tất cả hình ảnh"
                     className="h-full w-full object-cover"
                   />
-                  <div className="absolute inset-0 bg-black/60"></div>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white text-center">
-                    <span className="text-sm font-semibold">Xem tất cả {heroImages.length} hình ảnh</span>
-                    <span className="text-xs text-white/80">+{Math.max(heroImages.length - (secondaryImages.length + 1), 0)} ảnh khác</span>
-                    <span className="rounded-full bg-white/90 px-3 py-1 text-sm font-semibold text-[#0F172A] shadow">Mở thư viện</span>
+                  <div className="absolute inset-0 bg-black/60 transition group-hover:bg-black/70"></div>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white text-center px-4">
+                    <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span className="text-lg font-bold">Xem tất cả</span>
+                    <span className="text-sm font-medium">{heroImages.length} hình ảnh</span>
                   </div>
                 </button>
-              )}
-
-              {!hasMoreImages && secondaryImages.length === 0 && (
-                <div className="h-48 w-full rounded-2xl bg-[#E5E7EB] flex items-center justify-center text-[#6B7280]">
-                  Chưa có hình ảnh khác
-                </div>
               )}
             </div>
           </div>
@@ -525,10 +573,10 @@ export default function HotelDetailPage() {
                 <div>
                   <p className="text-xs uppercase text-[#6B7280]">Đánh giá tổng quan</p>
                   <div className="mt-1 flex items-baseline gap-3">
-                    <span className="text-4xl font-bold text-[#0F172A]">{ratingScore.toFixed(1)}</span>
-                    <span className="text-sm text-[#4B5563]">/ 10 · Xuất sắc</span>
+                    <span className="text-4xl font-bold text-[#0F172A]">{ratingScore > 0 ? ratingScore.toFixed(1) : 'N/A'}</span>
+                    <span className="text-sm text-[#4B5563]">/ 10 · {getRatingLabel(ratingScore)}</span>
                   </div>
-                  <p className="text-sm text-[#4B5563]">Dựa trên khoảng {reviewCount || "nhiều"} đánh giá</p>
+                  <p className="text-sm text-[#4B5563]">{reviewCount > 0 ? `Dựa trên ${reviewCount} đánh giá` : 'Chưa có đánh giá'}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-[#9CA3AF]">Giá/phòng/đêm từ</p>
@@ -537,23 +585,50 @@ export default function HotelDetailPage() {
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-2 text-sm text-[#4B5563]">
-                <span className="inline-flex items-center gap-2 rounded-full bg-green-100 px-3 py-1 text-green-700 text-xs font-semibold">
-                  ★ {ratingScore.toFixed(1)} Xuất sắc
-                </span>
-                <span className="text-[#6B7280]">·</span>
-                <span>{reviewCount || "Nhiều"} lượt đánh giá</span>
-              </div>
-
-              <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-4 text-sm text-[#4B5563]">
-                <p className="font-semibold text-[#111827] mb-1">Khách nói gì</p>
-                <p>
-                  {hotel.description || "Phòng sạch, gần biển, tiện nghi đầy đủ và dịch vụ thân thiện."}
-                </p>
-              </div>
+              {/* Hiển thị một vài đánh giá nổi bật */}
+              {reviews.length > 0 ? (
+                <div className="space-y-3">
+                  <p className="font-semibold text-[#111827] text-sm">Khách nói gì</p>
+                  <div className="space-y-3">
+                    {reviews.slice(0, 2).map((review) => (
+                      <div key={review.id} className="rounded-xl border border-[#E5E7EB] bg-white p-4">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-[#2563EB] text-white flex items-center justify-center text-sm font-semibold">
+                              {review.guestName?.[0]?.toUpperCase() || 'K'}
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-[#0F172A]">{review.guestName || 'Khách'}</p>
+                              <p className="text-xs text-[#6B7280]">{new Date(review.createdAt).toLocaleDateString('vi-VN')}</p>
+                            </div>
+                          </div>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[#2563EB] px-2 py-1 text-xs font-semibold text-white">
+                            ★ {review.rating.toFixed(1)}
+                          </span>
+                        </div>
+                        {review.title && (
+                          <p className="text-sm font-semibold text-[#0F172A] mb-1">{review.title}</p>
+                        )}
+                        <p className="text-sm text-[#4B5563] line-clamp-2">
+                          {review.content}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-4 text-sm text-[#4B5563]">
+                  <p className="font-semibold text-[#111827] mb-1">Giới thiệu</p>
+                  <p>
+                    {hotel.description || "Phòng sạch, tiện nghi đầy đủ và dịch vụ thân thiện."}
+                  </p>
+                </div>
+              )}
 
               <div className="flex flex-wrap justify-between gap-3 items-center">
-                <p className="text-sm text-[#4B5563]">Xem chi tiết trải nghiệm từ khách đã lưu trú.</p>
+                <p className="text-sm text-[#4B5563]">
+                  {reviews.length > 2 ? `Xem thêm ${reviewCount - 2} đánh giá khác` : 'Xem chi tiết trải nghiệm từ khách đã lưu trú'}
+                </p>
                 <button
                   onClick={() => handleScrollTo("reviews")}
                   className="inline-flex justify-center rounded-lg bg-[#2563EB] px-5 py-2 text-white font-semibold shadow hover:bg-[#1D4ED8] transition"
@@ -566,12 +641,17 @@ export default function HotelDetailPage() {
             <div className="rounded-2xl border border-[#E5E7EB] bg-white shadow-sm p-6 flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <p className="text-base font-semibold text-[#0F172A]">Tiện nghi chính</p>
-                <span className="text-sm text-[#6B7280]">Nổi bật</span>
+                <button
+                  onClick={() => handleScrollTo("amenities")}
+                  className="text-sm text-[#2563EB] font-semibold hover:underline"
+                >
+                  Xem thêm
+                </button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-[#374151]">
                 {amenityList.slice(0, 8).map((a) => (
                   <div key={a} className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-[#2563EB]"></span>
+                    <span className="h-2 w-2 rounded-full bg-[#6B7280]"></span>
                     {a}
                   </div>
                 ))}
@@ -733,21 +813,33 @@ export default function HotelDetailPage() {
           </div>
           <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
             {hasAmenityCategories ? (
-              <div className="space-y-4">
-                {amenityCategories.map((cat) => (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {amenityCategories
+                  .sort((a, b) => (b.items?.length || 0) - (a.items?.length || 0))
+                  .map((cat) => (
                   <div key={cat.id || cat.title}>
-                    <p className="text-sm font-semibold text-[#0F172A] mb-2">{cat.title}</p>
-                    <div className="flex flex-wrap gap-2 text-sm text-[#374151]">
+                    <div className="text-[17px] font-bold text-[#0F172A] mb-4 flex items-center gap-3">
+                      {categoryIconUrls[cat.title] && (
+                        <img 
+                          src={categoryIconUrls[cat.title]} 
+                          alt={cat.title}
+                          className="w-6 h-6 object-cover rounded"
+                        />
+                      )}
+                      <span>{cat.title}</span>
+                    </div>
+                    <ul className="space-y-2 text-sm ml-5 font-semibold text-[#374151]">
                       {(cat.items || []).length > 0 ? (
                         (cat.items || []).map((item) => (
-                          <span key={item.id || item.title} className="inline-flex items-center gap-1 rounded-full bg-[#F3F4F6] px-3 py-1">
-                            {item.title}
-                          </span>
+                          <li key={item.id || item.title} className="flex items-start gap-2">
+                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#6B7280] mt-2 flex-shrink-0"></span>
+                            <span>{item.title}</span>
+                          </li>
                         ))
                       ) : (
-                        <span className="text-xs text-[#9CA3AF]">Chưa cập nhật tiện ích cho nhóm này</span>
+                        <li className="text-xs text-[#9CA3AF]">Chưa cập nhật tiện ích cho nhóm này</li>
                       )}
-                    </div>
+                    </ul>
                   </div>
                 ))}
               </div>
@@ -764,40 +856,134 @@ export default function HotelDetailPage() {
           </div>
         </section>
 
-        {/* Policies & FAQ */}
+        {/* Policies */}
         <section id="policies" className="mx-auto max-w-screen-xl px-4 md:px-8 lg:px-12 pt-10">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
-              <h3 className="text-lg font-semibold text-[#0F172A] mb-3">Chính sách</h3>
-              <ul className="space-y-2 text-sm text-[#4B5563]">
-                {policyList.map((p, idx) => (
-                  <li key={`${idx}-${p}`} className="flex items-start gap-2">
-                    <span className="mt-[6px] inline-block h-1.5 w-1.5 rounded-full bg-[#2563EB]"></span>
-                    <span>{p}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+          <div className="rounded-2xl border border-[#E5E7EB] bg-white shadow-sm overflow-hidden">
+            <div className="grid lg:grid-cols-[3fr_7fr]">
+              {/* Left side: Title with gradient background */}
+              <div 
+                className="pl-4 pt-6 pr-6 pb-8"
+                style={{
+                  background: 'linear-gradient(92deg, rgba(81, 149, 227, 0.5) -60%, #D6F1FF 40%, rgba(214, 241, 255, 0.7) 100%)'
+                }}
+              >
+                <h2 
+                  className="text-xl tracking-tigth leading-tight text-[#0F172A] -mr-4" 
+                  style={{ 
+                    fontWeight: 700,
+                    textShadow: '0 0 0.5px #0F172A, 0 0 0.5px #0F172A'
+                  }}
+                >
+                  Chính sách và những thông tin liên quan của Khách sạn {hotel?.name || ''}
+                </h2>
+              </div>
 
-            <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
-              <h3 className="text-lg font-semibold text-[#0F172A] mb-3">Câu hỏi thường gặp</h3>
-              <div className="space-y-3 text-sm text-[#4B5563]">
+              {/* Right side: Policies preview + General info */}
+              <div className="p-6 space-y-6">
+                {/* First 3 policies + Read all button */}
                 <div>
-                  <p className="font-semibold text-[#111827]">Giá phòng đã bao gồm bữa sáng chưa?</p>
-                  <p>Phụ thuộc từng hạng phòng, vui lòng xem trong phần mô tả chi tiết.</p>
+                  <ul className="space-y-4 mb-4">
+                    {policyList.slice(0, 3).map((p: any, idx) => (
+                      <li key={`${idx}-${p.category}-${p.content}`} className="flex items-start gap-3">
+                        <PolicyIcon category={p.category} />
+                        <div className="flex-1">
+                          <div className="font-semibold text-sm text-[#0F172A] mb-1">{p.category}</div>
+                          <div className="text-sm text-[#4B5563]">{p.content}</div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                  <button
+                    onClick={() => setShowAllPoliciesModal(true)}
+                    className="text-sm text-[#0057FF] font-semibold hover:text-[#0046CC] transition"
+                  >
+                    Đọc tất cả
+                  </button>
                 </div>
+
+                {/* General information table - placeholder */}
                 <div>
-                  <p className="font-semibold text-[#111827]">Khách sạn có chỗ đậu xe không?</p>
-                  <p>Có, vui lòng liên hệ lễ tân để được hỗ trợ.</p>
-                </div>
-                <div>
-                  <p className="font-semibold text-[#111827]">Giờ nhận và trả phòng?</p>
-                  <p>Nhận phòng từ 14:00, trả phòng trước 12:00.</p>
+                  <h3 className="text-lg font-semibold text-[#0F172A] mb-4">Thông tin chung</h3>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between py-2 border-b border-[#F3F4F6]">
+                      <span className="text-[#6B7280]">Tiện ích chung</span>
+                      <span className="text-[#0F172A] text-right">Máy lạnh, Nhà hàng, Hồ bơi, Lễ tân 24h, Chỗ đậu xe, Thang máy, WiFi</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-[#F3F4F6]">
+                      <span className="text-[#6B7280]">Thời gian nhận/trả phòng</span>
+                      <span className="text-[#0F172A]">Từ 14:00 - đến 12:00</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-[#F3F4F6]">
+                      <span className="text-[#6B7280]">Khoảng cách đến trung tâm thành phố</span>
+                      <span className="text-[#0F172A]">2.12 km</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-[#F3F4F6]">
+                      <span className="text-[#6B7280]">Điểm đến phổ biến</span>
+                      <span className="text-[#0F172A] text-right">Biển Mỹ Khê, Sơ 294 Trưng Nữ Vương, Bệnh viện Hoàn Mỹ Đà Nẵng</span>
+                    </div>
+                    <div className="flex justify-between py-2">
+                      <span className="text-[#6B7280]">Có ăn sáng</span>
+                      <span className="text-[#0F172A]">Có, khách sạn có phòng cung cấp bữa sáng</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </section>
+
+        {/* FAQs */}
+        <section id="faqs" className="mx-auto max-w-screen-xl px-4 md:px-8 lg:px-12 pt-10 pb-10">
+          <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
+            <h3 className="text-lg font-semibold text-[#0F172A] mb-3">Câu hỏi thường gặp</h3>
+            <div className="space-y-3 text-sm text-[#4B5563]">
+              <div>
+                <p className="font-semibold text-[#111827]">Giá phòng đã bao gồm bữa sáng chưa?</p>
+                <p>Phụ thuộc từng hạng phòng, vui lòng xem trong phần mô tả chi tiết.</p>
+              </div>
+              <div>
+                <p className="font-semibold text-[#111827]">Khách sạn có chỗ đậu xe không?</p>
+                <p>Có, vui lòng liên hệ lễ tân để được hỗ trợ.</p>
+              </div>
+              <div>
+                <p className="font-semibold text-[#111827]">Giờ nhận và trả phòng?</p>
+                <p>Nhận phòng từ 14:00, trả phòng trước 12:00.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* All Policies Modal */}
+        {showAllPoliciesModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+              <div className="px-6 py-4 border-b border-[#E5E7EB] flex items-center justify-between">
+                <h3 className="text-xl font-bold text-[#0F172A]">Tất cả chính sách</h3>
+                <button
+                  onClick={() => setShowAllPoliciesModal(false)}
+                  className="rounded-full p-2 hover:bg-[#F3F4F6] transition"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
+              <div className="px-6 py-6 overflow-y-auto">
+                <ul className="space-y-4">
+                  {policyList.map((p: any, idx) => (
+                    <li key={`${idx}-${p.category}-${p.content}`} className="flex items-start gap-3">
+                      <PolicyIcon category={p.category} />
+                      <div className="flex-1">
+                        <div className="font-semibold text-sm text-[#0F172A] mb-1">{p.category}</div>
+                        <div className="text-sm text-[#4B5563]">{p.content}</div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
 
         {roomModal.room && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-8">
