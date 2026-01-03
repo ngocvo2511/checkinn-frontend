@@ -332,12 +332,20 @@ function Hero() {
       return;
     }
 
+    // Format date as YYYY-MM-DD without timezone shift
+    const formatDateLocal = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
     // Build search params
     const searchParams = new URLSearchParams({
       cityId: selectedCity.id,
       cityName: selectedCity.name,
-      checkIn: checkInDate.toISOString().split('T')[0],
-      checkOut: checkOutDate.toISOString().split('T')[0],
+      checkIn: formatDateLocal(checkInDate),
+      checkOut: formatDateLocal(checkOutDate),
       rooms: rooms.toString(),
       adults: adults.toString(),
       children: children.toString(),
