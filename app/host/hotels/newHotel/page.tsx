@@ -12,6 +12,11 @@ type Policy = {
   content: string;
 };
 
+type Question = {
+  question: string;
+  answer: string;
+};
+
 type AmenityItem = {
   title: string;
 };
@@ -36,6 +41,7 @@ type FormState = {
   operationLicenseNumber: string;
   ownerIdentityNumber: string;
   policies: Policy[];
+  questions: Question[];
   amenityCategories: AmenityCategory[];
 };
 
@@ -63,6 +69,7 @@ const initialForm: FormState = {
   operationLicenseNumber: '',
   ownerIdentityNumber: '',
   policies: [],
+  questions: [],
   amenityCategories: [],
 };
 
@@ -139,6 +146,23 @@ export default function HostCreateHotelPage() {
 
   const removePolicy = (index: number) => {
     setForm((prev) => ({ ...prev, policies: prev.policies.filter((_, i) => i !== index) }));
+  };
+
+  // FAQs handlers
+  const addQuestion = () => {
+    setForm((prev) => ({ ...prev, questions: [...(prev.questions ?? []), { question: '', answer: '' }] }));
+  };
+
+  const updateQuestion = (index: number, field: keyof Question, value: string) => {
+    setForm((prev) => {
+      const newQuestions = [...(prev.questions ?? [])];
+      newQuestions[index] = { ...newQuestions[index], [field]: value };
+      return { ...prev, questions: newQuestions };
+    });
+  };
+
+  const removeQuestion = (index: number) => {
+    setForm((prev) => ({ ...prev, questions: (prev.questions ?? []).filter((_, i) => i !== index) }));
   };
 
   // Amenity Categories handlers
@@ -282,6 +306,7 @@ export default function HostCreateHotelPage() {
       operationLicenseNumber: form.operationLicenseNumber.trim() || null,
       ownerIdentityNumber: form.ownerIdentityNumber.trim(),
       policies: form.policies.filter(p => p.title.trim() && p.content.trim()),
+      questions: (form.questions ?? []).filter(q => q.question.trim() && q.answer.trim()),
       amenityCategories: form.amenityCategories.filter(cat => cat.title.trim() && cat.amenities.some(a => a.title.trim())).map(cat => ({
         title: cat.title.trim(),
         amenities: cat.amenities.filter(a => a.title.trim())
@@ -620,6 +645,60 @@ export default function HostCreateHotelPage() {
               <div className="rounded-2xl border border-[#E8E9F1] bg-white p-6 shadow-[0_14px_30px_rgba(0,0,0,0.08)] space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
+                    <p className="text-sm font-semibold uppercase tracking-[0.08em] text-[#8B94A4]">FAQ</p>
+                    <h2 className="text-xl font-semibold text-[#1F2226]">Câu hỏi thường gặp</h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addQuestion}
+                    className="text-base font-semibold text-[#0057FF] hover:underline"
+                  >
+                    + Thêm câu hỏi
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  {(form.questions ?? []).map((faq, index) => (
+                    <div key={index} className="rounded-xl border border-[#E8E9F1] p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-base font-semibold text-[#1F2226]">Câu hỏi {index + 1}</h3>
+                        <button
+                          type="button"
+                          onClick={() => removeQuestion(index)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          Xóa
+                        </button>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-base font-semibold text-[#1F2226]">Câu hỏi</label>
+                        <input
+                          value={faq.question}
+                          onChange={(e) => updateQuestion(index, 'question', e.target.value)}
+                          className="w-full rounded-xl border border-[#E8E9F1] px-4 py-3 text-base text-[#1F2226] placeholder:text-[#A3A8B4] focus:border-[#0057FF] focus:outline-none"
+                          placeholder="Ví dụ: Giờ nhận phòng?"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-base font-semibold text-[#1F2226]">Câu trả lời</label>
+                        <textarea
+                          value={faq.answer}
+                          onChange={(e) => updateQuestion(index, 'answer', e.target.value)}
+                          rows={3}
+                          className="w-full rounded-xl border border-[#E8E9F1] px-4 py-3 text-base text-[#1F2226] placeholder:text-[#A3A8B4] focus:border-[#0057FF] focus:outline-none"
+                          placeholder="Ví dụ: Nhận phòng từ 14:00"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  {(form.questions ?? []).length === 0 && (
+                    <p className="text-base text-[#656F81] text-center py-4">Chưa có FAQ nào. Click "Thêm câu hỏi" để thêm.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-[#E8E9F1] bg-white p-6 shadow-[0_14px_30px_rgba(0,0,0,0.08)] space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
                     <p className="text-sm font-semibold uppercase tracking-[0.08em] text-[#8B94A4]">Tiện ích</p>
                     <h2 className="text-xl font-semibold text-[#1F2226]">Tiện ích và dịch vụ</h2>
                   </div>
@@ -763,7 +842,7 @@ export default function HostCreateHotelPage() {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-base text-[#656F81]">Có thể chọn nhiều ảnh, sortOrder sẽ theo thứ tự chọn.</p>
+                      <p className="text-base text-[#656F81]">Có thể chọn nhiều ảnh.</p>
                     )}
                   </div>
                 </div>

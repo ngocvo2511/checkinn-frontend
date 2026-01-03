@@ -4,22 +4,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import HostMenu from '@/components/host/menu/HostMenu';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080';
-
-type Hotel = {
-  id: string | number;
-  name: string;
-  city?: string;
-  country?: string;
-  address?: string;
-  status?: string;
-  rooms?: number;
-};
+import { Hotel as ApiHotel, hotelApi } from '@/lib/api/hotels';
 
 export default function HostHotelsPage() {
   const router = useRouter();
-  const [hotels, setHotels] = useState<Hotel[]>([]);
+  const [hotels, setHotels] = useState<ApiHotel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,19 +22,7 @@ export default function HostHotelsPage() {
 
     const fetchHotels = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/hotels/owner`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          const text = await response.text();
-          throw new Error(text || 'Không thể tải danh sách khách sạn.');
-        }
-
-        const data = await response.json();
+        const data = await hotelApi.getHotelsByOwner(token);
         setHotels(Array.isArray(data) ? data : []);
       } catch (err: any) {
         setError(err.message || 'Không thể tải danh sách khách sạn.');
@@ -59,9 +36,40 @@ export default function HostHotelsPage() {
 
   const stats = useMemo(() => {
     const total = hotels.length;
-    const active = hotels.filter((h) => (h.status ?? '').toLowerCase().includes('active')).length;
+    const active = hotels.filter((h) => h.isActive).length;
     return { total, active };
   }, [hotels]);
+
+  const formatAddress = (address?: ApiHotel['address']) => {
+    if (!address) return '';
+    return [address.street, address.city, address.country].filter(Boolean).join(', ');
+  };
+
+  const formatStatus = (status?: string) => {
+    switch (status) {
+      case 'APPROVED':
+        return 'Đã duyệt';
+      case 'PENDING':
+        return 'Chờ duyệt';
+      case 'REJECTED':
+        return 'Từ chối';
+      default:
+        return status ?? 'Không xác định';
+    }
+  };
+
+  const statusBadgeClass = (status?: string) => {
+    switch (status) {
+      case 'APPROVED':
+        return 'bg-[#E8FFF3] text-[#0F5132]';
+      case 'PENDING':
+        return 'bg-[#FFF8E1] text-[#8B6E00]';
+      case 'REJECTED':
+        return 'bg-[#FFE8E6] text-[#9C1F23]';
+      default:
+        return 'bg-[#E8E9F1] text-[#383E48]';
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#F9F9F9] flex flex-col">
@@ -104,7 +112,7 @@ export default function HostHotelsPage() {
                   <h2 className="text-xl font-semibold text-[#1F2226]">Danh sách quản lý</h2>
                 </div>
                 <button
-                  onClick={() => router.push('/host/hotels/new')}
+                  onClick={() => router.push('/host/hotels/newHotel')}
                   className="inline-flex items-center gap-2 rounded-xl border border-[#0057FF] px-3 py-2 text-sm font-semibold text-[#0057FF] transition hover:bg-[#0057FF] hover:text-white"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -136,14 +144,20 @@ export default function HostHotelsPage() {
                       <div className="space-y-1">
                         <p className="text-base font-semibold text-[#1F2226]">{hotel.name}</p>
                         <p className="text-sm text-[#656F81]">
-                          {hotel.address ? `${hotel.address} · ` : ''}
-                          {[hotel.city, hotel.country].filter(Boolean).join(', ')}
+                          {formatAddress(hotel.address)}
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
-                        {hotel.status ? (
-                          <span className="rounded-full bg-[#E8FFF3] px-3 py-1 text-xs font-semibold text-[#0F5132]">{hotel.status}</span>
-                        ) : null}
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-semibold ${statusBadgeClass(hotel.approvedStatus)}`}
+                        >
+                          {formatStatus(hotel.approvedStatus)}
+                        </span>
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-semibold ${hotel.isActive ? 'bg-[#E8FFF3] text-[#0F5132]' : 'bg-[#FFE8E6] text-[#9C1F23]'}`}
+                        >
+                          {hotel.isActive ? 'Đang hoạt động' : 'Tạm dừng'}
+                        </span>
                         <button
                           onClick={() => router.push(`/host/hotels/${hotel.id}`)}
                           className="inline-flex items-center gap-2 text-sm font-semibold text-[#0057FF] hover:gap-3 transition"

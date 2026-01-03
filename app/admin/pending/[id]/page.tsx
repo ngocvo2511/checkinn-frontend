@@ -269,6 +269,22 @@ export default function AdminPendingHotelDetailPage() {
                 </div>
 
                 <div>
+                  <h2 className="text-lg font-semibold mb-4">Câu hỏi thường gặp</h2>
+                  {hotel.faqs && hotel.faqs.length > 0 ? (
+                    <div className="space-y-4">
+                      {hotel.faqs.map((faq: any, index: number) => (
+                        <div key={faq.id || index} className="border-b pb-4 last:border-b-0">
+                          <h3 className="font-semibold text-gray-900">{faq.question}</h3>
+                          <p className="text-gray-700 mt-1 text-base whitespace-pre-line">{faq.answer}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500">Chưa có FAQ</p>
+                  )}
+                </div>
+
+                <div>
                   <h2 className="text-lg font-semibold mb-4">Tiện nghi</h2>
                   {hotel.amenityCategories && hotel.amenityCategories.length > 0 ? (
                     <div className="space-y-4">

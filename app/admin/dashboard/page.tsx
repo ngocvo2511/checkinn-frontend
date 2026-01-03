@@ -40,38 +40,6 @@ const metrics = [
   },
 ];
 
-const menuItems = [
-  {
-    title: 'Quản lý khách sạn',
-    desc: 'Xem, duyệt và chỉnh sửa thông tin lưu trú. Ưu tiên các yêu cầu mới.',
-    action: 'Đi tới danh sách',
-  },
-  {
-    title: 'Yêu cầu chờ duyệt',
-    desc: '14 yêu cầu mở — phân bổ người duyệt, đặt SLA và ghi chú.',
-    action: 'Xử lý ngay',
-  },
-  {
-    title: 'Người dùng & phân quyền',
-    desc: 'Cập nhật vai trò, bật 2FA, khóa hoặc mở khóa tài khoản.',
-    action: 'Quản lý user',
-  },
-  {
-    title: 'Booking & hoàn tiền',
-    desc: 'Theo dõi booking trong ngày, đánh dấu lỗi, xử lý hoàn tiền.',
-    action: 'Xem booking',
-  },
-  {
-    title: 'Báo cáo & nhật ký',
-    desc: 'Tải báo cáo, kiểm tra log hành động để audit.',
-    action: 'Mở báo cáo',
-  },
-  {
-    title: 'Cấu hình hệ thống',
-    desc: 'Banner, thông báo bảo trì, và thiết lập cổng thanh toán.',
-    action: 'Cấu hình',
-  },
-];
 
 export default function AdminDashboardPage() {
   return (
