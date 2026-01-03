@@ -911,9 +911,9 @@ function WeekendDeals() {
                 <p className="text-sm font-medium text-[#656F81]">{deal.location}</p>
               </div>
               <div className="mt-auto flex items-center gap-2 text-right text-sm">
-                <span className="line-through text-[#8B94A4]">${deal.oldPrice}</span>
-                <span className="text-lg font-bold text-[#0057FF]">${deal.price}</span>
-                <span className="text-xs text-[#8B94A4]">per night</span>
+                <span className="line-through text-[#8B94A4]">{deal.oldPrice.toLocaleString('vi-VN')} ₫</span>
+                <span className="text-lg font-bold text-[#0057FF]">{deal.price.toLocaleString('vi-VN')} ₫</span>
+                <span className="text-xs text-[#8B94A4]">mỗi đêm</span>
               </div>
             </div>
           </div>
@@ -1066,8 +1066,8 @@ function HomesGuestsLove() {
                 <p className="text-sm font-medium text-[#656F81]">{home.location}</p>
               </div>
               <div className="mt-auto flex items-center gap-2 text-sm text-[#8B94A4]">
-                <span className="text-lg font-bold text-[#0057FF]">${home.price}</span>
-                <span>per night</span>
+                <span className="text-lg font-bold text-[#0057FF]">{home.price.toLocaleString('vi-VN')} ₫</span>
+                <span>mỗi đêm</span>
               </div>
             </div>
           </div>

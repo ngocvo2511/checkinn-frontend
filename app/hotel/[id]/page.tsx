@@ -539,8 +539,8 @@ export default function HotelDetailPage() {
                     <div className="flex flex-wrap gap-2 text-sm text-[#374151]">
                       {(cat.items || []).length > 0 ? (
                         (cat.items || []).map((item) => (
-                          <span key={item.id || item.title} className="inline-flex items-center gap-1 rounded-full bg-[#F3F4F6] px-3 py-1">
-                            {item.title}
+                          <span key={typeof item === 'object' ? (item.id || item.title) : item} className="inline-flex items-center gap-1 rounded-full bg-[#F3F4F6] px-3 py-1">
+                            {typeof item === 'object' ? item.title : item}
                           </span>
                         ))
                       ) : (
@@ -568,11 +568,18 @@ export default function HotelDetailPage() {
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
               <h3 className="text-lg font-semibold text-[#0F172A] mb-3">Chính sách</h3>
-              <ul className="space-y-2 text-sm text-[#4B5563]">
+              <ul className="space-y-3 text-sm text-[#4B5563]">
                 {policyList.map((p, idx) => (
-                  <li key={`${idx}-${p}`} className="flex items-start gap-2">
+                  <li key={idx} className="flex items-start gap-2">
                     <span className="mt-[6px] inline-block h-1.5 w-1.5 rounded-full bg-[#2563EB]"></span>
-                    <span>{p}</span>
+                    {typeof p === 'object' ? (
+                      <div>
+                        {p.title && <p className="font-bold text-[#0F172A] mb-1">{p.title}</p>}
+                        {p.content && <p className="text-[#4B5563]">{p.content}</p>}
+                      </div>
+                    ) : (
+                      <span>{p}</span>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -690,9 +697,9 @@ export default function HotelDetailPage() {
                 <div>
                   <h4 className="text-base font-semibold text-[#0F172A] mb-3">Tiện nghi</h4>
                   <div className="flex flex-wrap gap-2 text-xs text-[#374151]">
-                    {(roomModal.room.amenities && roomModal.room.amenities.length > 0 ? roomModal.room.amenities : amenityList).map((a) => (
-                      <span key={a} className="inline-flex items-center gap-1 rounded-full bg-[#F3F4F6] px-3 py-1">
-                        {a}
+                    {(roomModal.room.amenities && roomModal.room.amenities.length > 0 ? roomModal.room.amenities : amenityList).map((a, idx) => (
+                      <span key={typeof a === 'object' ? (a.id || a.title || idx) : (a || idx)} className="inline-flex items-center gap-1 rounded-full bg-[#F3F4F6] px-3 py-1">
+                        {typeof a === 'object' ? a.title : a}
                       </span>
                     ))}
                   </div>
