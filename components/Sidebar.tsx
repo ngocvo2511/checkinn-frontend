@@ -7,6 +7,7 @@ export default function Sidebar({ activeItem = 'Support' }: SidebarProps) {
     { icon: 'user-circle', label: 'Personal Data', path: '/personal-data' },
     { icon: 'credit-card', label: 'Payment Account', path: '/payment-account' },
     { icon: 'luggage', label: 'Trips', path: '/trips', hasDropdown: true },
+    { icon: 'luggage', label: 'My Bookings', path: '/personal-data/my-bookings' },
     { icon: 'heart', label: 'Wish Lists', path: '/wish-lists' },
     { icon: 'support', label: 'Support', path: '/help-center' },
     { icon: 'comment-text', label: 'My Reviews', path: '/my-reviews' },

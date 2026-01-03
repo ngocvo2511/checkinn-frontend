@@ -21,8 +21,21 @@ export default function VnPayReturnPage() {
       .processVnPayReturn(qs)
       .then((resp) => {
         setPayment(resp);
-        setStatus("success");
-        setMessage("Thanh toán VNPay thành công. Đơn đặt phòng đã được xác nhận.");
+        // Check VNPay response code: 00 = success, others = failed/cancelled
+        if (resp.vnpayResponseCode === "00" || resp.status === "COMPLETED") {
+          setStatus("success");
+          setMessage("Thanh toán VNPay thành công. Đơn đặt phòng đã được xác nhận.");
+        } else {
+          setStatus("failed");
+          const code = resp.vnpayResponseCode;
+          if (code === "24") {
+            setMessage("Giao dịch bị hủy bởi người dùng.");
+          } else if (code === "11") {
+            setMessage("Đã hết hạn thanh toán. Vui lòng thử lại.");
+          } else {
+            setMessage(`Thanh toán thất bại (Mã lỗi: ${code}). Vui lòng thử lại.`);
+          }
+        }
       })
       .catch((err: any) => {
         setStatus("failed");
@@ -90,18 +103,30 @@ export default function VnPayReturnPage() {
             </div>
 
             <div className="flex flex-wrap gap-3">
+              {status === "failed" && bookingId && (
+                <button
+                  onClick={() => router.push(`/booking/payment?bookingId=${bookingId}`)}
+                  className="flex-1 rounded-lg bg-[#2563EB] px-4 py-2 text-white text-sm font-semibold hover:bg-[#1D4ED8]"
+                >
+                  Thử lại thanh toán
+                </button>
+              )}
               <button
                 onClick={() => router.push("/")}
-                className="rounded-lg bg-[#2563EB] px-4 py-2 text-white text-sm font-semibold hover:bg-[#1D4ED8]"
+                className={`rounded-lg px-4 py-2 text-sm font-semibold ${
+                  status === "failed" 
+                    ? "border border-[#2563EB] text-[#1D4ED8] bg-[#EEF2FF] hover:bg-[#E0E7FF]"
+                    : "bg-[#2563EB] text-white hover:bg-[#1D4ED8]"
+                }`}
               >
                 Về trang chủ
               </button>
-              {bookingId && (
+              {bookingId && status === "success" && (
                 <button
                   onClick={() => router.push(`/booking/${bookingId}`)}
                   className="rounded-lg border border-[#2563EB] px-4 py-2 text-sm font-semibold text-[#1D4ED8] bg-[#EEF2FF] hover:bg-[#E0E7FF]"
                 >
-                  Xem đơn của tôi
+                  Xem đơn đặt phòng
                 </button>
               )}
             </div>

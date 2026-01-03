@@ -451,7 +451,10 @@ export default function PersonalDataForm() {
                 selected={formData.birthday ? new Date(formData.birthday) : null}
                 onChange={(date) => {
                   if (date) {
-                    const formatted = date.toISOString().split('T')[0];
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const formatted = `${year}-${month}-${day}`;
                     setFormData({...formData, birthday: formatted});
                   }
                 }}

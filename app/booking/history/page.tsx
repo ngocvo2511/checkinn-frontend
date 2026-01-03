@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { bookingApi, type BookingResponse } from "@/lib/api/booking";
 import { type AuthResponse } from "@/lib/api/auth";
+import { reviewApi } from "@/lib/api/reviews";
 
 const statusColor: Record<string, string> = {
   PENDING: "bg-amber-100 text-amber-800",
@@ -29,12 +30,37 @@ function formatCurrency(amount?: number | null) {
   return amount.toLocaleString("vi-VN") + " VND";
 }
 
+function getRatingColor(value: number) {
+  if (value >= 9) return 'text-green-600';
+  if (value >= 8) return 'text-blue-600';
+  if (value >= 7) return 'text-cyan-600';
+  if (value >= 6) return 'text-yellow-600';
+  if (value >= 5) return 'text-orange-600';
+  return 'text-red-600';
+}
+
 export default function BookingHistoryPage() {
   const router = useRouter();
   const [user, setUser] = useState<AuthResponse | null>(null);
   const [bookings, setBookings] = useState<BookingResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reviewedBookings, setReviewedBookings] = useState<Set<string>>(new Set());
+  const [selectedReview, setSelectedReview] = useState<any>(null);
+
+  const handleViewReview = async (bookingId: string) => {
+    const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+    if (!token) return;
+    
+    try {
+      const review = await reviewApi.getReviewByBookingId(bookingId, token);
+      if (review) {
+        setSelectedReview(review);
+      }
+    } catch (err) {
+      console.error('Error fetching review:', err);
+    }
+  };
 
   useEffect(() => {
     const stored = localStorage.getItem("user");
@@ -54,11 +80,36 @@ export default function BookingHistoryPage() {
     if (!user?.userId) return;
     setLoading(true);
     setError(null);
-    bookingApi
-      .getUserBookings(String(user.userId))
-      .then((data) => setBookings(data))
-      .catch((err: any) => setError(err?.message || "Không lấy được lịch sử đặt phòng"))
-      .finally(() => setLoading(false));
+    
+    const loadBookings = async () => {
+      try {
+        const data = await bookingApi.getUserBookings(String(user.userId));
+        setBookings(data);
+        
+        // Check which bookings have reviews
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        if (token) {
+          const checkedOutBookings = data.filter(b => b.status === 'CHECKED_OUT');
+          const reviewChecks = await Promise.all(
+            checkedOutBookings.map(b => 
+              reviewApi.hasBookingBeenReviewed(b.id, token)
+                .then(hasReview => ({ id: b.id, hasReview }))
+            )
+          );
+          
+          const reviewed = new Set(
+            reviewChecks.filter(r => r.hasReview).map(r => r.id)
+          );
+          setReviewedBookings(reviewed);
+        }
+      } catch (err: any) {
+        setError(err?.message || "Không lấy được lịch sử đặt phòng");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadBookings();
   }, [user?.userId]);
 
   const sorted = useMemo(() => {
@@ -107,42 +158,64 @@ export default function BookingHistoryPage() {
                 const badge = statusColor[booking.status] || "bg-gray-100 text-gray-700";
                 const firstItem = booking.items?.[0];
                 return (
-                  <div key={booking.id} className="rounded-2xl border border-[#E5E7EB] bg-white shadow-sm p-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${badge}`}>{booking.status}</span>
-                        <span className="text-xs text-[#6B7280]">Mã đơn: {booking.id}</span>
-                      </div>
-                      <div className="text-sm text-[#0F172A] font-semibold">{booking.hotelName}</div>
-                      <div className="text-sm text-[#4B5563]">{firstItem?.roomTypeName || "--"}</div>
-                      <div className="text-sm text-[#4B5563] flex flex-wrap gap-2">
-                        <span>Nhận phòng: {formatDate(booking.checkInDate as any)}</span>
-                        <span>·</span>
-                        <span>Trả phòng: {formatDate(booking.checkOutDate as any)}</span>
-                        <span>·</span>
-                        <span>Khách: {booking.adults} người lớn, {booking.children} trẻ em</span>
-                      </div>
-                      <div className="text-sm text-[#4B5563]">Tạo lúc: {formatDate(booking.createdAt as any)}</div>
-                    </div>
+                  <div key={booking.id}>
+                    <div className="rounded-2xl border border-[#E5E7EB] bg-white shadow-sm p-5">
+                      <div className="flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-start">
+                        <div className="space-y-2 flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${badge}`}>{booking.status}</span>
+                            <span className="text-xs text-[#6B7280]">Mã đơn: {booking.id}</span>
+                          </div>
+                          <div className="text-sm text-[#0F172A] font-semibold">{booking.hotelName}</div>
+                          <div className="text-sm text-[#4B5563]">{firstItem?.roomTypeName || "--"}</div>
+                          <div className="text-sm text-[#4B5563] flex flex-wrap gap-2">
+                            <span>Nhận phòng: {formatDate(booking.checkInDate as any)}</span>
+                            <span>·</span>
+                            <span>Trả phòng: {formatDate(booking.checkOutDate as any)}</span>
+                            <span>·</span>
+                            <span>Khách: {booking.adults} người lớn, {booking.children} trẻ em</span>
+                          </div>
+                          <div className="text-sm text-[#4B5563]">Tạo lúc: {formatDate(booking.createdAt as any)}</div>
+                        </div>
 
-                    <div className="flex flex-col items-start md:items-end gap-2">
-                      <div className="text-base font-semibold text-[#0F172A]">Tổng: {formatCurrency(Number(booking.totalAmount))}</div>
-                      <div className="text-sm text-[#6B7280]">Đã thanh toán: {formatCurrency(Number(booking.paidAmount))}</div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => router.push(`/booking/${booking.id}`)}
-                          className="rounded-lg border border-[#2563EB] px-3 py-2 text-sm font-semibold text-[#1D4ED8] bg-[#EEF2FF] hover:bg-[#E0E7FF]"
-                        >
-                          Xem chi tiết
-                        </button>
-                        {booking.status === "PENDING" || booking.status === "PENDING_PAYMENT" ? (
-                          <button
-                            onClick={() => router.push(`/booking/payment?bookingId=${booking.id}`)}
-                            className="rounded-lg bg-[#2563EB] px-3 py-2 text-sm font-semibold text-white hover:bg-[#1D4ED8]"
-                          >
-                            Thanh toán
-                          </button>
-                        ) : null}
+                        <div className="flex flex-col gap-3 w-full lg:w-auto lg:items-end">
+                          <div className="flex flex-col gap-1 min-w-max text-right">
+                            <div className="text-base font-semibold text-[#0F172A]">Tổng: {formatCurrency(Number(booking.totalAmount))}</div>
+                            <div className="text-sm text-[#6B7280]">Đã thanh toán: {formatCurrency(Number(booking.paidAmount))}</div>
+                          </div>
+                          <div className="flex gap-2 flex-wrap lg:flex-nowrap mt-9">
+                            {booking.status === "PENDING" || booking.status === "PENDING_PAYMENT" ? (
+                              <button
+                                onClick={() => router.push(`/booking/payment?bookingId=${booking.id}`)}
+                                className="rounded-lg bg-[#2563EB] px-3 py-2 text-sm font-semibold text-white hover:bg-[#1D4ED8] flex-1 lg:flex-none lg:w-28 whitespace-nowrap"
+                              >
+                                Thanh toán
+                              </button>
+                            ) : null}
+                            {booking.status === "CHECKED_OUT" && !reviewedBookings.has(booking.id) ? (
+                              <button
+                                onClick={() => router.push(`/reviews/new?bookingId=${booking.id}&hotelId=${booking.hotelId}`)}
+                                className="rounded-lg bg-green-600 px-3 py-2 text-sm font-semibold text-white hover:bg-green-700 flex-1 lg:flex-none lg:w-28 whitespace-nowrap"
+                              >
+                                Viết đánh giá
+                              </button>
+                            ) : null}
+                            {booking.status === "CHECKED_OUT" && reviewedBookings.has(booking.id) ? (
+                              <button
+                                onClick={() => handleViewReview(booking.id)}
+                                className="px-3 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 rounded-lg flex-1 lg:flex-none lg:w-28 whitespace-nowrap border border-blue-200"
+                              >
+                                Xem đánh giá
+                              </button>
+                            ) : null}
+                            <button
+                              onClick={() => router.push(`/booking/${booking.id}`)}
+                              className="rounded-lg border border-[#2563EB] px-3 py-2 text-sm font-semibold text-[#1D4ED8] bg-[#EEF2FF] hover:bg-[#E0E7FF] flex-1 lg:flex-none whitespace-nowrap"
+                            >
+                              Xem chi tiết
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -153,6 +226,96 @@ export default function BookingHistoryPage() {
         </div>
       </main>
       <Footer />
+
+      {/* Review Details Modal */}
+      {selectedReview && (
+        <div className="fixed inset-0 bg-gray-900/30 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+            {/* Close Button */}
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">Đánh giá của bạn</h2>
+              <button
+                onClick={() => setSelectedReview(null)}
+                className="text-gray-400 hover:text-gray-600 text-2xl"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Overall Rating */}
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-3 mb-2">
+                <div className={`text-4xl font-bold ${getRatingColor(selectedReview.rating)}`}>
+                  {selectedReview.rating}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-600">Điểm đánh giá tổng thể</p>
+                  <p className="text-xs text-gray-500">{formatDate(selectedReview.createdAt)}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Title and Content */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">{selectedReview.title}</h3>
+              <p className="text-gray-700 leading-relaxed">{selectedReview.content}</p>
+            </div>
+
+            {/* Detailed Ratings */}
+            {selectedReview.staffRating || selectedReview.amenitiesRating || selectedReview.cleanlinessRating || selectedReview.comfortRating || selectedReview.valueForMoneyRating || selectedReview.locationRating ? (
+              <div className="mb-6">
+                <h4 className="text-sm font-semibold text-gray-900 mb-3">Đánh giá chi tiết</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  {selectedReview.staffRating && (
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <span className="text-sm text-gray-600">👥 Nhân viên</span>
+                      <span className="font-semibold text-gray-900">{selectedReview.staffRating}</span>
+                    </div>
+                  )}
+                  {selectedReview.amenitiesRating && (
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <span className="text-sm text-gray-600">🏊 Tiện nghi</span>
+                      <span className="font-semibold text-gray-900">{selectedReview.amenitiesRating}</span>
+                    </div>
+                  )}
+                  {selectedReview.cleanlinessRating && (
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <span className="text-sm text-gray-600">✨ Sạch sẽ</span>
+                      <span className="font-semibold text-gray-900">{selectedReview.cleanlinessRating}</span>
+                    </div>
+                  )}
+                  {selectedReview.comfortRating && (
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <span className="text-sm text-gray-600">🛏️ Thoải mái</span>
+                      <span className="font-semibold text-gray-900">{selectedReview.comfortRating}</span>
+                    </div>
+                  )}
+                  {selectedReview.valueForMoneyRating && (
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <span className="text-sm text-gray-600">💰 Giá trị</span>
+                      <span className="font-semibold text-gray-900">{selectedReview.valueForMoneyRating}</span>
+                    </div>
+                  )}
+                  {selectedReview.locationRating && (
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <span className="text-sm text-gray-600">📍 Địa điểm</span>
+                      <span className="font-semibold text-gray-900">{selectedReview.locationRating}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
+
+            {/* Close Button */}
+            <button
+              onClick={() => setSelectedReview(null)}
+              className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+            >
+              Đóng
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -117,8 +117,11 @@ export default function PaymentPage() {
         : "Trang thanh toán không khả dụng cho trạng thái đơn hiện tại.";
       setError(statusMsg);
       router.replace(`/booking/${booking.id}`);
+    } else if (booking.status === "PENDING" && !error) {
+      // Show info message for retry scenario
+      setSuccessMessage("Bạn có thể chọn lại phương thức thanh toán.");
     }
-  }, [booking, isPayableStatus, router]);
+  }, [booking, isPayableStatus, router, error]);
 
   useEffect(() => {
     // Initialize remaining time from server expiry
