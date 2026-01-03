@@ -1077,9 +1077,9 @@ export default function HotelDetailPage() {
                 <div>
                   <h4 className="text-base font-semibold text-[#0F172A] mb-3">Tiện nghi</h4>
                   <div className="flex flex-wrap gap-2 text-xs text-[#374151]">
-                    {(roomModal.room.amenities && roomModal.room.amenities.length > 0 ? roomModal.room.amenities : amenityList).map((a) => (
-                      <span key={a} className="inline-flex items-center gap-1 rounded-full bg-[#F3F4F6] px-3 py-1">
-                        {a}
+                    {(roomModal.room.amenities && roomModal.room.amenities.length > 0 ? roomModal.room.amenities : amenityList).map((a, idx) => (
+                      <span key={typeof a === 'object' ? (a.id || a.title || idx) : (a || idx)} className="inline-flex items-center gap-1 rounded-full bg-[#F3F4F6] px-3 py-1">
+                        {typeof a === 'object' ? a.title : a}
                       </span>
                     ))}
                   </div>

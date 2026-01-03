@@ -12,7 +12,7 @@ const hotels = [
 const metrics = [
   { label: 'Booking hôm nay', value: '26', helper: '+5 so với hôm qua' },
   { label: 'Tỉ lệ lấp đầy', value: '78%', helper: '3 khách sạn đang mở' },
-  { label: 'Doanh thu tuần', value: '$12,430', helper: 'Giả lập để xem layout' },
+  { label: 'Doanh thu tuần', value: '12.430.000 ₫', helper: 'Giả lập để xem layout' },
 ];
 
 export default function HostDashboardPage() {
