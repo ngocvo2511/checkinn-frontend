@@ -33,7 +33,8 @@ const cleanHotelData = (hotel: any): Hotel => {
     } : undefined,
     policies: hotel.policies?.map((p: any) => ({
       ...p,
-      title: parseStringValue(p.title),
+      title: p.title ? parseStringValue(p.title) : undefined,
+      category: p.category ? parseStringValue(p.category) : undefined,
       content: parseStringValue(p.content),
     })),
     faqs: hotel.faqs?.map((f: any) => ({
@@ -108,7 +109,8 @@ export interface CapacityDto {
 }
 
 export interface PolicyResponse {
-  title: string;
+  title?: string;      // Legacy field for backward compatibility
+  category?: string;   // New field using predefined categories
   content: string;
 }
 
@@ -130,22 +132,6 @@ export interface AmenityResponse {
 
 export interface AmenityCategoryOption {
   type: string;
-}
-
-export interface PolicyResponse {
-  title: string;
-  content: string;
-}
-
-export interface AmenityItemResponse {
-  id: string;
-  title: string;
-}
-
-export interface AmenityResponse {
-  id: string;
-  title: string;
-  items: AmenityItemResponse[];
 }
 
 export interface RoomType {

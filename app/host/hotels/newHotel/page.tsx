@@ -8,8 +8,12 @@ import HostMenu from '@/components/host/menu/HostMenu';
 import { cityApi, type City } from '@/lib/api/cities';
 
 type Policy = {
-  title: string;
+  category: string;
   content: string;
+};
+
+type PolicyCategory = {
+  type: string;
 };
 
 type Question = {
@@ -80,6 +84,9 @@ export default function HostCreateHotelPage() {
   const [loadingCities, setLoadingCities] = useState(false);
   const [citiesError, setCitiesError] = useState<string | null>(null);
 
+  const [policyCategories, setPolicyCategories] = useState<PolicyCategory[]>([]);
+  const [loadingPolicyCategories, setLoadingPolicyCategories] = useState(false);
+
   const [cityInput, setCityInput] = useState('');
   const [showCitySuggestions, setShowCitySuggestions] = useState(false);
   const [citySelected, setCitySelected] = useState(false);
@@ -106,7 +113,22 @@ export default function HostCreateHotelPage() {
       }
     };
 
+    const fetchPolicyCategories = async () => {
+      try {
+        setLoadingPolicyCategories(true);
+        const response = await fetch(`${API_BASE_URL}/hotels/policies/categories`);
+        if (!response.ok) throw new Error('Không thể tải danh sách loại chính sách');
+        const data = await response.json();
+        setPolicyCategories(data.result || data);
+      } catch (err: any) {
+        console.error('Lỗi tải policy categories:', err);
+      } finally {
+        setLoadingPolicyCategories(false);
+      }
+    };
+
     fetchCities();
+    fetchPolicyCategories();
   }, []);
 
   useEffect(() => {
@@ -133,7 +155,7 @@ export default function HostCreateHotelPage() {
 
   // Policies handlers
   const addPolicy = () => {
-    setForm((prev) => ({ ...prev, policies: [...prev.policies, { title: '', content: '' }] }));
+    setForm((prev) => ({ ...prev, policies: [...prev.policies, { category: '', content: '' }] }));
   };
 
   const updatePolicy = (index: number, field: keyof Policy, value: string) => {
@@ -305,7 +327,7 @@ export default function HostCreateHotelPage() {
       taxId: form.taxId.trim() || null,
       operationLicenseNumber: form.operationLicenseNumber.trim() || null,
       ownerIdentityNumber: form.ownerIdentityNumber.trim(),
-      policies: form.policies.filter(p => p.title.trim() && p.content.trim()),
+      policies: form.policies.filter(p => p.category.trim() && p.content.trim()),
       questions: (form.questions ?? []).filter(q => q.question.trim() && q.answer.trim()),
       amenityCategories: form.amenityCategories.filter(cat => cat.title.trim() && cat.amenities.some(a => a.title.trim())).map(cat => ({
         title: cat.title.trim(),
@@ -616,13 +638,20 @@ export default function HostCreateHotelPage() {
                         </button>
                       </div>
                       <div className="space-y-2">
-                        <label className="text-base font-semibold text-[#1F2226]">Tiêu đề</label>
-                        <input
-                          value={policy.title}
-                          onChange={(e) => updatePolicy(index, 'title', e.target.value)}
-                          className="w-full rounded-xl border border-[#E8E9F1] px-4 py-3 text-base text-[#1F2226] placeholder:text-[#A3A8B4] focus:border-[#0057FF] focus:outline-none"
-                          placeholder="Vi du: Chinh sach huy phong"
-                        />
+                        <label className="text-base font-semibold text-[#1F2226]">Loại chính sách</label>
+                        <select
+                          value={policy.category}
+                          onChange={(e) => updatePolicy(index, 'category', e.target.value)}
+                          className="w-full rounded-xl border border-[#E8E9F1] px-4 py-3 text-base text-[#1F2226] focus:border-[#0057FF] focus:outline-none"
+                          disabled={loadingPolicyCategories}
+                        >
+                          <option value="">-- Chọn loại chính sách --</option>
+                          {policyCategories.map((cat) => (
+                            <option key={cat.type} value={cat.type}>
+                              {cat.type}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                       <div className="space-y-2">
                         <label className="text-base font-semibold text-[#1F2226]">Nội dung</label>
