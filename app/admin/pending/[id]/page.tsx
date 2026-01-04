@@ -6,6 +6,48 @@ import Header from '@/components/Header';
 import AdminMenu from '@/components/admin/menu/AdminMenu';
 import { hotelApi, PendingHotelDetail } from '@/lib/api/hotels';
 
+const policyCategoryIcons: Record<string, string> = {
+  'Thời gian nhận phòng/trả phòng': 'https://via.placeholder.com/24?text=T',
+  'Giấy Tờ Bắt Buộc': 'https://ik.imagekit.io/tvlk/image/imageResource/2022/07/20/1658303062126-7ff2e4dee7cbfef2179ab8692cdb8445.png?tr=dpr-2,h-24,q-75,w-24',
+  'Bữa sáng': 'https://ik.imagekit.io/tvlk/image/imageResource/2022/07/20/1658303044943-16a7f9237ecc5f8ef53017f20f9352e1.png?tr=dpr-2,h-24,q-75,w-24',
+  'Hút thuốc': 'https://ik.imagekit.io/tvlk/image/imageResource/2022/07/20/1658303183805-1f9089402093bca18a74f87786ff4db7.png?tr=dpr-2,h-24,q-75,w-24',
+  'Thú cưng': 'https://ik.imagekit.io/tvlk/image/imageResource/2022/07/20/1658303178485-041b197f4a58d8b0a7d3df8e479a2a31.png?tr=dpr-2,h-24,q-75,w-24',
+  'Chính Sách Bổ Sung': 'https://ik.imagekit.io/tvlk/image/imageResource/2022/07/20/1658303039228-e8d58e0c5637ec0f262ac2a18b5b3796.png?tr=dpr-2,h-24,q-75,w-24',
+  'Đưa đón sân bay': 'https://ik.imagekit.io/tvlk/image/imageResource/2022/07/20/1658303042410-47c7c45550cb8dca266638e558a33c6c.png?tr=dpr-2,h-24,q-75,w-24',
+  'Hướng Dẫn Nhận Phòng Chung': 'https://ik.imagekit.io/tvlk/image/imageResource/2022/07/20/1658303166332-9509e705d4f7add6f628bb488b7a39f8.png?tr=dpr-2,h-24,q-75,w-24',
+  'Chính sách về độ tuổi tối thiểu': 'https://ik.imagekit.io/tvlk/image/imageResource/2022/07/20/1658303171533-933466334334be7c091b64037e4d92c8.png?tr=dpr-2,h-24,q-75,w-24',
+  'Nhận phòng sớm': 'https://ik.imagekit.io/tvlk/image/imageResource/2022/07/20/1658303114232-d7a69eda4caa4afa1fc05ae83c404731.png?tr=dpr-2,h-24,q-75,w-24',
+  'Trả phòng trễ': 'https://ik.imagekit.io/tvlk/image/imageResource/2022/07/20/1658303169127-17694cc343283908e1d04723a09f5002.png?tr=dpr-2,h-24,q-75,w-24',
+  Khác: 'https://via.placeholder.com/24?text=O',
+};
+
+const PolicyIcon = ({ category }: { category?: string }) => {
+  if (!category) return null;
+  if (category === 'Thời gian nhận phòng/trả phòng') {
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-5 h-5 text-[#0F172A] flex-shrink-0 mt-0.5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+      </svg>
+    );
+  }
+  if (category === 'Khác') {
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-5 h-5 text-[#4B5563] flex-shrink-0 mt-0.5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+      </svg>
+    );
+  }
+  const iconUrl = policyCategoryIcons[category];
+  if (!iconUrl) {
+    return (
+      <span className="w-5 h-5 flex items-center justify-center rounded-full bg-[#E5E7EB] text-[10px] font-semibold text-[#4B5563] mt-0.5">
+        {category.slice(0, 2).toUpperCase()}
+      </span>
+    );
+  }
+  return <img src={iconUrl} alt={category} className="w-5 h-5 object-contain flex-shrink-0 mt-0.5" />;
+};
+
 export default function AdminPendingHotelDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -257,9 +299,12 @@ export default function AdminPendingHotelDetailPage() {
                   {hotel.policies && hotel.policies.length > 0 ? (
                     <div className="space-y-4">
                       {hotel.policies.map((policy: any, index: number) => (
-                        <div key={index} className="border-b pb-4 last:border-b-0">
-                          <h3 className="font-semibold text-gray-900">{policy.title}</h3>
-                          <p className="text-gray-700 mt-1 text-base">{policy.content}</p>
+                        <div key={index} className="border-b pb-4 last:border-b-0 flex gap-3">
+                          <PolicyIcon category={policy.category || policy.title} />
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-gray-900">{policy.category || policy.title}</h3>
+                            <p className="text-gray-700 mt-1 text-base">{policy.content}</p>
+                          </div>
                         </div>
                       ))}
                     </div>
