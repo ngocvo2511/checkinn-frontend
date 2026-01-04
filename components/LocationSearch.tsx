@@ -15,15 +15,12 @@ export function LocationSearch({ onCitySelect }: LocationSearchProps = {}) {
   const [error, setError] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const popularCodes = ["DN", "DAL", "VTA", "NT"];
+  const popularCityNames = ["Hà Nội", "TP. Hồ Chí Minh", "Đà Nẵng", "Nha Trang", "Đà Lạt", "Vũng Tàu"];
 
   const typeLabel: Record<string, string> = {
     PROVINCE: "Tỉnh",
     CITY: "Thành Phố",
   };
-
-  // Popular cities to show when dropdown first opens
-  const popularCityCodes = ["HN", "HCM", "DN", "NT", "DAL", "VTA", "CT"];
 
   const buildSubtitle = (city: City): string => {
     const parent = city.parentName || city.parentCode;
@@ -119,14 +116,17 @@ export function LocationSearch({ onCitySelect }: LocationSearchProps = {}) {
     <div className="relative w-full" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full h-full min-h-[72px] text-left rounded-2xl border border-[#E4E6EB] bg-white px-6 py-4 hover:border-[#0057FF] hover:bg-[#F7FAFF] transition md:rounded-none md:border-0 md:border-r md:border-r-[#E4E6EB] md:px-6 md:py-3 flex items-center"
+        className="w-full h-full min-h-[72px] text-left rounded-2xl border border-[#E4E6EB] bg-white px-6 py-4 hover:border-[#0057FF] hover:bg-[#F7FAFF] transition-all md:rounded-none md:border-0 md:border-r md:border-r-[#E4E6EB] md:px-5 md:py-4 flex items-center gap-3 group"
       >
-        <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#8B94A4]">
-            Location
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0 text-[#0057FF] group-hover:scale-110 transition-transform">
+          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="currentColor"/>
+        </svg>
+        <div className="space-y-1 flex-1">
+          <p className="text-sm font-semibold tracking-wide text-[#8B94A4]">
+            Địa điểm
           </p>
-          <p className="text-sm font-medium text-[#2B3037]">
-            {selectedCity ? selectedCity.name : "Where are you going?"}
+          <p className="text-base font-medium text-[#2B3037] group-hover:text-[#0057FF] transition-colors">
+            {selectedCity ? selectedCity.name : "Bạn muốn đi đâu?"}
           </p>
         </div>
       </button>
@@ -217,7 +217,7 @@ export function LocationSearch({ onCitySelect }: LocationSearchProps = {}) {
               <div className="px-6 py-4">
                 <p className="text-sm font-semibold text-[#111827] mb-4">Điểm đến phổ biến</p>
                 <div className="space-y-2">
-                  {(cities.filter((c) => popularCodes.includes(c.code)) as City[]).map((item) => (
+                  {(cities.filter((c) => popularCityNames.includes(c.name)) as City[]).map((item) => (
                     <button
                       key={item.id}
                       onClick={() => handleSelectCity(item)}

@@ -4,9 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import UserSidebar from "@/components/UserSidebar";
 import { bookingApi, type BookingResponse } from "@/lib/api/booking";
 import { type AuthResponse } from "@/lib/api/auth";
 import { reviewApi } from "@/lib/api/reviews";
+import hotelApi from "@/lib/api/hotels";
 
 const statusColor: Record<string, string> = {
   PENDING: "bg-amber-100 text-amber-800",
@@ -42,11 +44,16 @@ function getRatingColor(value: number) {
 export default function BookingHistoryPage() {
   const router = useRouter();
   const [user, setUser] = useState<AuthResponse | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+  const [showSignup, setShowSignup] = useState(false);
+  const [signupVariant, setSignupVariant] = useState<'user' | 'host'>('user');
   const [bookings, setBookings] = useState<BookingResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reviewedBookings, setReviewedBookings] = useState<Set<string>>(new Set());
   const [selectedReview, setSelectedReview] = useState<any>(null);
+  const [hotelImages, setHotelImages] = useState<Record<string, string>>({});
 
   const handleViewReview = async (bookingId: string) => {
     const token = localStorage.getItem('token') || localStorage.getItem('authToken');
@@ -66,6 +73,7 @@ export default function BookingHistoryPage() {
     const stored = localStorage.getItem("user");
     if (!stored) {
       setLoading(false);
+      setMounted(true);
       return;
     }
     try {
@@ -74,6 +82,7 @@ export default function BookingHistoryPage() {
     } catch (err) {
       console.error("Failed to parse user", err);
     }
+    setMounted(true);
   }, []);
 
   useEffect(() => {
@@ -112,15 +121,64 @@ export default function BookingHistoryPage() {
     loadBookings();
   }, [user?.userId]);
 
+  // Fetch hotel images for all bookings
+  useEffect(() => {
+    if (bookings.length === 0) return;
+
+    const fetchHotelImages = async () => {
+      const images: Record<string, string> = {};
+      
+      // Get unique hotel IDs that need to be fetched
+      const hotelIdsToFetch = bookings
+        .filter(b => b.hotelId && !hotelImages[b.hotelId])
+        .map(b => b.hotelId)
+        .filter((id, idx, arr) => arr.indexOf(id) === idx); // Remove duplicates
+      
+      // Fetch all hotels in parallel
+      const hotelPromises = hotelIdsToFetch.map(hotelId =>
+        hotelApi.getHotelById(hotelId)
+          .then(hotel => {
+            if (hotel.mediaAssets && hotel.mediaAssets.length > 0) {
+              images[hotelId] = hotel.mediaAssets[0].url;
+            }
+          })
+          .catch(err => console.error(`Error fetching hotel ${hotelId}:`, err))
+      );
+      
+      await Promise.all(hotelPromises);
+      
+      if (Object.keys(images).length > 0) {
+        setHotelImages(prev => ({ ...prev, ...images }));
+      }
+    };
+
+    fetchHotelImages();
+  }, [bookings.length, hotelImages]);
+
+  const handleEditProfile = () => {
+    router.push("/personal-data");
+  };
+
   const sorted = useMemo(() => {
     return [...bookings].sort((a, b) => new Date(b.createdAt as any).getTime() - new Date(a.createdAt as any).getTime());
   }, [bookings]);
 
+  if (!mounted) return null;
+
   return (
     <div className="bg-white text-[#0F172A] min-h-screen flex flex-col">
-      <Header user={null} onLogin={() => {}} onSignup={() => {}} onLogout={() => {}} onEditProfile={() => {}} />
-      <main className="flex-1 bg-[#F8FAFC] py-10">
-        <div className="mx-auto max-w-5xl px-4 md:px-8">
+      <Header 
+        onLogin={() => setShowLogin(true)} 
+        onSignup={() => { setSignupVariant('user'); setShowSignup(true); }} 
+        onEditProfile={handleEditProfile}
+      />
+      <main className="flex-1 bg-[#f9f9f9]">
+        <div className="flex-1 max-w-[1440px] mx-auto w-full px-[104px] py-8">
+          <div className="flex gap-6">
+            <UserSidebar fullName={user?.fullName} activeMenu="bookings" />
+
+            {/* Main Content Area */}
+            <div className="flex-1 min-w-0">
           <div className="mb-6 flex items-center justify-between gap-3">
             <div>
               <p className="text-sm text-[#6B7280]">Lịch sử đặt phòng</p>
@@ -160,8 +218,26 @@ export default function BookingHistoryPage() {
                 return (
                   <div key={booking.id}>
                     <div className="rounded-2xl border border-[#E5E7EB] bg-white shadow-sm p-5">
-                      <div className="flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-start">
-                        <div className="space-y-2 flex-1 min-w-0">
+                      <div className="flex flex-col gap-4 lg:flex-row lg:gap-6 lg:justify-between lg:items-start">
+                        {/* Hotel Image */}
+                        <div className="w-full lg:w-48 lg:h-40 flex-shrink-0">
+                          <div className="relative w-full h-48 lg:h-40 rounded-xl overflow-hidden bg-gray-200">
+                            {hotelImages[booking.hotelId] ? (
+                              <img 
+                                src={hotelImages[booking.hotelId]} 
+                                alt={booking.hotelName}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                Đang tải ảnh...
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0 space-y-2">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className={`px-3 py-1 rounded-full text-xs font-semibold ${badge}`}>{booking.status}</span>
                             <span className="text-xs text-[#6B7280]">Mã đơn: {booking.id}</span>
@@ -223,6 +299,8 @@ export default function BookingHistoryPage() {
               })}
             </div>
           )}
+            </div>
+          </div>
         </div>
       </main>
       <Footer />

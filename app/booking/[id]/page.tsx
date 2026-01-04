@@ -53,7 +53,7 @@ export default function BookingDetailsPage() {
 
   return (
     <div className="bg-white text-[#0F172A] min-h-screen flex flex-col">
-      <Header user={null} onLogin={() => {}} onSignup={() => {}} onLogout={() => {}} onEditProfile={() => {}} />
+      <Header />
       <main className="flex-1 bg-[#F8FAFC] py-10">
         <div className="mx-auto max-w-4xl px-4 md:px-8">
           <div className="mb-6 flex items-center justify-between gap-3">

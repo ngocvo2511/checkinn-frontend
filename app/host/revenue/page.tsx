@@ -7,7 +7,6 @@ import { revenueApi, OwnerSummaryResponse, OwnerRevenueResponse, HotelSummaryIte
 import type { AuthResponse } from '@/lib/api/auth';
 
 export default function HostRevenuePage() {
-  const [user, setUser] = useState<AuthResponse | null>(null);
   const [selectedHotelId, setSelectedHotelId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,24 +36,23 @@ export default function HostRevenuePage() {
   const [ownerSummary, setOwnerSummary] = useState<OwnerSummaryResponse | null>(null);
   const [ownerRevenue, setOwnerRevenue] = useState<OwnerRevenueResponse | null>(null);
 
-  // Load user from localStorage
+  // Fetch owner summary and revenue data
   useEffect(() => {
-    const stored = localStorage.getItem('user');
-    if (!stored) {
+    const storedUser = localStorage.getItem('user');
+    if (!storedUser) {
       setLoading(false);
       return;
     }
+    
+    let user: AuthResponse;
     try {
-      const parsed = JSON.parse(stored) as AuthResponse;
-      setUser(parsed);
+      user = JSON.parse(storedUser) as AuthResponse;
     } catch (err) {
       console.error('Failed to parse user', err);
       setLoading(false);
+      return;
     }
-  }, []);
-
-  // Fetch owner summary and revenue data
-  useEffect(() => {
+    
     if (!user?.userId) {
       setLoading(false);
       return;
@@ -100,7 +98,7 @@ export default function HostRevenuePage() {
     };
     
     fetchData();
-  }, [user?.userId, appliedDateRange.from, appliedDateRange.to]);
+  }, [appliedDateRange.from, appliedDateRange.to]);
 
   const selectedHotel = useMemo(() => {
     if (!ownerSummary || !selectedHotelId) return null;

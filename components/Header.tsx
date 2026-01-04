@@ -1,28 +1,146 @@
-import Logo from './Logo';
+'use client';
 
-export default function Header() {
+import { useState, useEffect } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import Logo from './Logo';
+import { useAuth } from '@/hooks/useAuth';
+
+export default function Header({ onLogin, onSignup, onEditProfile }: { onLogin?: () => void; onSignup?: () => void; onEditProfile?: () => void } = {}) {
+  const [showMenu, setShowMenu] = useState(false);
+  const pathname = usePathname();
+  const isHome = pathname === '/';
+  const [isScrolled, setIsScrolled] = useState(!isHome);
+  const [isVisible, setIsVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
+  const router = useRouter();
+  const { user, logout, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (!isHome) {
+      setIsScrolled(true);
+      return;
+    }
+
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 50);
+    };
+
+    // Check initial scroll position when component mounts
+    handleScroll();
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [isHome]);
+
+  // Hide/show header on scroll - only for search and hotel detail pages
+  useEffect(() => {
+    const isSearchPage = pathname.includes('/search');
+    const isHotelPage = pathname.includes('/hotel/');
+    
+    if (!isSearchPage && !isHotelPage) return;
+
+    const handleScrollVisibility = () => {
+      const currentScrollY = window.scrollY;
+      
+      // Show header if at top or scrolling up
+      if (currentScrollY < lastScrollY || currentScrollY < 100) {
+        setIsVisible(true);
+      } 
+      // Hide header if scrolling down and not at top
+      else if (currentScrollY > lastScrollY && currentScrollY > 100) {
+        setIsVisible(false);
+      }
+      
+      setLastScrollY(currentScrollY);
+    };
+
+    window.addEventListener('scroll', handleScrollVisibility);
+    return () => window.removeEventListener('scroll', handleScrollVisibility);
+  }, [lastScrollY, pathname]);
+
   return (
-    <header className="flex items-center justify-center w-full h-24 px-[104px] py-4 bg-white shadow-[0_1px_15px_0_rgba(0,0,0,0.14)]">
-      <div className="flex items-center justify-between w-full">
-        <Logo />
-        
-        <div className="flex items-center gap-2 pr-12">
-          <div className="flex items-center justify-center w-10 h-10">
-            <div className="w-10 h-10 rounded-full bg-gray-300" style={{ backgroundImage: 'url(https://api.builder.io/api/v1/image/assets/TEMP/f55b53fee651ff9733d528589582445022ab24de?width=48)', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
-          </div>
-          
-          <div className="flex items-center justify-center h-12 px-2 gap-2 rounded-xl">
-            <div className="flex items-center justify-center w-6 h-6 rounded-full">
-              <img src="https://api.builder.io/api/v1/image/assets/TEMP/f55b53fee651ff9733d528589582445022ab24de?width=48" alt="flag" className="w-6 h-6" />
-            </div>
-            <span className="text-base font-medium leading-5 text-[#0057FF]">USD</span>
-          </div>
-          
-          <button className="flex items-center justify-center w-12 h-12 p-3 rounded-full hover:bg-gray-100 transition-colors">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M21.2551 8.86147C20.871 3.90801 16.8776 0 12.004 0C7.13038 0 3.13705 3.90801 2.75292 8.86147C1.1924 9.16017 0 10.579 0 12.2799V13.5411C0 15.4661 1.5045 17.026 3.36112 17.026H4.76959C5.20974 17.026 5.56986 16.6526 5.56986 16.1962V9.62482C5.56986 9.16847 5.20974 8.79509 4.76959 8.79509H4.35345C4.76159 4.78752 8.03468 1.65945 11.996 1.65945C15.9573 1.65945 19.2384 4.78752 19.6385 8.79509H19.2224C18.7823 8.79509 18.4221 9.16847 18.4221 9.62482V16.1962C18.4221 16.6526 18.7823 17.026 19.2224 17.026H19.3585V17.2334C19.3585 18.6522 18.2461 19.8139 16.8696 19.8139H15.021C14.997 18.9675 14.3248 18.2872 13.5005 18.2872H10.1234C9.28309 18.2872 8.60287 18.9924 8.60287 19.8636V21.4235C8.60287 22.2947 9.28309 23 10.1234 23H13.5005C14.3248 23 14.997 22.3196 15.021 21.4733H16.8696C19.1264 21.4733 20.959 19.5732 20.959 17.2334V16.9928C22.6636 16.8185 24 15.3499 24 13.5411V12.2799C24 10.5707 22.8076 9.16017 21.2471 8.86147H21.2551Z" fill="#0057FF"/>
-            </svg>
-          </button>
+    <header className={`sticky top-0 z-30 transition-all duration-300 ${isScrolled ? 'bg-white/95 backdrop-blur shadow-sm' : 'bg-transparent'} ${isVisible ? 'translate-y-0' : '-translate-y-full'}`}>
+      <div className="mx-auto flex h-24 max-w-screen-xl items-center justify-between px-4 md:px-8 lg:px-10">
+        <Logo isScrolled={isScrolled} />
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+          {user ? (
+            <>
+              <button
+                className={`hidden rounded-full px-4 py-2 text-sm font-medium md:inline-flex transition-colors ${isScrolled ? 'text-[#2B3037] hover:bg-[#F1F2F3]' : 'text-white hover:bg-white/10'}`}
+                onClick={() => router.push('/booking/history')}
+              >
+                Đặt chỗ của tôi
+              </button>
+              <button
+                className={`hidden rounded-full px-4 py-2 text-sm font-medium md:inline-flex transition-colors ${isScrolled ? 'text-[#2B3037] hover:bg-[#F1F2F3]' : 'text-white hover:bg-white/10'}`}
+              >
+                Hợp tác với chúng tôi
+              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setShowMenu(!showMenu)}
+                  className={`flex items-center gap-2 rounded-full px-3 py-2 transition-colors ${isScrolled ? 'bg-[#F1F2F3] hover:bg-[#E1E2E7]' : 'bg-white/20 hover:bg-white/30'}`}
+                >
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#0057FF] text-xs font-bold text-white">
+                    {user.fullName?.[0]?.toUpperCase() || 'U'}
+                  </div>
+                  <span className={`text-sm font-medium transition-colors ${isScrolled ? 'text-[#2B3037]' : 'text-white'}`}>{user.fullName || 'User'}</span>
+                </button>
+                {showMenu && (
+                  <div className="absolute right-0 mt-2 w-48 rounded-xl border border-[#DDDFE3] bg-white shadow-lg">
+                    <button
+                      onClick={() => { onEditProfile?.(); setShowMenu(false); }}
+                      className="w-full px-4 py-2 text-left text-sm text-[#2B3037] hover:bg-[#F1F2F3]"
+                    >
+                      Thông tin cá nhân
+                    </button>
+                    <button
+                      onClick={() => { router.push('/booking/history'); setShowMenu(false); }}
+                      className="w-full px-4 py-2 text-left text-sm text-[#2B3037] hover:bg-[#F1F2F3]"
+                    >
+                      Đặt chỗ của tôi
+                    </button>
+                    
+                    <hr className="my-1 border-[#DDDFE3]" />
+                    <button
+                      onClick={() => { logout(); setShowMenu(false); }}
+                      className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                    >
+                      Đăng xuất
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <button
+                className={`hidden rounded-full px-4 py-2 text-sm font-medium md:inline-flex transition-colors ${isScrolled ? 'text-[#2B3037] hover:bg-[#F1F2F3]' : 'text-white hover:bg-white/10'}`}
+                onClick={() => router.push('/booking/history')}
+              >
+                Đặt chỗ của tôi
+              </button>
+              <button
+                className={`hidden rounded-full px-4 py-2 text-sm font-medium md:inline-flex transition-colors ${isScrolled ? 'text-[#2B3037] hover:bg-[#F1F2F3]' : 'text-white hover:bg-white/10'}`}
+              >
+                Hợp tác với chúng tôi
+              </button>
+              <button
+                className={`rounded-xl border px-4 py-2 text-sm font-medium shadow-sm transition-colors ${isScrolled ? 'border-[#0057FF] bg-white text-[#0057FF] hover:bg-[#0057FF] hover:text-white' : 'border-white bg-transparent text-white hover:bg-white hover:text-[#0057FF]'}`}
+                onClick={onSignup}
+              >
+                Sign Up
+              </button>
+              <button
+                className={`rounded-xl px-4 py-2 text-sm font-medium shadow-sm transition-colors ${isScrolled ? 'bg-[#0057FF] text-white hover:bg-[#0046CC]' : 'bg-white text-[#0057FF] hover:bg-white/90'}`}
+                onClick={onLogin}
+              >
+                Login
+              </button>
+            </>
+          )}
+        </div>
         </div>
       </div>
     </header>

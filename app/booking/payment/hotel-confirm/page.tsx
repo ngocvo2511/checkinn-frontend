@@ -13,7 +13,7 @@ export default function HotelPaymentConfirmPage() {
 
   return (
     <div className="bg-white text-[#0F172A] min-h-screen flex flex-col">
-      <Header user={null} onLogin={() => {}} onSignup={() => {}} onLogout={() => {}} onEditProfile={() => {}} />
+      <Header />
       <main className="flex-1 bg-[#F8FAFC]">
         <div className="mx-auto max-w-xl px-4 py-12">
           <div className={`rounded-2xl border p-6 shadow-sm space-y-4 border-blue-400 bg-blue-50`}>

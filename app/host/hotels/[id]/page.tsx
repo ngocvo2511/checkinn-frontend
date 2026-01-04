@@ -662,7 +662,7 @@ export default function HostHotelDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-white">
-        <Header user={null} onLogin={() => {}} onSignup={() => {}} onLogout={() => {}} onEditProfile={() => {}} />
+        <Header />
         <div className="flex items-center justify-center min-h-[calc(100vh-72px)] text-[#2B3037]">
           Đang tải...
         </div>
@@ -673,7 +673,7 @@ export default function HostHotelDetailPage() {
   if (error || !hotel) {
     return (
       <div className="min-h-screen bg-white">
-        <Header user={null} onLogin={() => {}} onSignup={() => {}} onLogout={() => {}} onEditProfile={() => {}} />
+        <Header />
         <div className="flex items-center justify-center min-h-[calc(100vh-72px)]">
           <div className="text-center">
             <p className="text-red-600 text-lg">{error || "Không tìm thấy khách sạn"}</p>
@@ -691,7 +691,7 @@ export default function HostHotelDetailPage() {
 
   return (
     <div className="bg-white">
-      <Header user={null} onLogin={() => {}} onSignup={() => {}} onLogout={() => {}} onEditProfile={() => {}} />
+      <Header />
 
       <main className="flex">
         {/* Sidebar */}

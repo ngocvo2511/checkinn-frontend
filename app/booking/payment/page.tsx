@@ -267,7 +267,7 @@ export default function PaymentPage() {
 
   return (
     <div className="bg-white text-[#111827]">
-      <Header user={null} onLogin={() => {}} onSignup={() => {}} onLogout={() => {}} onEditProfile={() => {}} />
+      <Header />
 
       <main className="bg-[#F8FAFC] pb-12">
         <div className="mx-auto max-w-screen-xl px-4 md:px-8 lg:px-12 pt-8">

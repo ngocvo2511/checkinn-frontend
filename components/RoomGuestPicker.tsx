@@ -29,9 +29,9 @@ export function RoomGuestPicker({ onSelectionChange }: RoomGuestPickerProps) {
   }, []);
 
   const formatSelection = () => {
-    const roomText = rooms === 1 ? "1 room" : `${rooms} rooms`;
-    const adultText = adults === 1 ? "1 adult" : `${adults} adults`;
-    const childText = children === 0 ? "0 children" : children === 1 ? "1 child" : `${children} children`;
+    const roomText = rooms === 1 ? "1 phòng" : `${rooms} phòng`;
+    const adultText = adults === 1 ? "1 người lớn" : `${adults} người lớn`;
+    const childText = children === 0 ? "0 trẻ em" : children === 1 ? "1 trẻ em" : `${children} trẻ em`;
     return `${roomText}, ${adultText}, ${childText}`;
   };
 
@@ -51,24 +51,24 @@ export function RoomGuestPicker({ onSelectionChange }: RoomGuestPickerProps) {
     <div className="relative w-full h-full" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full h-full min-h-[72px] text-left flex items-center gap-5 px-3 py-3 md:px-4 md:py-4 hover:bg-[#F7FAFF] transition pl-12 md:pl-16 lg:pl-20"
+        className="w-full h-full min-h-[72px] text-left flex items-center gap-3 px-3 py-3 md:px-5 md:py-4 hover:bg-[#F7FAFF] transition-colors group cursor-pointer"
       >
         <svg
-          width="22"
-          height="22"
+          width="24"
+          height="24"
           viewBox="0 0 24 24"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          className="flex-shrink-0 mr-1"
+          className="flex-shrink-0 text-[#0057FF] group-hover:scale-110 transition-transform"
         >
           <path
             d="M10 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM15 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM10 10c-1.66 0-5 0.83-5 2.5V14h10v-1.5C15 10.83 11.66 10 10 10zm5 0c-.29 0-.62.02-.97.05.58.45.97 1.12.97 1.95V14h4v-1.5C19 10.83 15.66 10 15 10z"
-            fill="#0057FF"
+            fill="currentColor"
           />
         </svg>
-        <div className="flex flex-col leading-tight">
-          <span className="text-sm font-semibold text-[#2B3037]">Rooms and Guests</span>
-          <span className="text-sm text-[#8B94A4]">{formatSelection()}</span>
+        <div className="flex flex-col leading-tight space-y-1 flex-1">
+          <span className="text-sm font-semibold tracking-wide text-[#8B94A4]">Phòng và Khách</span>
+          <span className="text-base font-medium text-[#2B3037] group-hover:text-[#0057FF] transition-colors">{formatSelection()}</span>
         </div>
       </button>
 
@@ -78,8 +78,8 @@ export function RoomGuestPicker({ onSelectionChange }: RoomGuestPickerProps) {
             {/* Rooms */}
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-semibold text-[#2B3037]">Rooms</p>
-                <p className="text-xs text-[#8B94A4]">Number of rooms</p>
+                <p className="text-sm font-semibold text-[#2B3037]">Phòng</p>
+                <p className="text-xs text-[#8B94A4]">Số lượng phòng</p>
               </div>
               <div className="flex items-center gap-3">
                 <button
@@ -105,8 +105,8 @@ export function RoomGuestPicker({ onSelectionChange }: RoomGuestPickerProps) {
             {/* Adults */}
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-semibold text-[#2B3037]">Adults</p>
-                <p className="text-xs text-[#8B94A4]">Ages 18 or above</p>
+                <p className="text-sm font-semibold text-[#2B3037]">Người lớn</p>
+                <p className="text-xs text-[#8B94A4]">Từ 18 tuổi trở lên</p>
               </div>
               <div className="flex items-center gap-3">
                 <button
@@ -132,8 +132,8 @@ export function RoomGuestPicker({ onSelectionChange }: RoomGuestPickerProps) {
             {/* Children */}
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-semibold text-[#2B3037]">Children</p>
-                <p className="text-xs text-[#8B94A4]">Ages 0-17</p>
+                <p className="text-sm font-semibold text-[#2B3037]">Trẻ em</p>
+                <p className="text-xs text-[#8B94A4]">Từ 0-17 tuổi</p>
               </div>
               <div className="flex items-center gap-3">
                 <button
@@ -162,7 +162,7 @@ export function RoomGuestPicker({ onSelectionChange }: RoomGuestPickerProps) {
                 onClick={() => setIsOpen(false)}
                 className="w-full rounded-xl bg-[#0057FF] px-4 py-3 text-sm font-semibold text-white hover:bg-[#0046CC] transition"
               >
-                Done
+                Xong
               </button>
             </div>
           </div>

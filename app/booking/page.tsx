@@ -126,10 +126,10 @@ export default function BookingPage() {
     setErrors(newErrors);
   };
 
-  // Sync guest info name from contact name initially
+  // Sync guest info name from contact name only if booking for self
   const handleContactNameChange = (value: string) => {
     setGuestName(value);
-    if (!hasManuallyEditedGuestName) {
+    if (bookForSelf && !hasManuallyEditedGuestName) {
       setGuestInfoName(value);
     }
   };
@@ -192,7 +192,7 @@ export default function BookingPage() {
 
   return (
     <div className="bg-white text-[#111827]">
-      <Header user={null} onLogin={() => {}} onSignup={() => {}} onLogout={() => {}} onEditProfile={() => {}} />
+      <Header />
 
       <main className="bg-[#F8FAFC] pb-12">
         <div className="mx-auto max-w-screen-xl px-4 md:px-8 lg:px-12 pt-8">
@@ -206,24 +206,32 @@ export default function BookingPage() {
             <div className="space-y-6">
               {/* Contact Info */}
               <div className="rounded-2xl border border-[#E5E7EB] bg-white shadow-sm p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-xl">✉️</span>
-                  <h2 className="text-lg font-semibold text-[#0F172A]">Liên hệ đặt chỗ</h2>
+                <div className="flex items-center gap-2 mb-2">
+                  <img 
+                    src="https://ik.imagekit.io/tvlk/image/imageResource/2025/08/25/1756120137256-7e278d41d58093513143de6637fbf073.png?tr=dpr-2,h-24,q-75,w-24" 
+                    alt="Contact" 
+                    className="w-6 h-6"
+                  />
+                  <h2 className="text-xl font-semibold text-[#0F172A]">Liên hệ đặt chỗ</h2>
                 </div>
-                <p className="text-sm text-[#6B7280] mb-4">
+                <p className="text-sm font-semibold text-[#6B7280] mb-4">
                   Thêm liên hệ để nhận xác nhận đặt chỗ.
                 </p>
 
-                <form className="space-y-4" onBlur={handleContactBlur}>
+                <form className="space-y-4 rounded-xl p-6" style={{ backgroundColor: "rgb(245, 251, 255)" }}>
                   <div>
-                    <label className="block text-sm font-semibold text-[#0F172A] mb-2">
+                    <label className="block text-sm font-semibold text-[#686776] mb-2">
                       Họ tên<span className="text-red-600">*</span>
                     </label>
                     <input
                       type="text"
                       value={guestName}
                       onChange={(e) => handleContactNameChange(e.target.value)}
-                      className={`w-full rounded-lg border px-4 py-2 text-sm focus:outline-none ${
+                      onBlur={() => {
+                        const error = validateName(guestName);
+                        setErrors(prev => ({ ...prev, guestName: error }));
+                      }}
+                      className={`w-full rounded-lg border bg-white px-4 py-2 text-sm focus:outline-none ${
                         errors.guestName
                           ? "border-red-500 focus:border-red-500"
                           : "border-[#E5E7EB] focus:border-[#2563EB]"
@@ -233,51 +241,61 @@ export default function BookingPage() {
                       <p className="text-xs text-red-600 mt-1">{errors.guestName}</p>
                     )}
                     {!errors.guestName && (
-                      <p className="text-xs text-[#9CA3AF] mt-1">như trên CMND (không dấu)</p>
+                      <p className="text-sm font-semibold text-[#686776] mt-1">như trên CMND (không dấu)</p>
                     )}
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-semibold text-[#0F172A] mb-2">
-                      Điện thoại di động<span className="text-red-600">*</span>
-                    </label>
-                    <div className="flex gap-2">
-                      <select className="rounded-lg border border-[#E5E7EB] px-3 py-2 text-sm focus:border-[#2563EB] focus:outline-none">
-                        <option>🇻🇳 +84</option>
-                      </select>
+                  <div className="grid gap-4 md:grid-cols-2 mt-7">
+                    <div>
+                      <label className="block text-sm font-semibold text-[#686776] mb-2">
+                        Điện thoại di động<span className="text-red-600">*</span>
+                      </label>
+                      <div className="flex gap-2">
+                        <select className="rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-sm focus:border-[#2563EB] focus:outline-none">
+                          <option>+84</option>
+                        </select>
+                        <input
+                          type="tel"
+                          value={guestPhone}
+                          onChange={(e) => handlePhoneChange(e.target.value)}
+                          onBlur={() => {
+                            const error = validatePhone(guestPhone);
+                            setErrors(prev => ({ ...prev, guestPhone: error }));
+                          }}
+                          className={`flex-1 rounded-lg border bg-white px-4 py-2 text-sm focus:outline-none ${
+                            errors.guestPhone
+                              ? "border-red-500 focus:border-red-500"
+                              : "border-[#E5E7EB] focus:border-[#2563EB]"
+                          }`}
+                        />
+                      </div>
+                      {errors.guestPhone && (
+                        <p className="text-xs text-red-600 mt-1">{errors.guestPhone}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-[#686776] mb-2">
+                        Email<span className="text-red-600">*</span>
+                      </label>
                       <input
-                        type="tel"
-                        value={guestPhone}
-                        onChange={(e) => handlePhoneChange(e.target.value)}
-                        className={`flex-1 rounded-lg border px-4 py-2 text-sm focus:outline-none ${
-                          errors.guestPhone
+                        type="email"
+                        value={guestEmail}
+                        onChange={(e) => setGuestEmail(e.target.value)}
+                        onBlur={() => {
+                          const error = validateEmail(guestEmail);
+                          setErrors(prev => ({ ...prev, guestEmail: error }));
+                        }}
+                        className={`w-full rounded-lg border bg-white px-4 py-2 text-sm focus:outline-none ${
+                          errors.guestEmail
                             ? "border-red-500 focus:border-red-500"
                             : "border-[#E5E7EB] focus:border-[#2563EB]"
                         }`}
                       />
+                      {errors.guestEmail && (
+                        <p className="text-xs text-red-600 mt-1">{errors.guestEmail}</p>
+                      )}
                     </div>
-                    {errors.guestPhone && (
-                      <p className="text-xs text-red-600 mt-1">{errors.guestPhone}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-[#0F172A] mb-2">
-                      Email<span className="text-red-600">*</span>
-                    </label>
-                    <input
-                      type="email"
-                      value={guestEmail}
-                      onChange={(e) => setGuestEmail(e.target.value)}
-                      className={`w-full rounded-lg border px-4 py-2 text-sm focus:outline-none ${
-                        errors.guestEmail
-                          ? "border-red-500 focus:border-red-500"
-                          : "border-[#E5E7EB] focus:border-[#2563EB]"
-                      }`}
-                    />
-                    {errors.guestEmail && (
-                      <p className="text-xs text-red-600 mt-1">{errors.guestEmail}</p>
-                    )}
                   </div>
 
                   <div className="flex items-center gap-2 pt-2">
@@ -285,7 +303,19 @@ export default function BookingPage() {
                       type="checkbox"
                       id="bookForSelf"
                       checked={bookForSelf}
-                      onChange={(e) => setBookForSelf(e.target.checked)}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setBookForSelf(checked);
+                        if (checked) {
+                          // When checked, sync guest info name with contact name
+                          if (!hasManuallyEditedGuestName) {
+                            setGuestInfoName(guestName);
+                          }
+                        } else {
+                          // When unchecked, clear guest info name
+                          setGuestInfoName("");
+                        }
+                      }}
                       className="h-4 w-4 rounded border-[#E5E7EB] text-[#2563EB] focus:ring-[#2563EB]"
                     />
                     <label htmlFor="bookForSelf" className="text-sm text-[#4B5563]">
@@ -298,7 +328,11 @@ export default function BookingPage() {
               {/* Guest Info */}
               <div className="rounded-2xl border border-[#E5E7EB] bg-white shadow-sm p-6">
                 <div className="flex items-center gap-2 mb-4">
-                  <span className="text-xl">👤</span>
+                  <img 
+                    src="https://ik.imagekit.io/tvlk/image/imageResource/2025/09/09/1757413856768-82169bde1d1bf00d0f25d5a4c690f038.png?tr=dpr-2,h-24,q-75,w-24" 
+                    alt="Guest" 
+                    className="w-6 h-6"
+                  />
                   <h2 className="text-lg font-semibold text-[#0F172A]">Thông tin Khách hàng</h2>
                 </div>
                 <p className="text-sm text-[#6B7280] mb-4">
@@ -343,7 +377,9 @@ export default function BookingPage() {
               {/* Special Requests */}
               <div className="rounded-2xl border border-[#E5E7EB] bg-white shadow-sm p-6">
                 <div className="flex items-center gap-2 mb-4">
-                  <span className="text-xl">😊</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-6 h-6">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                  </svg>
                   <h2 className="text-lg font-semibold text-[#0F172A]">Yêu cầu đặc biệt</h2>
                 </div>
                 <p className="text-sm text-[#6B7280] mb-4">
@@ -373,21 +409,40 @@ export default function BookingPage() {
               {/* Policies */}
               <div className="rounded-2xl border border-[#E5E7EB] bg-white shadow-sm p-6">
                 <div className="flex items-center gap-2 mb-4">
-                  <span className="text-xl">📋</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+                    <path d="M15 12h-5"/>
+                    <path d="M15 8h-5"/>
+                    <path d="M19 17V5a2 2 0 0 0-2-2H4"/>
+                    <path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/>
+                  </svg>
                   <h2 className="text-lg font-semibold text-[#0F172A]">Chính sách Chỗ ở</h2>
                 </div>
 
                 <div className="space-y-4">
                   <div className="rounded-lg border border-[#E5E7EB] bg-[#F0F9FF] p-4">
-                    <p className="text-sm font-semibold text-[#0F172A] mb-2">💡 Lưu ý quan trọng</p>
+                    <div className="flex items-start gap-2 mb-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-5 h-5 flex-shrink-0 mt-0.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
+                      </svg>
+                      <p className="text-sm font-semibold text-[#0F172A]">Lưu ý quan trọng</p>
+                    </div>
                     <p className="text-sm text-[#4B5563]">
-                      Chính sách này Khí nhận phòng, bạn phải mang theo Chứng minh thư. Các tài liệu cần thiết có thể ở dạng bản mềm. Thông bào về có sẽ vật của Sánh Phòng chợ / Quầy bar, Hồ bơi nội của Khách sạn cho lương khách hạn chế tối đa từ 15-3-2025...
-                    </p>
+Khi nhận phòng, bạn phải mang theo Chứng minh thư. Các tài liệu cần thiết có thể ở dạng bản mềm.
+
+ Chính sách về độ tuổi tối thiểu khi nhận phòng
+Độ tuổi tối thiểu để nhận phòng là 18. Khách nhỏ tuổi phải có người lớn đi cùng khi nhận phòng.                    </p>
                     <button className="text-sm text-[#2563EB] font-semibold mt-2">Đọc tất cả</button>
                   </div>
 
                   <div>
-                    <p className="text-sm font-semibold text-[#0F172A] mb-2">📄 Giấy Tờ Bắt Buộc</p>
+                    <div className="flex items-start gap-2 mb-2">
+                      <img 
+                        src="https://ik.imagekit.io/tvlk/image/imageResource/2022/07/20/1658303062126-7ff2e4dee7cbfef2179ab8692cdb8445.png?tr=h-18,q-75,w-18" 
+                        alt="Documents" 
+                        className="w-5 h-5 flex-shrink-0 mt-0.5"
+                      />
+                      <p className="text-sm font-semibold text-[#0F172A]">Giấy Tờ Bắt Buộc</p>
+                    </div>
                     <p className="text-sm text-[#4B5563]">
                       Khí nhận phòng, bạn cần cung cấp CMND/CCCD. Các tài liệu có thể ở dạng bản mềm.
                     </p>
@@ -482,11 +537,6 @@ export default function BookingPage() {
                   <a href="#" className="text-[#2563EB] underline">Chính sách Bảo mật</a>
                   <span>và</span>
                   <a href="#" className="text-[#2563EB] underline">Quy trình Hoàn tiền Lưu trú</a>
-                </div>
-
-                <div className="mt-4 flex items-center justify-center gap-2">
-                  <span className="text-xs text-amber-600">🪙 Earn 5.656 Points</span>
-                  <span className="text-xs text-[#9CA3AF]">⭐ Kiếm 1.939.224 Sao Priority</span>
                 </div>
               </div>
             </div>

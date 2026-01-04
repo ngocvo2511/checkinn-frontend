@@ -207,6 +207,44 @@ export const reviewApi = {
     }
   },
 
+  // Get user's own reviews by decoding JWT and filtering
+  async getUserReviews(token: string, page: number = 0, size: number = 10): Promise<Review[]> {
+    try {
+      // Decode JWT to get userId
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const decodedPayload = JSON.parse(atob(base64));
+      const userId = decodedPayload.userId || decodedPayload.sub;
+
+      if (!userId) {
+        throw new Error('Cannot extract userId from token');
+      }
+
+      // Fetch reviews with userId filter - call backend with userId as query param
+      const response = await fetch(
+        `${API_BASE_URL}/api/v1/reviews/user/${userId}?page=${page}&size=${size}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        console.warn('Failed to fetch user reviews:', response.statusText);
+        return [];
+      }
+
+      const data = await response.json();
+      return data.content || [];
+    } catch (error) {
+      console.error('Error fetching user reviews:', error);
+      return [];
+    }
+  },
+
   // Check if booking has been reviewed
   async hasBookingBeenReviewed(bookingId: string, token: string): Promise<boolean> {
     const review = await this.getReviewByBookingId(bookingId, token);

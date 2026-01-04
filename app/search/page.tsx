@@ -7,6 +7,7 @@ import Footer from "@/components/Footer";
 import { HotelCard } from "@/components/HotelCard";
 import { SearchFilters } from "@/components/SearchFilters";
 import { hotelApi, Hotel as ApiHotel } from "@/lib/api/hotels";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Hotel {
   id: string;
@@ -25,11 +26,13 @@ interface Hotel {
 export default function SearchPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { user } = useAuth();
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [filteredHotels, setFilteredHotels] = useState<Hotel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<any>(null);
+  const [headerVisible, setHeaderVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
 
   // Search params
   const cityName = searchParams.get("cityName") || "Destination";
@@ -44,16 +47,23 @@ export default function SearchPage() {
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
 
+  // Track header visibility for sticky search bar position
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (e) {
-        console.error("Failed to parse user", e);
+    const handleScrollVisibility = () => {
+      const currentScrollY = window.scrollY;
+      
+      if (currentScrollY < lastScrollY || currentScrollY < 100) {
+        setHeaderVisible(true);
+      } else if (currentScrollY > lastScrollY && currentScrollY > 100) {
+        setHeaderVisible(false);
       }
-    }
-  }, []);
+      
+      setLastScrollY(currentScrollY);
+    };
+
+    window.addEventListener('scroll', handleScrollVisibility);
+    return () => window.removeEventListener('scroll', handleScrollVisibility);
+  }, [lastScrollY]);
 
   // Fetch hotels from API
   useEffect(() => {
@@ -182,11 +192,11 @@ export default function SearchPage() {
 
   return (
     <div className="bg-white text-[#121316] min-h-screen flex flex-col">
-      <Header user={user} onLogin={() => {}} onSignup={() => {}} onLogout={() => {}} onEditProfile={() => {}} />
+      <Header />
 
       <main className="flex-1">
         {/* Search Header */}
-        <div className="bg-[#F7F8FA] border-b border-[#E4E6EB] sticky top-16 z-30">
+        <div className={`bg-[#F7F8FA] border-b border-[#E4E6EB] sticky z-30 transition-all duration-300 ${headerVisible ? 'top-24' : 'top-0'}`}>
           <div className="mx-auto max-w-screen-xl px-4 md:px-8 lg:px-10 py-4">
             <div className="flex items-center gap-4 flex-wrap">
               <div className="flex items-center gap-2">

@@ -97,4 +97,23 @@ export const authApi = {
 
     return response.json();
   },
+
+  changePassword: async (currentPassword: string, newPassword: string, token: string): Promise<void> => {
+    const response = await fetch(`http://localhost:8080/api/user/change-password`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        currentPassword,
+        newPassword
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Không thể đổi mật khẩu' }));
+      throw new Error(errorData.message || 'Không thể đổi mật khẩu');
+    }
+  },
 };

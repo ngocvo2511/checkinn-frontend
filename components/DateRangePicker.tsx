@@ -47,8 +47,8 @@ export function DateRangePicker({
   }, []);
 
   const formatDate = (date: Date | null) => {
-    if (!date) return "Add Dates";
-    return date.toLocaleDateString("en-US", {
+    if (!date) return "Chọn ngày";
+    return date.toLocaleDateString("vi-VN", {
       month: "short",
       day: "numeric",
     });
@@ -59,37 +59,31 @@ export function DateRangePicker({
       {/* Check In */}
       <div
         ref={checkInRef}
-        className="relative flex min-h-[72px] min-w-[180px] flex-1 items-center gap-3 px-3 py-3 md:px-4 md:py-4 border-r md:border-r md:border-[#E4E6EB]"
+        className="relative flex min-h-[72px] min-w-[180px] flex-1 items-center gap-3 px-3 py-3 md:px-5 md:py-4 border-r md:border-r md:border-[#E4E6EB] group cursor-pointer hover:bg-[#F7FAFF] transition-colors"
+        onClick={() => {
+          setShowCheckInPicker(!showCheckInPicker);
+          setShowCheckOutPicker(false);
+        }}
       >
         <svg
-          width="22"
-          height="22"
+          width="24"
+          height="24"
           viewBox="0 0 24 24"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          className="cursor-pointer flex-shrink-0"
-          onClick={() => {
-            setShowCheckInPicker(!showCheckInPicker);
-            setShowCheckOutPicker(false);
-          }}
+          className="flex-shrink-0 text-[#0057FF] group-hover:scale-110 transition-transform"
         >
           <path
             d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H5V10h14v8zm0-10H5V6h14v2z"
-            fill="#0057FF"
+            fill="currentColor"
           />
         </svg>
 
-        <div
-          className="flex flex-1 flex-col leading-tight cursor-pointer"
-          onClick={() => {
-            setShowCheckInPicker(!showCheckInPicker);
-            setShowCheckOutPicker(false);
-          }}
-        >
-          <span className="text-sm font-semibold text-[#2B3037]">
+        <div className="flex flex-1 flex-col leading-tight space-y-1">
+          <span className="text-sm font-semibold tracking-wide text-[#8B94A4]">
             {checkInLabel}
           </span>
-          <span className="text-sm text-[#8B94A4]">{formatDate(checkInDate)}</span>
+          <span className="text-base font-medium text-[#2B3037] group-hover:text-[#0057FF] transition-colors">{formatDate(checkInDate)}</span>
         </div>
 
         {showCheckInPicker && (
@@ -118,37 +112,31 @@ export function DateRangePicker({
       {/* Check Out */}
       <div
         ref={checkOutRef}
-        className="relative flex min-h-[72px] min-w-[180px] flex-1 items-center gap-3 px-3 py-3 md:px-4 md:py-4 md:border-r md:border-r-[#E4E6EB]"
+        className="relative flex min-h-[72px] min-w-[180px] flex-1 items-center gap-3 px-3 py-3 md:px-5 md:py-4 md:border-r md:border-r-[#E4E6EB] group cursor-pointer hover:bg-[#F7FAFF] transition-colors"
+        onClick={() => {
+          setShowCheckOutPicker(!showCheckOutPicker);
+          setShowCheckInPicker(false);
+        }}
       >
         <svg
-          width="22"
-          height="22"
+          width="24"
+          height="24"
           viewBox="0 0 24 24"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          className="cursor-pointer flex-shrink-0"
-          onClick={() => {
-            setShowCheckOutPicker(!showCheckOutPicker);
-            setShowCheckInPicker(false);
-          }}
+          className="flex-shrink-0 text-[#0057FF] group-hover:scale-110 transition-transform"
         >
           <path
             d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H5V10h14v8zm0-10H5V6h14v2z"
-            fill="#0057FF"
+            fill="currentColor"
           />
         </svg>
 
-        <div
-          className="flex flex-1 flex-col leading-tight cursor-pointer"
-          onClick={() => {
-            setShowCheckOutPicker(!showCheckOutPicker);
-            setShowCheckInPicker(false);
-          }}
-        >
-          <span className="text-sm font-semibold text-[#2B3037]">
+        <div className="flex flex-1 flex-col leading-tight space-y-1">
+          <span className="text-sm font-semibold tracking-wide text-[#8B94A4]">
             {checkOutLabel}
           </span>
-          <span className="text-sm text-[#8B94A4]">
+          <span className="text-base font-medium text-[#2B3037] group-hover:text-[#0057FF] transition-colors">
             {formatDate(checkOutDate)}
           </span>
         </div>

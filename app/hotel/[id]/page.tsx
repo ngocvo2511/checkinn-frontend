@@ -77,6 +77,7 @@ export default function HotelDetailPage() {
   const router = useRouter();
   const hotelId = typeof params?.id === "string" ? params.id : Array.isArray(params?.id) ? params.id[0] : "";
 
+  const [mounted, setMounted] = useState(false);
   const [hotel, setHotel] = useState<ApiHotel | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +93,8 @@ export default function HotelDetailPage() {
   const [feedbackStatus, setFeedbackStatus] = useState<Record<string, 'helpful' | 'unhelpful' | null>>({});
   const [feedbackLoading, setFeedbackLoading] = useState<Record<string, boolean>>({});
   const [showAllPoliciesModal, setShowAllPoliciesModal] = useState(false);
+  const [headerVisible, setHeaderVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
 
   const checkIn = searchParams.get("checkIn") || "";
   const checkOut = searchParams.get("checkOut") || "";
@@ -110,6 +113,36 @@ export default function HotelDetailPage() {
     ],
     []
   );
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Track header visibility for sticky content
+  useEffect(() => {
+    const handleScrollVisibility = () => {
+      const currentScrollY = window.scrollY;
+      
+      if (currentScrollY < lastScrollY || currentScrollY < 100) {
+        setHeaderVisible(true);
+      } else if (currentScrollY > lastScrollY && currentScrollY > 100) {
+        setHeaderVisible(false);
+      }
+      
+      setLastScrollY(currentScrollY);
+    };
+
+    window.addEventListener('scroll', handleScrollVisibility);
+    return () => window.removeEventListener('scroll', handleScrollVisibility);
+  }, [lastScrollY]);
+
+  const handleLogout = () => {
+    // Logout handled by useAuth hook internally
+  };
+
+  const handleEditProfile = () => {
+    router.push("/personal-data");
+  };
 
   useEffect(() => {
     const fetchDetail = async () => {
@@ -421,12 +454,14 @@ export default function HotelDetailPage() {
     );
   }
 
+  if (!mounted) return null;
+
   return (
     <div className="bg-white text-[#111827]">
-      <Header user={null} onLogin={() => {}} onSignup={() => {}} onLogout={() => {}} onEditProfile={() => {}} />
+      <Header />
 
       <main className="bg-[#F8FAFC] pb-12">
-        <nav className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-[#E5E7EB]">
+        <nav className={`sticky z-30 bg-white/90 backdrop-blur border-b border-[#E5E7EB] transition-all duration-300 ${headerVisible ? 'top-24' : 'top-0'}`}>
           <div className="mx-auto max-w-screen-xl px-4 md:px-8 lg:px-12 flex items-center gap-2 overflow-x-auto py-3">
             {sectionList.map((section) => (
               <button
