@@ -6,23 +6,23 @@ export interface HostMenuItem {
 
 export const hostMenuItems: HostMenuItem[] = [
   {
-    label: 'Dashboard',
+    label: 'Trang chủ',
     href: '/host/dashboard',
-    iconPath: 'M4 10L12 4L20 10V20H14V13H10V20H4V10Z',
+    iconPath: 'M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z',
   },
   {
-    label: 'Quản lí khách sạn',
+    label: 'Quản lý khách sạn',
     href: '/host/hotels',
-    iconPath: 'M6 8L12 4L18 8V20H6V8ZM8 10V18H10V10H8ZM14 10V18H16V10H14Z',
+    iconPath: 'M7 21H3V8L12 3l9 5v13h-4v-7h-4v7h-2v-7h-4v7zm5-14c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z',
   },
   {
-    label: 'Quản lí doanh thu',
+    label: 'Quản lý doanh thu',
     href: '/host/revenue',
-    iconPath: 'M5 5H19V7H5V5ZM5 9H19V19H5V9ZM9 11V17H7V11H9ZM13 11V17H11V11H13ZM17 11V17H15V11H17Z',
+    iconPath: 'M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z',
   },
   {
-    label: 'Quản lí booking',
+    label: 'Quản lý booking',
     href: '/host/bookings',
-    iconPath: 'M6 5H18V7H6V5ZM6 9H18V19H6V9ZM10 11V13H8V11H10ZM14 11V13H12V11H14ZM10 15V17H8V15H10ZM14 15V17H12V15H14Z',
+    iconPath: 'M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z',
   },
 ];

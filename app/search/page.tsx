@@ -8,6 +8,8 @@ import { HotelCard } from "@/components/HotelCard";
 import { SearchFilters } from "@/components/SearchFilters";
 import { HotelSearchBar } from "@/components/HotelSearchBar";
 import { hotelApi, Hotel as ApiHotel } from "@/lib/api/hotels";
+import { reviewApi } from "@/lib/api/reviews";
+import { availabilityApi } from "@/lib/api/availability";
 import { useAuth } from "@/hooks/useAuth";
 
 interface Hotel {
@@ -22,6 +24,9 @@ interface Hotel {
   images?: string[];
   amenities: string[];
   type: string;
+  availableRooms?: number;
+  starRating?: number;
+  loyaltyPoints?: number;
 }
 
 export default function SearchPage() {
@@ -48,6 +53,8 @@ export default function SearchPage() {
   const [priceRange, setPriceRange] = useState([0, 5000000]);
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [selectedStarRatings, setSelectedStarRatings] = useState<number[]>([]);
+  const [selectedGuestRatings, setSelectedGuestRatings] = useState<number[]>([]);
 
   // Track header visibility for sticky search bar position
   useEffect(() => {
@@ -128,12 +135,21 @@ export default function SearchPage() {
         };
 
         // Transform API data to UI format
-        const transformedHotels: Hotel[] = apiHotels.map((hotel: ApiHotel) => {
+        const transformedHotels: Hotel[] = await Promise.all(apiHotels.map(async (hotel: ApiHotel) => {
           const minPrice = hotel.lowestPrice ?? (
             hotel.roomTypes && hotel.roomTypes.length > 0
               ? Math.min(...hotel.roomTypes.map(rt => rt.basePrice ?? rt.pricePerNight ?? 0))
               : 0
           );
+
+          // Fetch review stats for this hotel
+          let reviewStats = null;
+          try {
+            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+            reviewStats = await reviewApi.getReviewStats(hotel.id, token || undefined);
+          } catch (err) {
+            console.error(`Error fetching review stats for hotel ${hotel.id}:`, err);
+          }
 
           const locationParts = [
             hotel.address?.ward,
@@ -150,20 +166,73 @@ export default function SearchPage() {
             ...((hotel.roomTypes?.flatMap(rt => rt.mediaAssets?.map(m => m.url) || []) || []))
           ];
 
+          // Calculate minimum available rooms from all room types
+          let minAvailableRooms: number | undefined = undefined;
+          if (hotel.roomTypes && hotel.roomTypes.length > 0 && checkIn && checkOut) {
+            try {
+              // Get cheapest room type to check availability
+              const cheapestRoom = hotel.roomTypes
+                .filter(rt => rt.basePrice !== undefined || rt.pricePerNight !== undefined)
+                .sort((a, b) => (a.basePrice ?? a.pricePerNight ?? 0) - (b.basePrice ?? b.pricePerNight ?? 0))[0];
+              
+              if (cheapestRoom) {
+                const availabilityCheck = await availabilityApi.checkAvailability(
+                  cheapestRoom.id,
+                  checkIn,
+                  checkOut,
+                  1
+                );
+                minAvailableRooms = availabilityCheck.availableRooms;
+              }
+            } catch (err) {
+              console.error(`Error fetching availability for hotel ${hotel.id}:`, err);
+              // Fallback to totalRooms if API fails
+              const availableRoomsList = hotel.roomTypes
+                .filter(rt => rt.totalRooms !== undefined && rt.totalRooms !== null)
+                .map(rt => rt.totalRooms!);
+              if (availableRoomsList.length > 0) {
+                minAvailableRooms = Math.min(...availableRoomsList);
+              }
+            }
+          }
+
+          // Extract amenities from amenityCategories
+          let hotelAmenities: string[] = [];
+          if (hotel.amenityCategories && hotel.amenityCategories.length > 0) {
+            // Flatten all items from all categories
+            const allItems = hotel.amenityCategories.flatMap(cat => 
+              (cat.items || []).map(item => item.title).filter(Boolean)
+            );
+            // Randomly select 3-4 amenities
+            const count = Math.min(allItems.length, Math.floor(Math.random() * 2) + 3); // 3 or 4
+            hotelAmenities = allItems
+              .sort(() => Math.random() - 0.5)
+              .slice(0, count);
+          }
+          // Fallback amenities if none found
+          if (hotelAmenities.length === 0) {
+            const fallbackAmenities = ["Free WiFi", "Bãi đỗ xe", "Nhà hàng", "Hồ bơi", "Gym"];
+            const count = Math.floor(Math.random() * 2) + 3; // 3 or 4
+            hotelAmenities = fallbackAmenities.slice(0, count);
+          }
+
           return {
             id: hotel.id,
             name: cleanQuotes(hotel.name),
             location: locationParts.join(", ") || "Đà Nẵng",
-            rating: hotel.starRating || 8.0,
-            reviewCount: Math.floor(Math.random() * 500) + 50, // Mock review count
+            rating: reviewStats?.averageRating ?? hotel.starRating ?? 8.0,
+            reviewCount: reviewStats?.totalReviews ?? 0,
             price: minPrice,
             originalPrice: minPrice > 0 ? Math.floor(minPrice * 1.2) : undefined,
             image: primaryImage,
             images: allImages,
-            amenities: ["Free WiFi"], // Mock amenities
+            amenities: hotelAmenities,
             type: "Hotel",
+            availableRooms: minAvailableRooms,
+            starRating: hotel.starRating,
+            loyaltyPoints: minPrice > 0 ? Math.floor(minPrice / 100000) : 0,
           };
-        });
+        }));
 
         setHotels(transformedHotels);
         setFilteredHotels(transformedHotels);
@@ -197,10 +266,24 @@ export default function SearchPage() {
       (h) => h.price >= priceRange[0] && h.price <= priceRange[1]
     );
 
+    // Star rating filter
+    if (selectedStarRatings.length > 0) {
+      filtered = filtered.filter((h) => 
+        h.starRating && selectedStarRatings.includes(h.starRating)
+      );
+    }
+
+    // Guest rating filter (any selected threshold matches)
+    if (selectedGuestRatings.length > 0) {
+      filtered = filtered.filter((h) =>
+        selectedGuestRatings.some((threshold) => h.rating >= threshold)
+      );
+    }
+
     // Amenities filter
     if (selectedAmenities.length > 0) {
       filtered = filtered.filter((h) =>
-        selectedAmenities.some((a) => h.amenities.includes(a))
+        selectedAmenities.every((a) => h.amenities.includes(a))
       );
     }
 
@@ -210,12 +293,14 @@ export default function SearchPage() {
     }
 
     setFilteredHotels(filtered);
-  }, [hotels, priceRange, selectedAmenities, selectedTypes]);
+  }, [hotels, priceRange, selectedAmenities, selectedTypes, selectedStarRatings, selectedGuestRatings]);
 
   const handleFilterChange = (filters: any) => {
     if (filters.priceRange) setPriceRange(filters.priceRange);
     if (filters.amenities) setSelectedAmenities(filters.amenities);
     if (filters.types) setSelectedTypes(filters.types);
+    if (filters.starRatings !== undefined) setSelectedStarRatings(filters.starRatings);
+    if (filters.guestRatings !== undefined) setSelectedGuestRatings(filters.guestRatings);
   };
 
   const formatDate = (dateStr: string) => {
@@ -279,6 +364,7 @@ export default function SearchPage() {
             <SearchFilters
               onFilterChange={handleFilterChange}
               totalResults={filteredHotels.length}
+              hotels={hotels}
             />
 
             {/* Hotels Grid */}

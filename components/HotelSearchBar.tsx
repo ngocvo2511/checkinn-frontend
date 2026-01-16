@@ -471,6 +471,7 @@ export function HotelSearchBar({
                 setAdults(a);
                 setChildren(c);
               }}
+              onClose={() => setShowGuestPicker(false)}
             />
           </div>
         )}

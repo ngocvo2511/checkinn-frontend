@@ -14,7 +14,7 @@ export default function HostBookingsPage() {
             <div className="rounded-3xl bg-gradient-to-br from-[#0B1B3F] via-[#0E264F] to-[#0A3D8F] px-6 py-8 text-white shadow-[0_24px_45px_rgba(0,0,0,0.18)]">
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-white/80">
                 <span className="h-2 w-2 rounded-full bg-[#FFCC00]" />
-                Quản lí booking
+                Quản lý booking
               </div>
               <div className="mt-4 space-y-2">
                 <h1 className="text-3xl font-semibold leading-[38px]">Theo dõi đặt phòng</h1>

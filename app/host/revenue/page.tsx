@@ -183,7 +183,7 @@ export default function HostRevenuePage() {
             <section className="rounded-3xl bg-gradient-to-br from-[#0B1B3F] via-[#0E264F] to-[#0A3D8F] px-6 py-8 text-white shadow-[0_24px_45px_rgba(0,0,0,0.18)]">
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-white/80">
                 <span className="h-2 w-2 rounded-full bg-[#FFCC00]" />
-                Quản lí doanh thu
+                Quản lý doanh thu
               </div>
               <div className="mt-4 space-y-2">
                 <h1 className="text-3xl font-semibold leading-[38px]">Doanh thu & payout</h1>
@@ -229,7 +229,7 @@ export default function HostRevenuePage() {
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#8B94A4]">Chọn khách sạn</p>
-                  <h2 className="text-lg font-semibold text-[#1F2226]">Quản lí nhiều tài sản cùng lúc</h2>
+                  <h2 className="text-lg font-semibold text-[#1F2226]">Quản lý nhiều tài sản cùng lúc</h2>
                   <p className="text-sm text-[#656F81]">Bấm vào thẻ để xem doanh thu, payout và bảng dòng tiền của từng khách sạn.</p>
                 </div>
                 <span className="rounded-full bg-[#E8EFFC] px-3 py-1 text-xs font-semibold text-[#0B2E68]">

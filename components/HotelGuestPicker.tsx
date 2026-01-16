@@ -7,6 +7,7 @@ interface HotelGuestPickerProps {
   initialChildren?: number;
   initialRooms?: number;
   onSelectionChange: (rooms: number, adults: number, children: number) => void;
+  onClose?: () => void;
 }
 
 export function HotelGuestPicker({
@@ -14,6 +15,7 @@ export function HotelGuestPicker({
   initialChildren = 0,
   initialRooms = 1,
   onSelectionChange,
+  onClose,
 }: HotelGuestPickerProps) {
   const [adults, setAdults] = React.useState(initialAdults);
   const [children, setChildren] = React.useState(initialChildren);
@@ -39,7 +41,7 @@ export function HotelGuestPicker({
   };
 
   const handleClose = () => {
-    // State changes already handled by useEffect
+    onClose?.();
   };
 
   return (
