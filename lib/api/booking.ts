@@ -1,4 +1,5 @@
-const BOOKING_API_BASE = process.env.NEXT_PUBLIC_BOOKING_API_URL || 'http://localhost:8084';
+const BOOKING_API_BASE = process.env.NEXT_PUBLIC_BOOKING_API_URL || 'http://localhost:8080';
+const USER_API_BASE = process.env.NEXT_PUBLIC_USER_API_URL || 'http://localhost:8080';
 
 export type PaymentMethod = 'HOTEL' | 'VNPAY';
 
@@ -9,7 +10,7 @@ export interface BookingItemPayload {
   checkInDate: string;
   checkOutDate: string;
   quantity: number;
-  unitPrice: number;
+  unitPrice: number | string;
   nights: number;
   guestName?: string;
   cancellationPolicy?: string;
@@ -28,6 +29,7 @@ export interface CreateBookingPayload {
   contactPhone: string;
   specialRequests?: string;
   voucherCode?: string;
+  pointsToUse?: number;
   items: BookingItemPayload[];
 }
 
@@ -151,3 +153,19 @@ export const bookingApi = {
     return handleJsonResponse<PaymentResponse>(res);
   },
 };
+
+export interface LoyaltyPointsResponse {
+  totalPoints: number;
+  usedPoints: number;
+  availablePoints: number;
+}
+
+export const loyaltyApi = {
+  async getUserPoints(userId: string): Promise<LoyaltyPointsResponse> {
+    const res = await fetch(`${USER_API_BASE}/api/loyalty-points/${encodeURIComponent(userId)}`, {
+      headers: { ...authHeaders() },
+    });
+    return handleJsonResponse<LoyaltyPointsResponse>(res);
+  },
+};
+

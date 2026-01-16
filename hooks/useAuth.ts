@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, Dispatch, SetStateAction } from 'react';
+import { useRouter } from 'next/navigation';
 
 export function useAuth() {
   const [user, setUser] = useState<any>(null);
@@ -21,6 +22,7 @@ export function useAuth() {
   const login = useCallback((userData: any) => {
     setUser(userData);
     localStorage.setItem("user", JSON.stringify(userData));
+    localStorage.setItem("token", userData.token || userData.accessToken);
   }, []);
 
   const logout = useCallback(() => {
@@ -38,12 +40,22 @@ export function useAuth() {
     });
   }, []);
 
+  const hasRole = useCallback((role: string | string[]): boolean => {
+    if (!user) return false;
+    const userRole = user.role;
+    if (Array.isArray(role)) {
+      return role.includes(userRole);
+    }
+    return userRole === role;
+  }, [user]);
+
   return {
     user,
     isLoading,
     login,
     logout,
     updateUser,
+    hasRole,
     isAuthenticated: !!user,
   };
 }
