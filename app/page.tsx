@@ -725,17 +725,29 @@ function WhyTripto() {
     {
       title: "Không phí ẩn",
       desc: "Giá cả minh bạch, không có bất ngờ khi thanh toán.",
-      icon: "💰"
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 56 56" fill="none" className="size-8">
+          <path d="M27.9993 4.66669C15.1123 4.66669 4.66602 15.113 4.66602 28C4.66602 40.887 15.1123 51.3334 27.9993 51.3334C40.8863 51.3334 51.3327 40.887 51.3327 28C51.3327 15.113 40.8863 4.66669 27.9993 4.66669ZM33.1397 37.0277C32.1947 37.9727 30.993 38.5489 29.698 38.7356V39.6667C29.698 40.6327 28.914 41.4167 27.948 41.4167C26.982 41.4167 26.198 40.6327 26.198 39.6667V38.731C23.531 38.297 21.4147 36.1481 21.102 33.3808C20.9947 32.4194 21.6853 31.5538 22.6467 31.4465C23.594 31.3275 24.4737 32.0298 24.581 32.9911C24.7304 34.3211 25.8504 35.3244 27.185 35.3244H28.8184C29.5137 35.3244 30.1694 35.0513 30.6664 34.5543C31.1634 34.0573 31.4363 33.4016 31.4363 32.7063C31.4363 31.5046 30.6197 30.4616 29.4507 30.1653L25.6987 29.2345C24.3687 28.8961 23.1833 28.1237 22.3526 27.0527C21.5266 26.0073 21.0647 24.668 21.0647 23.2983C21.0647 20.2627 23.293 17.7544 26.198 17.2807V16.3334C26.198 15.3674 26.982 14.5834 27.948 14.5834C28.914 14.5834 29.698 15.3674 29.698 16.3334V17.2573C32.414 17.6517 34.584 19.8146 34.899 22.6193C35.0063 23.5806 34.3157 24.4462 33.3544 24.5536C32.3837 24.6656 31.5274 23.9703 31.42 23.0089C31.2707 21.6789 30.1507 20.6756 28.816 20.6756H27.1827C25.7383 20.6756 24.5647 21.8494 24.5647 23.2938C24.5647 23.8794 24.7583 24.4486 25.1083 24.8919C25.477 25.3679 25.9717 25.6901 26.5503 25.8347L30.3023 26.7656C33.0323 27.4562 34.9363 29.8971 34.9363 32.7017C34.934 34.3351 34.297 35.8704 33.1397 37.0277Z" fill="#0057FF"/>
+        </svg>
+      )
     },
     {
       title: "Đặt phòng tức thì",
       desc: "Nhận xác nhận ngay sau khi bạn đặt.",
-      icon: "⚡"
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 56 56" fill="none" className="size-8">
+          <path d="M28.0422 4.66669C22.8155 7.25902 18.6667 9.33335 7 11.6667C7 14.3197 7 22.6378 7 25.4075C7 40.9638 20.223 48.741 28 51.3334C35.777 48.741 49 40.9638 49 25.4075C49 22.5492 49 14.4527 49 11.6667C37.3333 9.33335 33.1848 7.25902 28.0422 4.66669ZM36.2646 24.5701L26.9313 33.9034C26.5906 34.2441 26.1426 34.4167 25.6946 34.4167C25.2466 34.4167 24.7985 34.2464 24.4578 33.9034L19.7912 29.2368C19.1075 28.5531 19.1075 27.4447 19.7912 26.761C20.4748 26.0773 21.5833 26.0773 22.2669 26.761L25.6969 30.1909L33.7935 22.0943C34.4771 21.4107 35.5855 21.4107 36.2692 22.0943C36.9529 22.778 36.9483 23.8864 36.2646 24.5701Z" fill="#0057FF"/>
+        </svg>
+      )
     },
     {
       title: "Linh hoạt",
       desc: "Hủy miễn phí cho nhiều danh sách để yên tâm.",
-      icon: "🔄"
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 56 56" fill="none" className="size-8">
+          <path d="M29.75 11.6667V6.41669L40.25 16.9167H35C31.3133 16.9167 29.75 15.3534 29.75 11.6667ZM41.7898 27.3233L27.8599 41.3467C27.2065 42 26.8333 42.8867 26.8333 43.82V45.9667C26.8333 46.3634 26.5299 46.6667 26.1332 46.6667H14C9.33333 46.6667 7 44.3334 7 39.6667V11.6667C7 7.00002 9.33333 4.66669 14 4.66669H26.25V11.6667C26.25 17.3134 29.3533 20.4167 35 20.4167H42V26.8334C42 27.02 41.9298 27.2067 41.7898 27.3233ZM18.0833 35C18.0833 34.034 17.2993 33.25 16.3333 33.25C15.3673 33.25 14.5833 34.034 14.5833 35C14.5833 35.966 15.3673 36.75 16.3333 36.75C17.2993 36.75 18.0833 35.966 18.0833 35ZM18.0833 25.6667C18.0833 24.7007 17.2993 23.9167 16.3333 23.9167C15.3673 23.9167 14.5833 24.7007 14.5833 25.6667C14.5833 26.6327 15.3673 27.4167 16.3333 27.4167C17.2993 27.4167 18.0833 26.6327 18.0833 25.6667ZM27.4167 35C27.4167 34.034 26.6327 33.25 25.6667 33.25H22.1667C21.2007 33.25 20.4167 34.034 20.4167 35C20.4167 35.966 21.2007 36.75 22.1667 36.75H25.6667C26.6327 36.75 27.4167 35.966 27.4167 35ZM34.4167 25.6667C34.4167 24.7007 33.6327 23.9167 32.6667 23.9167H22.1667C21.2007 23.9167 20.4167 24.7007 20.4167 25.6667C20.4167 26.6327 21.2007 27.4167 22.1667 27.4167H32.6667C33.6327 27.4167 34.4167 26.6327 34.4167 25.6667ZM30.3333 43.82V49H35.5133L44.8466 39.7133L39.62 34.4867L30.3333 43.82ZM48.3933 33.25L46.0833 30.94C45.2667 30.1234 43.96 30.1234 43.1433 30.94L41.2532 32.8533L46.4798 38.08L48.3933 36.19C49.21 35.3734 49.21 34.0667 48.3933 33.25Z" fill="#0057FF"/>
+        </svg>
+      )
     },
   ];
 
@@ -744,14 +756,34 @@ function WhyTripto() {
       <div className="text-center">
         <h2 className="text-3xl font-bold leading-[48px] text-[#121316] md:text-4xl">Tại Sao Du Khách Tin Tưởng Tripto</h2>
       </div>
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="relative grid gap-6 md:grid-cols-3">
+        {/* Curved line connecting first and second icon - bezier curve like your example */}
+        <svg className="absolute left-[18%] hidden md:block pointer-events-none" width="360" height="160" viewBox="0 0 500 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M 40 130 C 240 190, 260 10, 460 40" stroke="#99BDFF" strokeWidth="2" strokeDasharray="3 3" fill="none" opacity="1"/>
+          <circle cx="40" cy="130" r="3" fill="#0057FF"/>
+          <circle cx="460" cy="40" r="3" fill="#0057FF"/>
+        </svg>
+        
+        {/* Curved line connecting second and third icon - bezier curve like your example */}
+        <svg className="absolute left-[52%] hidden md:block pointer-events-none" width="360" height="160" viewBox="0 0 500 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M 40 130 C 240 190, 260 10, 460 40" stroke="#99BDFF" strokeWidth="3" strokeDasharray="3 3" fill="none" opacity="1"/>
+          <circle cx="40" cy="130" r="3" fill="#0057FF"/>
+          <circle cx="460" cy="40" r="3" fill="#0057FF"/>
+        </svg>
+
         {features.map((feature) => (
           <div
             key={feature.title}
-            className="flex flex-col items-center gap-4 rounded-3xl border border-[#E8EFFC] bg-gradient-to-br from-[#F9FBFF] to-[#F5F8FE] p-8 text-center shadow-sm hover:shadow-lg hover:border-[#0057FF] transition-all duration-300"
+            className="flex flex-col items-center gap-4 p-8 text-center"
           >
             <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-[#E8EFFC] to-[#D8E5FF]">
-              <span className="text-4xl">{feature.icon}</span>
+              {feature.icon &&
+                typeof feature.icon === 'object' && feature.icon.type === 'svg'
+                  ? (
+                      <feature.icon.type {...feature.icon.props} width={48} height={48} className="size-12" />
+                    )
+                  : feature.icon
+              }
             </div>
             <div className="space-y-2">
               <p className="text-xl font-bold text-[#121316]">{feature.title}</p>

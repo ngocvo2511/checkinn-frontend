@@ -8,15 +8,19 @@ interface DateRangePickerProps {
   onDatesChange?: (startDate: Date | null, endDate: Date | null) => void;
   checkInLabel?: string;
   checkOutLabel?: string;
+  initialCheckIn?: Date | null;
+  initialCheckOut?: Date | null;
 }
 
 export function DateRangePicker({
   onDatesChange,
   checkInLabel = "Check In",
   checkOutLabel = "Check Out",
+  initialCheckIn = null,
+  initialCheckOut = null,
 }: DateRangePickerProps) {
-  const [checkInDate, setCheckInDate] = useState<Date | null>(null);
-  const [checkOutDate, setCheckOutDate] = useState<Date | null>(null);
+  const [checkInDate, setCheckInDate] = useState<Date | null>(initialCheckIn);
+  const [checkOutDate, setCheckOutDate] = useState<Date | null>(initialCheckOut);
   const [showCheckInPicker, setShowCheckInPicker] = useState(false);
   const [showCheckOutPicker, setShowCheckOutPicker] = useState(false);
   const checkInRef = useRef<HTMLDivElement>(null);

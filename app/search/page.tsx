@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { HotelCard } from "@/components/HotelCard";
 import { SearchFilters } from "@/components/SearchFilters";
+import { HotelSearchBar } from "@/components/HotelSearchBar";
 import { hotelApi, Hotel as ApiHotel } from "@/lib/api/hotels";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -36,6 +37,7 @@ export default function SearchPage() {
 
   // Search params
   const cityName = searchParams.get("cityName") || "Destination";
+  const hotelName = searchParams.get("hotelName") || "";
   const checkIn = searchParams.get("checkIn") || "";
   const checkOut = searchParams.get("checkOut") || "";
   const rooms = searchParams.get("rooms") || "1";
@@ -68,7 +70,42 @@ export default function SearchPage() {
   // Fetch hotels from API
   useEffect(() => {
     const fetchHotels = async () => {
-      if (!cityName || cityName === "Destination") {
+      // Handle hotel name search - redirect to hotel detail page
+      if (hotelName) {
+        setLoading(true);
+        try {
+          const apiHotels = await hotelApi.searchHotels({
+            hotelName: hotelName,
+            minPrice: priceRange[0],
+            maxPrice: priceRange[1],
+          });
+
+          if (apiHotels && apiHotels.length > 0) {
+            // Redirect to the first hotel found
+            const hotelId = apiHotels[0].id;
+            const params = new URLSearchParams();
+            if (checkIn) params.set("checkIn", checkIn);
+            if (checkOut) params.set("checkOut", checkOut);
+            params.set("rooms", rooms);
+            params.set("adults", adults);
+            params.set("children", children);
+            
+            const queryString = params.toString();
+            router.push(`/hotel/${hotelId}${queryString ? '?' + queryString : ''}`);
+          } else {
+            setError("Không tìm thấy khách sạn");
+            setLoading(false);
+          }
+        } catch (err: any) {
+          console.error("Error searching hotel:", err);
+          setError(err.message || "Lỗi khi tìm khách sạn");
+          setLoading(false);
+        }
+        return;
+      }
+
+      // Handle city/location search - show list of hotels
+      if ((!cityName || cityName === "Destination")) {
         setLoading(false);
         return;
       }
@@ -78,7 +115,7 @@ export default function SearchPage() {
 
       try {
         const apiHotels = await hotelApi.searchHotels({
-          cityName,
+          cityName: cityName,
           minPrice: priceRange[0],
           maxPrice: priceRange[1],
         });
@@ -139,7 +176,7 @@ export default function SearchPage() {
     };
 
     fetchHotels();
-  }, [cityName]);
+  }, [cityName, hotelName]);
 
   const handleSelectHotel = (hotel: Hotel) => {
     const params = new URLSearchParams();
@@ -195,62 +232,43 @@ export default function SearchPage() {
       <Header />
 
       <main className="flex-1">
-        {/* Search Header */}
-        <div className={`bg-[#F7F8FA] border-b border-[#E4E6EB] sticky z-30 transition-all duration-300 ${headerVisible ? 'top-24' : 'top-0'}`}>
-          <div className="mx-auto max-w-screen-xl px-4 md:px-8 lg:px-10 py-4">
-            <div className="flex items-center gap-4 flex-wrap">
-              <div className="flex items-center gap-2">
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"
-                    fill="#0057FF"
-                  />
-                </svg>
-                <span className="font-semibold">{cityName}</span>
-              </div>
-
-              <div className="flex items-center gap-2 text-sm text-[#656F81]">
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H5V10h14v8z"
-                    fill="currentColor"
-                  />
-                </svg>
-                <span>
-                  {formatDate(checkIn)} - {formatDate(checkOut)}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2 text-sm text-[#656F81]">
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M10 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.66 0-5 .83-5 2.5V14h10v-1.5c0-1.67-3.34-2.5-5-2.5zm7.5-2c.83 0 1.5-.67 1.5-1.5S18.33 5 17.5 5 16 5.67 16 6.5s.67 1.5 1.5 1.5zm0 2c-.29 0-.62.02-.97.05.58.45.97 1.12.97 1.95V14h4v-1.5c0-1.67-3.34-2.5-5-2.5z"
-                    fill="currentColor"
-                  />
-                </svg>
-                <span>
-                  {rooms} phòng, {adults} người lớn, {children} trẻ em
-                </span>
-              </div>
-            </div>
+        {/* Search Bar */}
+        <div className={`bg-white border-b border-[#E5E7EB] sticky z-30 transition-all duration-300 ${headerVisible ? 'top-24' : 'top-0'}`}>
+          <div className="mx-auto max-w-screen-xl px-4 md:px-8 lg:px-12 py-4">
+            <HotelSearchBar
+              initialHotelName={cityName}
+              initialCheckIn={checkIn}
+              initialCheckOut={checkOut}
+              initialAdults={adults}
+              initialChildren={children}
+              initialRooms={rooms}
+              onSearch={(data) => {
+                const formatDateLocal = (date: Date) => {
+                  const year = date.getFullYear();
+                  const month = String(date.getMonth() + 1).padStart(2, '0');
+                  const day = String(date.getDate()).padStart(2, '0');
+                  return `${year}-${month}-${day}`;
+                };
+                
+                const params = new URLSearchParams();
+                params.set('checkIn', formatDateLocal(data.checkIn));
+                params.set('checkOut', formatDateLocal(data.checkOut));
+                params.set('rooms', data.rooms.toString());
+                params.set('adults', data.adults.toString());
+                params.set('children', data.children.toString());
+                
+                const queryString = params.toString();
+                
+                // If selected hotel, redirect to hotel detail
+                if (data.hotelId) {
+                  router.push(`/hotel/${data.hotelId}?${queryString}`);
+                }
+                // If selected city, redirect to search with city filter
+                else if (data.cityId && data.cityName) {
+                  router.push(`/search?cityId=${data.cityId}&cityName=${encodeURIComponent(data.cityName)}&${queryString}`);
+                }
+              }}
+            />
           </div>
         </div>
 

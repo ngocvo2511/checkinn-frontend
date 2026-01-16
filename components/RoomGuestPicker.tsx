@@ -4,13 +4,16 @@ import { useState, useRef, useEffect } from "react";
 
 interface RoomGuestPickerProps {
   onSelectionChange?: (rooms: number, adults: number, children: number) => void;
+  initialRooms?: number;
+  initialAdults?: number;
+  initialChildren?: number;
 }
 
-export function RoomGuestPicker({ onSelectionChange }: RoomGuestPickerProps) {
+export function RoomGuestPicker({ onSelectionChange, initialRooms = 1, initialAdults = 1, initialChildren = 0 }: RoomGuestPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [rooms, setRooms] = useState(1);
-  const [adults, setAdults] = useState(1);
-  const [children, setChildren] = useState(0);
+  const [rooms, setRooms] = useState(initialRooms);
+  const [adults, setAdults] = useState(initialAdults);
+  const [children, setChildren] = useState(initialChildren);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
