@@ -88,7 +88,7 @@ export default function Header({ onLogin, onSignup, onEditProfile }: { onLogin?:
                   <span className={`text-sm font-medium transition-colors ${isScrolled ? 'text-[#2B3037]' : 'text-white'}`}>{user.fullName || 'User'}</span>
                 </button>
                 {showMenu && (
-                  <div className="absolute right-0 mt-2 w-48 rounded-xl border border-[#DDDFE3] bg-white shadow-lg">
+                  <div className="absolute right-0 mt-2 w-48 rounded-xl border border-[#DDDFE3] bg-white shadow-lg z-[9999]">
                     <button
                       onClick={() => { onEditProfile?.(); setShowMenu(false); }}
                       className="w-full px-4 py-2 text-left text-sm text-[#2B3037] hover:bg-[#F1F2F3]"

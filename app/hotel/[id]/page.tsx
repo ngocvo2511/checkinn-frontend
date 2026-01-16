@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import Header from "@/components/Header";
+import HotelDetailHeader from "@/components/HotelDetailHeader";
 import Footer from "@/components/Footer";
 import { hotelApi, Hotel as ApiHotel, RoomType, MediaAsset } from "@/lib/api/hotels";
 import { reviewApi } from "@/lib/api/reviews";
@@ -93,8 +93,6 @@ export default function HotelDetailPage() {
   const [feedbackStatus, setFeedbackStatus] = useState<Record<string, 'helpful' | 'unhelpful' | null>>({});
   const [feedbackLoading, setFeedbackLoading] = useState<Record<string, boolean>>({});
   const [showAllPoliciesModal, setShowAllPoliciesModal] = useState(false);
-  const [headerVisible, setHeaderVisible] = useState(true);
-  const [lastScrollY, setLastScrollY] = useState(0);
 
   const checkIn = searchParams.get("checkIn") || "";
   const checkOut = searchParams.get("checkOut") || "";
@@ -117,24 +115,6 @@ export default function HotelDetailPage() {
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  // Track header visibility for sticky content
-  useEffect(() => {
-    const handleScrollVisibility = () => {
-      const currentScrollY = window.scrollY;
-      
-      if (currentScrollY < lastScrollY || currentScrollY < 100) {
-        setHeaderVisible(true);
-      } else if (currentScrollY > lastScrollY && currentScrollY > 100) {
-        setHeaderVisible(false);
-      }
-      
-      setLastScrollY(currentScrollY);
-    };
-
-    window.addEventListener('scroll', handleScrollVisibility);
-    return () => window.removeEventListener('scroll', handleScrollVisibility);
-  }, [lastScrollY]);
 
   const handleLogout = () => {
     // Logout handled by useAuth hook internally
@@ -346,9 +326,22 @@ export default function HotelDetailPage() {
   const handleScrollTo = (id: string) => {
     const el = document.getElementById(id);
     if (!el) return;
-    const offset = 72; // offset for sticky tabs
+    const offset = 96 + 52 + 56; // header + tab + search bar height
     const top = el.getBoundingClientRect().top + window.scrollY - offset;
     window.scrollTo({ top, behavior: "smooth" });
+  };
+
+  const handleSearchClick = () => {
+    // Navigate back to search with current params
+    const searchUrl = new URLSearchParams({
+      hotelName: hotel?.name || '',
+      checkIn: checkIn,
+      checkOut: checkOut,
+      rooms: rooms,
+      adults: adults,
+      children: children,
+    });
+    router.push(`/search?${searchUrl.toString()}`);
   };
 
   const openGalleryAt = (index: number) => {
@@ -458,26 +451,20 @@ export default function HotelDetailPage() {
 
   return (
     <div className="bg-white text-[#111827]">
-      <Header />
+      <HotelDetailHeader 
+        sections={sectionList}
+        activeSection={activeSection}
+        onSectionClick={handleScrollTo}
+        hotelName={hotel?.name}
+        checkIn={checkIn}
+        checkOut={checkOut}
+        adults={adults}
+        children={children}
+        rooms={rooms}
+        onSearchClick={handleSearchClick}
+      />
 
       <main className="bg-[#F8FAFC] pb-12">
-        <nav className={`sticky z-30 bg-white/90 backdrop-blur border-b border-[#E5E7EB] transition-all duration-300 ${headerVisible ? 'top-24' : 'top-0'}`}>
-          <div className="mx-auto max-w-screen-xl px-4 md:px-8 lg:px-12 flex items-center gap-2 overflow-x-auto py-3">
-            {sectionList.map((section) => (
-              <button
-                key={section.id}
-                onClick={() => handleScrollTo(section.id)}
-                className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition ${
-                  activeSection === section.id
-                    ? "bg-[#0F172A] text-white shadow"
-                    : "text-[#4B5563] hover:text-[#0F172A] hover:bg-[#E5E7EB]"
-                }`}
-              >
-                {section.label}
-              </button>
-            ))}
-          </div>
-        </nav>
 
         {/* Photos */}
         <section id="photos" className="mx-auto max-w-screen-xl px-4 md:px-8 lg:px-12 pt-8">
