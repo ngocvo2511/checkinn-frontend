@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { bookingApi, type CreateBookingPayload } from "@/lib/api/booking";
+import { bookingApi, loyaltyApi, type CreateBookingPayload } from "@/lib/api/booking";
 import { type AuthResponse } from "@/lib/api/auth";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -41,6 +41,13 @@ export default function BookingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [user, setUser] = useState<AuthResponse | null>(null);
+  const [loyaltyPoints, setLoyaltyPoints] = useState<{
+    totalPoints: number;
+    usedPoints: number;
+    availablePoints: number;
+  } | null>(null);
+  const [loadingPoints, setLoadingPoints] = useState(false);
+  const [pointsToUse, setPointsToUse] = useState(0);
 
   useEffect(() => {
     // Wait for auth to finish loading
@@ -55,7 +62,20 @@ export default function BookingPage() {
     const stored = localStorage.getItem("user");
     if (!stored) return;
     try {
-      setUser(JSON.parse(stored));
+      const userData = JSON.parse(stored);
+      setUser(userData);
+      // Load user's loyalty points
+      setLoadingPoints(true);
+      loyaltyApi
+        .getUserPoints(userData.userId)
+        .then((res) => {
+          setLoyaltyPoints(res);
+        })
+        .catch((err) => {
+          console.error("Failed to load loyalty points", err);
+          setLoyaltyPoints(null);
+        })
+        .finally(() => setLoadingPoints(false));
     } catch (err) {
       console.error("Failed to parse user", err);
     }
@@ -79,6 +99,13 @@ export default function BookingPage() {
     return diff > 0 ? diff : 1;
   }, [checkIn, checkOut]);
   const totalPrice = subtotalPerRoom * quantity * nights;
+  
+  // Calculate max points usable: min of (50% of total price / 1000, available points)
+  const maxPointsUsable = useMemo(() => {
+    if (!loyaltyPoints) return 0;
+    const halfPricePoints = Math.floor(totalPrice / 2000); // 50% of price, 1 point = 1000 VND
+    return Math.min(loyaltyPoints.availablePoints, halfPricePoints);
+  }, [loyaltyPoints, totalPrice]);
 
   // Validation functions
   const validateName = (value: string) => {
@@ -175,6 +202,7 @@ export default function BookingPage() {
         contactEmail: guestEmail,
         contactPhone: guestPhone,
         specialRequests,
+        pointsToUse: pointsToUse > 0 ? pointsToUse : undefined,
         items: [
           {
             roomTypeId: roomId,
@@ -385,6 +413,86 @@ export default function BookingPage() {
                 </div>
               </div>
 
+              {/* Loyalty Points Section */}
+              {user && (
+                <div className="rounded-2xl border border-[#E5E7EB] bg-white shadow-sm p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-6 h-6 text-[#F59E0B]">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <h2 className="text-lg font-semibold text-[#0F172A]">Điểm Loyalty</h2>
+                  </div>
+                  
+                  {loadingPoints ? (
+                    <p className="text-sm text-[#6B7280]">Đang tải điểm...</p>
+                  ) : (
+                    <>
+                      {loyaltyPoints ? (
+                        <>
+                          <div className="bg-[#FFFBEB] rounded-lg p-4 mb-4">
+                            <div className="grid grid-cols-3 gap-4">
+                              <div>
+                                <p className="text-xs text-[#6B7280] mb-1">Tổng điểm tích luỹ</p>
+                                <p className="text-xl font-bold text-[#F59E0B]">{loyaltyPoints.totalPoints.toLocaleString()}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-[#6B7280] mb-1">Đã sử dụng</p>
+                                <p className="text-xl font-bold text-[#EF4444]">{loyaltyPoints.usedPoints.toLocaleString()}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-[#6B7280] mb-1">Có thể sử dụng</p>
+                                <p className="text-xl font-bold text-[#10B981]">{loyaltyPoints.availablePoints.toLocaleString()}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {loyaltyPoints.availablePoints > 0 && (
+                            <div className="space-y-4">
+                              <div>
+                                <label className="block text-sm font-semibold text-[#0F172A] mb-2">
+                                  Số điểm muốn sử dụng (tối đa {maxPointsUsable.toLocaleString()})
+                                </label>
+                                <p className="text-xs text-[#6B7280] mb-2">
+                                  Giới hạn: 50% tổng tiền hoặc {loyaltyPoints.availablePoints.toLocaleString()} điểm có sẵn
+                                </p>
+                                <div className="flex items-center gap-3">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max={maxPointsUsable}
+                                    value={pointsToUse}
+                                    onChange={(e) => {
+                                      const val = Math.min(Math.max(0, Number(e.target.value)), maxPointsUsable);
+                                      setPointsToUse(val);
+                                    }}
+                                    className="flex-1 rounded-lg border border-[#E5E7EB] px-4 py-2 text-sm focus:border-[#2563EB] focus:outline-none"
+                                    placeholder="0"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setPointsToUse(maxPointsUsable)}
+                                    className="rounded-lg bg-[#F0F9FF] text-[#2563EB] px-4 py-2 text-sm font-semibold hover:bg-[#E0F2FE] transition"
+                                  >
+                                    Dùng hết
+                                  </button>
+                                </div>
+                                {pointsToUse > 0 && (
+                                  <p className="text-sm text-[#10B981] mt-2">
+                                    Ước tính giảm giá: {(pointsToUse * 1000).toLocaleString()} VND
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-sm text-[#6B7280]">Không thể tải thông tin điểm. Vui lòng thử lại.</p>
+                      )}
+                    </>
+                  )}          
+                </div>
+              )}
+
               {/* Special Requests */}
               <div className="rounded-2xl border border-[#E5E7EB] bg-white shadow-sm p-6">
                 <div className="flex items-center gap-2 mb-4">
@@ -521,11 +629,25 @@ Khi nhận phòng, bạn phải mang theo Chứng minh thư. Các tài liệu c�
                   </div>
                 </div>
 
+                {pointsToUse > 0 && (
+                  <div className="space-y-2 border-t border-[#E5E7EB] pt-4 mt-4 bg-[#F0FDF4] p-3 rounded-lg">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-[#6B7280] font-semibold">Giảm giá từ điểm</span>
+                      <span className="text-[#10B981] font-semibold">- {(pointsToUse * 1000).toLocaleString()} VND</span>
+                    </div>
+                    <p className="text-xs text-[#6B7280]">
+                      Sử dụng {pointsToUse.toLocaleString()} điểm
+                    </p>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between border-t border-[#E5E7EB] pt-4 mt-4">
                   <span className="text-base font-semibold text-[#0F172A]">Tổng cộng</span>
                   <div className="text-right">
                     <p className="text-xs text-[#9CA3AF] line-through">{formatPrice(Math.round(totalPrice * 1.15))}</p>
-                    <p className="text-xl font-bold text-[#DC2626]">{formatPrice(totalPrice)}</p>
+                    <p className="text-xl font-bold text-[#DC2626]">
+                      {formatPrice(Math.max(0, totalPrice - (pointsToUse * 1000)))}
+                    </p>
                   </div>
                 </div>
 

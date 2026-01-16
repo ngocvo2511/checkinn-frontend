@@ -7,9 +7,11 @@ import Logo from '@/components/Logo';
 import AdminHeroPanel from '@/components/AdminHeroPanel';
 import AdminInputField from '@/components/AdminInputField';
 import { authApi } from '@/lib/api/auth';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
@@ -34,20 +36,25 @@ export default function AdminLoginPage() {
         password,
       });
 
-      const role = response.role?.toLowerCase?.() || '';
-      if (!role.includes('admin')) {
+      const role = response.role?.toUpperCase?.() || '';
+      if (role !== 'ADMIN') {
         setError('The account does not have access.');
+        setLoading(false);
         return;
       }
 
-      localStorage.setItem('token', response.token);
-      localStorage.setItem('user', JSON.stringify(response));
       localStorage.setItem('rememberAdmin', String(remember));
       setStatus('Login successful. Redirecting to the admin console...');
-      router.push('/admin/dashboard');
+      
+      // Use the login hook to save user data
+      await login(response);
+      
+      // Redirect to dashboard after successful login
+      setTimeout(() => {
+        router.push('/admin/dashboard');
+      }, 500);
     } catch (err: any) {
       setError(err.message || 'Login failed. Please try again.');
-    } finally {
       setLoading(false);
     }
   };
