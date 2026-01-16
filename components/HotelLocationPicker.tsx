@@ -3,15 +3,18 @@
 import { useState, useEffect } from 'react';
 import type { City } from '@/lib/api/cities';
 import { cityApi } from '@/lib/api/cities';
+import { hotelApi, type Hotel } from '@/lib/api/hotels';
 
 interface HotelLocationPickerProps {
   onCitySelect: (city: City | null) => void;
+  onHotelSelect?: (hotel: Hotel) => void;
   initialHotelName?: string;
 }
 
-export function HotelLocationPicker({ onCitySelect, initialHotelName }: HotelLocationPickerProps) {
+export function HotelLocationPicker({ onCitySelect, onHotelSelect, initialHotelName }: HotelLocationPickerProps) {
   const [cities, setCities] = useState<City[]>([]);
   const [filteredCities, setFilteredCities] = useState<City[]>([]);
+  const [filteredHotels, setFilteredHotels] = useState<Hotel[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -43,16 +46,25 @@ export function HotelLocationPicker({ onCitySelect, initialHotelName }: HotelLoc
   useEffect(() => {
     if (searchTerm.trim() === '') {
       setFilteredCities([]);
+      setFilteredHotels([]);
     } else {
-      const searchCities = async () => {
+      const searchAll = async () => {
         try {
-          const results = await cityApi.searchLocations(searchTerm);
-          setFilteredCities(results);
+          setLoading(true);
+          // Search both cities and hotels in parallel
+          const [cityResults, hotelResults] = await Promise.all([
+            cityApi.searchLocations(searchTerm),
+            hotelApi.searchHotelsByName(searchTerm)
+          ]);
+          setFilteredCities(cityResults);
+          setFilteredHotels(hotelResults);
         } catch (error) {
-          console.error('Failed to search cities:', error);
+          console.error('Failed to search:', error);
+        } finally {
+          setLoading(false);
         }
       };
-      searchCities();
+      searchAll();
     }
   }, [searchTerm]);
 
@@ -92,18 +104,55 @@ export function HotelLocationPicker({ onCitySelect, initialHotelName }: HotelLoc
           </div>
         )}
 
-        {!loading && searchTerm && filteredCities.length === 0 && (
+        {!loading && searchTerm && filteredCities.length === 0 && filteredHotels.length === 0 && (
           <div className="px-6 py-8 text-center text-sm text-[#8B94A4]">
             Không tìm thấy kết quả
           </div>
         )}
 
-        {!loading && searchTerm && filteredCities.length > 0 && (
+        {!loading && searchTerm && (filteredCities.length > 0 || filteredHotels.length > 0) && (
           <div className="px-6 py-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[#8B94A4] mb-3">
-              Kết quả tìm kiếm ({filteredCities.length})
-            </p>
-            <div className="space-y-3">
+            {/* Hotels Section */}
+            {filteredHotels.length > 0 && (
+              <div className="mb-6">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#8B94A4] mb-3">
+                  Khách sạn ({filteredHotels.length})
+                </p>
+                <div className="space-y-2">
+                  {filteredHotels.map((hotel) => (
+                    <button
+                      key={hotel.id}
+                      onClick={() => {
+                        if (onHotelSelect) {
+                          onHotelSelect(hotel);
+                        } else if (hotel.city) {
+                          onCitySelect(hotel.city);
+                        }
+                      }}
+                      className="flex w-full items-start justify-between gap-3 rounded-xl px-4 py-3 text-left hover:bg-[#F7FAFF] transition"
+                    >
+                      <div className="flex flex-col gap-1 flex-1">
+                        <p className="text-sm font-semibold text-[#1F2933]">{hotel.name}</p>
+                        <p className="text-xs text-[#6B7280]">
+                          {hotel.city ? `${hotel.city.name}, Việt Nam` : 'Việt Nam'}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="rounded-full bg-[#E8EFFC] px-3 py-1 text-xs font-semibold text-[#0057FF]">Khách sạn</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Cities Section */}
+            {filteredCities.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#8B94A4] mb-3">
+                  Địa điểm ({filteredCities.length})
+                </p>
+                <div className="space-y-3">
               {filteredCities.map((city) => (
                 <button
                   key={city.id}
@@ -123,6 +172,8 @@ export function HotelLocationPicker({ onCitySelect, initialHotelName }: HotelLoc
                 </button>
               ))}
             </div>
+              </div>
+            )}
           </div>
         )}
 

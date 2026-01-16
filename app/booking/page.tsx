@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { bookingApi, type CreateBookingPayload } from "@/lib/api/booking";
 import { type AuthResponse } from "@/lib/api/auth";
+import { useAuth } from "@/hooks/useAuth";
 
 const formatPrice = (value?: number) => {
   if (value === undefined || value === null) return "Liên hệ";
@@ -15,6 +16,7 @@ const formatPrice = (value?: number) => {
 export default function BookingPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { user: authUser, isLoading: authLoading } = useAuth();
 
   const hotelId = searchParams.get("hotelId") || "";
   const hotelName = searchParams.get("hotelName") || "";
@@ -41,6 +43,15 @@ export default function BookingPage() {
   const [user, setUser] = useState<AuthResponse | null>(null);
 
   useEffect(() => {
+    // Wait for auth to finish loading
+    if (authLoading) return;
+
+    // Check if user is authenticated
+    if (!authUser) {
+      router.push("/");
+      return;
+    }
+
     const stored = localStorage.getItem("user");
     if (!stored) return;
     try {
@@ -48,7 +59,7 @@ export default function BookingPage() {
     } catch (err) {
       console.error("Failed to parse user", err);
     }
-  }, []);
+  }, [authUser, authLoading, router]);
 
   // Validation states
   const [errors, setErrors] = useState({

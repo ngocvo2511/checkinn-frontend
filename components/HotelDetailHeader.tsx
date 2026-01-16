@@ -15,6 +15,7 @@ interface HotelDetailHeaderProps {
   sections: Section[];
   activeSection: string;
   onSectionClick: (id: string) => void;
+  hotelId?: string;
   hotelName?: string;
   checkIn?: string;
   checkOut?: string;
@@ -22,12 +23,15 @@ interface HotelDetailHeaderProps {
   children?: string;
   rooms?: string;
   onSearchClick?: () => void;
+  onLogin?: () => void;
+  onSignup?: () => void;
 }
 
-export default function HotelDetailHeader({ sections, activeSection, onSectionClick, hotelName, checkIn, checkOut, adults, children, rooms, onSearchClick }: HotelDetailHeaderProps) {
+export default function HotelDetailHeader({ sections, activeSection, onSectionClick, hotelId, hotelName, checkIn, checkOut, adults, children, rooms, onSearchClick, onLogin, onSignup }: HotelDetailHeaderProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [headerOffset, setHeaderOffset] = useState(0);
   const [lastScrollY, setLastScrollY] = useState(0);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
   const router = useRouter();
   const { user, logout } = useAuth();
 
@@ -63,7 +67,7 @@ export default function HotelDetailHeader({ sections, activeSection, onSectionCl
   };
 
   return (
-    <div className="sticky top-0 z-30">
+    <div className="sticky top-0 z-40">
       <div 
         className="transition-transform duration-150 ease-out"
         style={{ transform: `translateY(-${headerOffset}px)` }}
@@ -89,7 +93,14 @@ export default function HotelDetailHeader({ sections, activeSection, onSectionCl
                     </button>
                     <div className="relative">
                       <button
-                        onClick={() => setShowMenu(!showMenu)}
+                        onClick={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setMenuPosition({ 
+                            top: rect.bottom + 8, 
+                            right: window.innerWidth - rect.right 
+                          });
+                          setShowMenu(!showMenu);
+                        }}
                         className="flex items-center gap-2 rounded-full px-3 py-2 transition-colors bg-[#F1F2F3] hover:bg-[#E1E2E7]"
                       >
                         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#0057FF] text-xs font-bold text-white">
@@ -97,8 +108,50 @@ export default function HotelDetailHeader({ sections, activeSection, onSectionCl
                         </div>
                         <span className="text-sm font-medium transition-colors text-[#2B3037]">{user.fullName || 'User'}</span>
                       </button>
-                      {showMenu && (
-                        <div className="absolute right-0 mt-2 w-48 rounded-xl border border-[#DDDFE3] bg-white shadow-lg z-[9999]">
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      className="hidden rounded-full px-4 py-2 text-sm font-medium md:inline-flex transition-colors text-[#2B3037] hover:bg-[#F1F2F3]"
+                      onClick={() => router.push('/booking/history')}
+                    >
+                      Đặt chỗ của tôi
+                    </button>
+                    <button
+                      className="hidden rounded-full px-4 py-2 text-sm font-medium md:inline-flex transition-colors text-[#2B3037] hover:bg-[#F1F2F3]"
+                    >
+                      Hợp tác với chúng tôi
+                    </button>
+                    <button
+                      className="rounded-xl border px-4 py-2 text-sm font-medium shadow-sm transition-colors border-[#0057FF] bg-white text-[#0057FF] hover:bg-[#0057FF] hover:text-white"
+                      onClick={onSignup}
+                    >
+                      Đăng ký
+                    </button>
+                    <button
+                      className="rounded-xl px-4 py-2 text-sm font-medium shadow-sm transition-colors bg-[#0057FF] text-white hover:bg-[#0046CC]"
+                      onClick={onLogin}
+                    >
+                      Đăng nhập
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Dropdown Menu - Portal outside sticky container */}
+        {showMenu && (
+          <div 
+            className="fixed w-48 rounded-xl border border-[#DDDFE3] bg-white shadow-lg"
+            style={{ 
+              top: `${menuPosition.top}px`, 
+              right: `${menuPosition.right}px`,
+              zIndex: 10000
+            }}
+          >
                           <button
                             onClick={() => { handleEditProfile(); setShowMenu(false); }}
                             className="w-full px-4 py-2 text-left text-sm text-[#2B3037] hover:bg-[#F1F2F3]"
@@ -119,39 +172,8 @@ export default function HotelDetailHeader({ sections, activeSection, onSectionCl
                           >
                             Đăng xuất
                           </button>
-                        </div>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      className="hidden rounded-full px-4 py-2 text-sm font-medium md:inline-flex transition-colors text-[#2B3037] hover:bg-[#F1F2F3]"
-                      onClick={() => router.push('/booking/history')}
-                    >
-                      Đặt chỗ của tôi
-                    </button>
-                    <button
-                      className="hidden rounded-full px-4 py-2 text-sm font-medium md:inline-flex transition-colors text-[#2B3037] hover:bg-[#F1F2F3]"
-                    >
-                      Hợp tác với chúng tôi
-                    </button>
-                    <button
-                      className="rounded-xl border px-4 py-2 text-sm font-medium shadow-sm transition-colors border-[#0057FF] bg-white text-[#0057FF] hover:bg-[#0057FF] hover:text-white"
-                    >
-                      Sign Up
-                    </button>
-                    <button
-                      className="rounded-xl px-4 py-2 text-sm font-medium shadow-sm transition-colors bg-[#0057FF] text-white hover:bg-[#0046CC]"
-                    >
-                      Login
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
           </div>
-        </header>
+        )}
 
         {/* Search Info Bar - Above Tabs */}
         <div className="bg-white border-b border-[#E5E7EB]">
@@ -171,14 +193,33 @@ export default function HotelDetailHeader({ sections, activeSection, onSectionCl
                   return `${year}-${month}-${day}`;
                 };
                 
-                const currentUrl = new URL(window.location.href);
-                currentUrl.searchParams.set('checkIn', formatDateLocal(data.checkIn));
-                currentUrl.searchParams.set('checkOut', formatDateLocal(data.checkOut));
-                currentUrl.searchParams.set('rooms', data.rooms.toString());
-                currentUrl.searchParams.set('adults', data.adults.toString());
-                currentUrl.searchParams.set('children', data.children.toString());
+                const params = new URLSearchParams();
+                params.set('checkIn', formatDateLocal(data.checkIn));
+                params.set('checkOut', formatDateLocal(data.checkOut));
+                params.set('rooms', data.rooms.toString());
+                params.set('adults', data.adults.toString());
+                params.set('children', data.children.toString());
                 
-                window.location.href = currentUrl.toString();
+                const queryString = params.toString();
+                
+                // If selected hotel is different from current hotel, redirect to new hotel directly
+                if (data.hotelId && data.hotelId !== hotelId) {
+                  router.push(`/hotel/${data.hotelId}?${queryString}`);
+                }
+                // If selected location is a city (not a hotel), redirect to search page with city filter
+                else if (!data.hotelId && data.cityName) {
+                  router.push(`/search?cityId=${data.cityId}&cityName=${encodeURIComponent(data.cityName)}&${queryString}`);
+                }
+                // If staying on same hotel, just update search parameters
+                else {
+                  const currentUrl = new URL(window.location.href);
+                  currentUrl.searchParams.set('checkIn', formatDateLocal(data.checkIn));
+                  currentUrl.searchParams.set('checkOut', formatDateLocal(data.checkOut));
+                  currentUrl.searchParams.set('rooms', data.rooms.toString());
+                  currentUrl.searchParams.set('adults', data.adults.toString());
+                  currentUrl.searchParams.set('children', data.children.toString());
+                  window.location.href = currentUrl.toString();
+                }
               }}
             />
           </div>

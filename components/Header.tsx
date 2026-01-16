@@ -59,7 +59,7 @@ export default function Header({ onLogin, onSignup, onEditProfile }: { onLogin?:
   }, [lastScrollY, pathname]);
 
   return (
-    <header className={`sticky top-0 z-30 transition-all duration-300 ${isScrolled ? 'bg-white/95 backdrop-blur shadow-sm' : 'bg-transparent'} ${isVisible ? 'translate-y-0' : '-translate-y-full'}`}>
+    <header className={`sticky top-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-white/95 backdrop-blur shadow-sm' : 'bg-transparent'} ${isVisible ? 'translate-y-0' : '-translate-y-full'}`}>
       <div className="mx-auto flex h-24 max-w-screen-xl items-center justify-between px-4 md:px-8 lg:px-10">
         <Logo isScrolled={isScrolled} />
         <div className="flex items-center gap-4">
@@ -77,7 +77,7 @@ export default function Header({ onLogin, onSignup, onEditProfile }: { onLogin?:
               >
                 Hợp tác với chúng tôi
               </button>
-              <div className="relative">
+              <div className="relative" style={{ zIndex: 10000 }}>
                 <button
                   onClick={() => setShowMenu(!showMenu)}
                   className={`flex items-center gap-2 rounded-full px-3 py-2 transition-colors ${isScrolled ? 'bg-[#F1F2F3] hover:bg-[#E1E2E7]' : 'bg-white/20 hover:bg-white/30'}`}
@@ -88,7 +88,7 @@ export default function Header({ onLogin, onSignup, onEditProfile }: { onLogin?:
                   <span className={`text-sm font-medium transition-colors ${isScrolled ? 'text-[#2B3037]' : 'text-white'}`}>{user.fullName || 'User'}</span>
                 </button>
                 {showMenu && (
-                  <div className="absolute right-0 mt-2 w-48 rounded-xl border border-[#DDDFE3] bg-white shadow-lg z-[9999]">
+                  <div className="absolute right-0 mt-2 w-48 rounded-xl border border-[#DDDFE3] bg-white shadow-lg" style={{ zIndex: 9999 }}>
                     <button
                       onClick={() => { onEditProfile?.(); setShowMenu(false); }}
                       className="w-full px-4 py-2 text-left text-sm text-[#2B3037] hover:bg-[#F1F2F3]"
@@ -130,13 +130,13 @@ export default function Header({ onLogin, onSignup, onEditProfile }: { onLogin?:
                 className={`rounded-xl border px-4 py-2 text-sm font-medium shadow-sm transition-colors ${isScrolled ? 'border-[#0057FF] bg-white text-[#0057FF] hover:bg-[#0057FF] hover:text-white' : 'border-white bg-transparent text-white hover:bg-white hover:text-[#0057FF]'}`}
                 onClick={onSignup}
               >
-                Sign Up
+                Đăng ký
               </button>
               <button
                 className={`rounded-xl px-4 py-2 text-sm font-medium shadow-sm transition-colors ${isScrolled ? 'bg-[#0057FF] text-white hover:bg-[#0046CC]' : 'bg-white text-[#0057FF] hover:bg-white/90'}`}
                 onClick={onLogin}
               >
-                Login
+                Đăng nhập
               </button>
             </>
           )}

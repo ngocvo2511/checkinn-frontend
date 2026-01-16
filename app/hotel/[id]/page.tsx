@@ -6,6 +6,8 @@ import HotelDetailHeader from "@/components/HotelDetailHeader";
 import Footer from "@/components/Footer";
 import { hotelApi, Hotel as ApiHotel, RoomType, MediaAsset } from "@/lib/api/hotels";
 import { reviewApi } from "@/lib/api/reviews";
+import { authApi } from "@/lib/api/auth";
+import { useAuth } from "@/hooks/useAuth";
 
 type Review = {
   id: string;
@@ -75,6 +77,7 @@ export default function HotelDetailPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { user } = useAuth();
   const hotelId = typeof params?.id === "string" ? params.id : Array.isArray(params?.id) ? params.id[0] : "";
 
   const [mounted, setMounted] = useState(false);
@@ -93,6 +96,8 @@ export default function HotelDetailPage() {
   const [feedbackStatus, setFeedbackStatus] = useState<Record<string, 'helpful' | 'unhelpful' | null>>({});
   const [feedbackLoading, setFeedbackLoading] = useState<Record<string, boolean>>({});
   const [showAllPoliciesModal, setShowAllPoliciesModal] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+  const [showSignup, setShowSignup] = useState(false);
 
   const checkIn = searchParams.get("checkIn") || "";
   const checkOut = searchParams.get("checkOut") || "";
@@ -179,24 +184,80 @@ export default function HotelDetailPage() {
   }, [hotel?.id]);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setActiveSection(entry.target.id);
+    const handleScroll = () => {
+      const viewportMiddle = window.innerHeight / 2;
+      
+      // Define sections with their heading text to find
+      const sectionHeadings = [
+        { id: 'photos', text: null }, // photos always first, no specific heading
+        { id: 'overview', text: 'Đánh giá tổng quan' },
+        { id: 'rooms', text: 'Những phòng còn trống' },
+        { id: 'amenities', text: 'Tiện ích của khách sạn' },
+        { id: 'policies', text: 'Chính sách và những thông tin liên quan' },
+        { id: 'reviews', text: 'Đánh giá khách hàng' }
+      ];
+      
+      let newActiveSection = 'photos';
+      
+      // Check each section from bottom to top
+      for (let i = sectionHeadings.length - 1; i >= 0; i--) {
+        const section = sectionHeadings[i];
+        const el = document.getElementById(section.id);
+        
+        if (!el) continue;
+        
+        // For photos section, just check if we're at the top
+        if (section.id === 'photos') {
+          const rect = el.getBoundingClientRect();
+          if (rect.top <= viewportMiddle) {
+            newActiveSection = section.id;
           }
-        });
-      },
-      { rootMargin: "-40% 0px -40% 0px", threshold: 0.25 }
-    );
-
-    sectionList.forEach((section) => {
-      const el = document.getElementById(section.id);
-      if (el) observer.observe(el);
-    });
-
-    return () => observer.disconnect();
-  }, [sectionList, hotel]);
+          continue;
+        }
+        
+        // For other sections, find the heading
+        let heading = null;
+        if (section.text) {
+          // Try to find h2 or h3 with matching text
+          const headings = el.querySelectorAll('h2, h3');
+          for (const h of headings) {
+            if (h.textContent?.includes(section.text)) {
+              heading = h;
+              break;
+            }
+          }
+        }
+        
+        if (heading) {
+          const rect = heading.getBoundingClientRect();
+          // If heading is at or above middle of viewport, activate this section
+          if (rect.top <= viewportMiddle) {
+            newActiveSection = section.id;
+            break;
+          }
+        } else {
+          // Fallback: use section top
+          const rect = el.getBoundingClientRect();
+          if (rect.top <= viewportMiddle) {
+            newActiveSection = section.id;
+            break;
+          }
+        }
+      }
+      
+      setActiveSection(newActiveSection);
+    };
+    
+    // Initial check
+    handleScroll();
+    
+    // Listen to scroll
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
 
   const heroImages: MediaAsset[] = useMemo(() => {
     if (!hotel) return [];
@@ -324,11 +385,12 @@ export default function HotelDetailPage() {
   }, [roomModal]);
 
   const handleScrollTo = (id: string) => {
+    setActiveSection(id);
     const el = document.getElementById(id);
     if (!el) return;
     const offset = 96 + 52 + 56; // header + tab + search bar height
     const top = el.getBoundingClientRect().top + window.scrollY - offset;
-    window.scrollTo({ top, behavior: "smooth" });
+    window.scrollTo({ top, behavior: "auto" });
   };
 
   const handleSearchClick = () => {
@@ -352,6 +414,12 @@ export default function HotelDetailPage() {
   };
 
   const handleBookRoom = (room: RoomType) => {
+    // Check if user is logged in
+    if (!user) {
+      setShowLogin(true);
+      return;
+    }
+
     // Check if selecting different room type when quantity > 1
     const roomQuantity = Number(rooms) || 1;
     if (roomQuantity > 1 && selectedRoomType && selectedRoomType !== room.id) {
@@ -455,6 +523,7 @@ export default function HotelDetailPage() {
         sections={sectionList}
         activeSection={activeSection}
         onSectionClick={handleScrollTo}
+        hotelId={hotelId}
         hotelName={hotel?.name}
         checkIn={checkIn}
         checkOut={checkOut}
@@ -462,6 +531,8 @@ export default function HotelDetailPage() {
         children={children}
         rooms={rooms}
         onSearchClick={handleSearchClick}
+        onLogin={() => setShowLogin(true)}
+        onSignup={() => setShowSignup(true)}
       />
 
       <main className="bg-[#F8FAFC] pb-12">
@@ -1295,6 +1366,286 @@ export default function HotelDetailPage() {
       </main>
 
       <Footer />
+
+      {showLogin && (
+        <LoginModal
+          onClose={() => setShowLogin(false)}
+          onSwitchToSignup={() => {
+            setShowLogin(false);
+            setShowSignup(true);
+          }}
+        />
+      )}
+
+      {showSignup && (
+        <SignupModal
+          onClose={() => setShowSignup(false)}
+          onSwitchToLogin={() => {
+            setShowSignup(false);
+            setShowLogin(true);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function LoginModal({ onClose, onSwitchToSignup }: { onClose: () => void; onSwitchToSignup: () => void }) {
+  const router = useRouter();
+  const { login } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!email || !password) {
+      setError("Please fill in all fields");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await authApi.login({
+        usernameOrEmail: email,
+        password,
+      });
+
+      localStorage.setItem("token", response.token);
+      await login(response);
+
+      const role = response.role?.toLowerCase?.() || "";
+      if (role.includes("admin")) {
+        router.push("/admin/dashboard");
+      } else if (role.includes("owner") || role.includes("host")) {
+        router.push("/host/dashboard");
+      } else {
+        // Reload page to update UI
+        location.reload();
+      }
+    } catch (err: any) {
+      setError(err.message || "Login failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/35 px-4 py-10 sm:py-16">
+      <div className="pointer-events-auto w-full max-w-xl rounded-2xl border border-[#E8E9F1] bg-white/95 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.16)] backdrop-blur sm:p-8">
+        <div className="relative flex items-center justify-center pb-2">
+          <p className="text-sm font-semibold text-[#2B3037]">Log in or sign up</p>
+          <button
+            type="button"
+            aria-label="Close"
+            className="absolute right-0 top-0 text-lg font-semibold text-[#8B94A4] transition hover:text-[#2B3037]"
+            onClick={onClose}
+          >
+            x
+          </button>
+        </div>
+
+        <div className="space-y-6">
+          <div className="text-center">
+            <p className="text-xl font-bold text-[#1F2226]">Welcome to Tripto</p>
+          </div>
+
+          {error && (
+            <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+              {error}
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-[#2B3037]">Email address</label>
+            <input
+              type="email"
+              placeholder="Enter your email address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-lg border border-[#E0E2E7] bg-[#F7F8FA] px-4 py-3 text-sm text-[#2B3037] placeholder:text-[#8B94A4] focus:border-[#0057FF] focus:bg-white focus:outline-none"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-[#2B3037]">Password</label>
+            <input
+              type="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-lg border border-[#E0E2E7] bg-[#F7F8FA] px-4 py-3 text-sm text-[#2B3037] placeholder:text-[#8B94A4] focus:border-[#0057FF] focus:bg-white focus:outline-none"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={loading}
+            className="w-full rounded-xl bg-[#0057FF] py-3 text-sm font-semibold text-white shadow-sm hover:bg-[#0046CC] disabled:opacity-50"
+          >
+            {loading ? "Loading..." : "Continue"}
+          </button>
+
+          <button
+            type="button"
+            onClick={onSwitchToSignup}
+            className="w-full rounded-xl border border-[#0057FF] bg-white py-3 text-sm font-semibold text-[#0057FF] shadow-sm hover:bg-[#0057FF] hover:text-white"
+          >
+            Bạn chưa có tài khoản? Đăng ký ngay
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SignupModal({ onClose, onSwitchToLogin }: { onClose: () => void; onSwitchToLogin: () => void }) {
+  const router = useRouter();
+  const { login } = useAuth();
+  const [fullName, setFullName] = useState("");
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!fullName || !username || !email || !password || !confirmPassword) {
+      setError("Please fill in all fields");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await authApi.register({
+        fullName,
+        username,
+        email,
+        password,
+      });
+
+      localStorage.setItem("token", response.token);
+      await login(response);
+
+      // Reload page to update UI
+      location.reload();
+    } catch (err: any) {
+      setError(err.message || "Registration failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/35 px-4 py-10 sm:py-16">
+      <div className="pointer-events-auto w-full max-w-xl rounded-2xl border border-[#E8E9F1] bg-white/95 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.16)] backdrop-blur sm:p-8">
+        <div className="relative flex items-center justify-center pb-2">
+          <p className="text-sm font-semibold text-[#2B3037]">Sign up</p>
+          <button
+            type="button"
+            aria-label="Close"
+            className="absolute right-0 top-0 text-lg font-semibold text-[#8B94A4] transition hover:text-[#2B3037]"
+            onClick={onClose}
+          >
+            x
+          </button>
+        </div>
+
+        <div className="space-y-6">
+          <div className="text-center">
+            <p className="text-xl font-bold text-[#1F2226]">Create your account</p>
+          </div>
+
+          {error && (
+            <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+              {error}
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-[#2B3037]">Full name</label>
+            <input
+              type="text"
+              placeholder="Enter your full name"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="w-full rounded-lg border border-[#E0E2E7] bg-[#F7F8FA] px-4 py-3 text-sm text-[#2B3037] placeholder:text-[#8B94A4] focus:border-[#0057FF] focus:bg-white focus:outline-none"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-[#2B3037]">Username</label>
+            <input
+              type="text"
+              placeholder="Choose a username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full rounded-lg border border-[#E0E2E7] bg-[#F7F8FA] px-4 py-3 text-sm text-[#2B3037] placeholder:text-[#8B94A4] focus:border-[#0057FF] focus:bg-white focus:outline-none"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-[#2B3037]">Email address</label>
+            <input
+              type="email"
+              placeholder="Enter your email address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-lg border border-[#E0E2E7] bg-[#F7F8FA] px-4 py-3 text-sm text-[#2B3037] placeholder:text-[#8B94A4] focus:border-[#0057FF] focus:bg-white focus:outline-none"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-[#2B3037]">Password</label>
+            <input
+              type="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-lg border border-[#E0E2E7] bg-[#F7F8FA] px-4 py-3 text-sm text-[#2B3037] placeholder:text-[#8B94A4] focus:border-[#0057FF] focus:bg-white focus:outline-none"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-[#2B3037]">Confirm password</label>
+            <input
+              type="password"
+              placeholder="Re-enter your password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full rounded-lg border border-[#E0E2E7] bg-[#F7F8FA] px-4 py-3 text-sm text-[#2B3037] placeholder:text-[#8B94A4] focus:border-[#0057FF] focus:bg-white focus:outline-none"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={loading}
+            className="w-full rounded-xl bg-[#0057FF] py-3 text-sm font-semibold text-white shadow-sm hover:bg-[#0046CC] disabled:opacity-50"
+          >
+            {loading ? "Loading..." : "Continue"}
+          </button>
+
+          <button
+            type="button"
+            onClick={onSwitchToLogin}
+            className="w-full text-sm text-[#0057FF] hover:underline"
+          >
+            Đã có tài khoản? Đăng nhập
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

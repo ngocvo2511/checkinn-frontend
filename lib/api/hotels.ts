@@ -181,6 +181,7 @@ export interface Hotel {
 export interface SearchHotelsParams {
   cityId?: string;
   cityName?: string;
+  hotelName?: string;
   checkIn?: string;
   checkOut?: string;
   guests?: number;
@@ -190,6 +191,33 @@ export interface SearchHotelsParams {
 }
 
 export const hotelApi = {
+  /**
+   * Search hotels by name
+   */
+  async searchHotelsByName(query: string): Promise<Hotel[]> {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/hotel/hotels/search?name=${encodeURIComponent(query)}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to search hotels by name: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.map((hotel: any) => cleanHotelData(hotel));
+    } catch (error) {
+      console.error('Error searching hotels by name:', error);
+      return []; // Return empty array on error instead of throwing
+    }
+  },
+
   /**
    * Search hotels by city
    */
@@ -269,82 +297,89 @@ export const hotelApi = {
    */
   async searchHotels(params: SearchHotelsParams): Promise<Hotel[]> {
     try {
-      let cityIds: string[] = [];
+      let allHotels: Hotel[] = [];
       
-      if (params.cityId) {
-        cityIds.push(params.cityId);
-      } else if (params.cityName) {
-        // First try to search as location (province or city)
-        const locationsResponse = await fetch(
-          `${API_BASE_URL}/api/hotel/cities/search/locations?query=${encodeURIComponent(params.cityName)}`,
-          {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
-        );
+      // If hotelName is provided, search by hotel name instead of city
+      if (params.hotelName) {
+        allHotels = await this.searchHotelsByName(params.hotelName);
+      } else {
+        // Original city-based search
+        let cityIds: string[] = [];
+        
+        if (params.cityId) {
+          cityIds.push(params.cityId);
+        } else if (params.cityName) {
+          // First try to search as location (province or city)
+          const locationsResponse = await fetch(
+            `${API_BASE_URL}/api/hotel/cities/search/locations?query=${encodeURIComponent(params.cityName)}`,
+            {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            }
+          );
 
-        console.log('[DEBUG] locationResponse status:', locationsResponse.status);
+          console.log('[DEBUG] locationResponse status:', locationsResponse.status);
 
-        if (locationsResponse.ok) {
-          const locations: Array<{ id: string; type: string; parentName?: string }> = await locationsResponse.json();
-          console.log('[DEBUG] locations returned:', locations);
-          
-          if (locations.length > 0) {
-            // If it's a PROVINCE, we need to get all its cities
-            const provinceResults = locations.filter(l => l.type === 'PROVINCE');
-            const cityResults = locations.filter(l => l.type === 'CITY');
+          if (locationsResponse.ok) {
+            const locations: Array<{ id: string; type: string; parentName?: string }> = await locationsResponse.json();
+            console.log('[DEBUG] locations returned:', locations);
+            
+            if (locations.length > 0) {
+              // If it's a PROVINCE, we need to get all its cities
+              const provinceResults = locations.filter(l => l.type === 'PROVINCE');
+              const cityResults = locations.filter(l => l.type === 'CITY');
 
-            // Get city IDs from direct city matches
-            cityResults.forEach(city => {
-              if (!cityIds.includes(city.id)) {
-                cityIds.push(city.id);
-              }
-            });
-
-            // Get all cities for province matches
-            if (provinceResults.length > 0) {
-              const citiesResponse = await fetch(
-                `${API_BASE_URL}/api/hotel/cities`,
-                {
-                  method: 'GET',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
+              // Get city IDs from direct city matches
+              cityResults.forEach(city => {
+                if (!cityIds.includes(city.id)) {
+                  cityIds.push(city.id);
                 }
-              );
+              });
 
-              if (citiesResponse.ok) {
-                const allCities: City[] = await citiesResponse.json();
-                // Add cities that belong to the matched province
-                provinceResults.forEach(province => {
-                  const citiesInProvince = allCities.filter(c => c.parentName === province.name);
-                  citiesInProvince.forEach(city => {
-                    if (!cityIds.includes(city.id)) {
-                      cityIds.push(city.id);
-                    }
+              // Get all cities for province matches
+              if (provinceResults.length > 0) {
+                const citiesResponse = await fetch(
+                  `${API_BASE_URL}/api/hotel/cities`,
+                  {
+                    method: 'GET',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                  }
+                );
+
+                if (citiesResponse.ok) {
+                  const allCities: City[] = await citiesResponse.json();
+                  // Add cities that belong to the matched province
+                  provinceResults.forEach(province => {
+                    const citiesInProvince = allCities.filter(c => c.parentName === province.name);
+                    citiesInProvince.forEach(city => {
+                      if (!cityIds.includes(city.id)) {
+                        cityIds.push(city.id);
+                      }
+                    });
                   });
-                });
+                }
               }
             }
           }
         }
-      }
 
-      if (cityIds.length === 0) {
-        console.log('[DEBUG] No cityIds found, returning empty array');
-        return [];
-      }
+        if (cityIds.length === 0) {
+          console.log('[DEBUG] No cityIds found, returning empty array');
+          return [];
+        }
 
-      console.log('[DEBUG] cityIds to search:', cityIds);
+        console.log('[DEBUG] cityIds to search:', cityIds);
 
-      // Fetch hotels from all cities
-      let allHotels: Hotel[] = [];
-      for (const cityId of cityIds) {
-        const hotels = await hotelApi.searchHotelsByCity(cityId);
-        console.log(`[DEBUG] Hotels from city ${cityId}:`, hotels.length);
-        allHotels = allHotels.concat(hotels);
+        // Fetch hotels from all cities
+        for (const cityId of cityIds) {
+          const hotels = await this.searchHotelsByCity(cityId);
+          console.log(`[DEBUG] Hotels from city ${cityId}:`, hotels.length);
+          allHotels = allHotels.concat(hotels);
+        }
       }
 
       // Remove duplicates

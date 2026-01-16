@@ -6,6 +6,7 @@ import { HotelGuestPicker } from './HotelGuestPicker';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import type { City } from '@/lib/api/cities';
+import type { Hotel } from '@/lib/api/hotels';
 
 // Custom styles for horizontal date picker
 const datePickerStyles = `
@@ -30,6 +31,7 @@ const datePickerStyles = `
     font-size: 16px !important;
     font-weight: 600 !important;
     margin-bottom: 0 !important;
+    padding-bottom: 8px !important;
   }
   
   .hotel-date-picker .react-datepicker__week {
@@ -42,11 +44,20 @@ const datePickerStyles = `
     display: flex !important;
     gap: 0 !important;
     background-color: white !important;
-    border-bottom: 2px solid #E4E6EB !important;
     margin-bottom: 0 !important;
     margin-top: -8px !important;
     padding-bottom: 0px !important;
-      
+    position: relative;
+  }
+  
+  .hotel-date-picker .react-datepicker__day-names::after {
+    content: '';
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: 0;
+    height: 1px;
+    background: #E4E6EB;
   }
   
   .hotel-date-picker .react-datepicker__day-name {
@@ -66,15 +77,34 @@ const datePickerStyles = `
   .hotel-date-picker .react-datepicker__day {
     margin: 0 !important;
     width: 48px !important;
-    height: 48px !important;
-    line-height: 48px !important;
+    height: 40px !important;
+    line-height: 40px !important;
     padding: 0 !important;
     display: inline-flex !important;
-    align-items: center;
-    justify-content: center;
+    align-items: center !important;
+    justify-content: center !important;
     position: relative;
     border: none !important;
     font-size: 15px !important;
+    font-weight: 500 !important;
+  }
+  
+  /* Today's date - even bolder */
+  .hotel-date-picker .react-datepicker__day--today {
+    font-weight: 500 !important;
+    color: #0057FF !important;
+    height: 40px !important;
+    line-height: 40px !important;
+  }
+  
+  /* Selected single date (when only one date is selected) */
+  .hotel-date-picker .react-datepicker__day--selected {
+    background: radial-gradient(ellipse 65% 65%, #CCE0FF 0%, #CCE0FF 60%, #0057FF 60%, #0057FF 100%) !important;
+    color: #0F172A !important;
+    border-radius: 50% !important;
+    height: 40px !important;
+    line-height: 40px !important;
+    font-weight: 500 !important;
   }
   
   /* In-range dates */
@@ -83,27 +113,39 @@ const datePickerStyles = `
     color: white !important;
     border-radius: 0 !important;
     margin: 0 !important;
+    height: 40px !important;
+    line-height: 40px !important;
   }
   
   /* Range start */
   .hotel-date-picker .react-datepicker__day--range-start {
-    background-color: #0057FF !important;
-    color: white !important;
+    background: radial-gradient(ellipse 65% 65%, #CCE0FF 0%, #CCE0FF 60%, #0057FF 60%, #0057FF 100%) !important;
+    color: #0F172A !important;
     border-radius: 50% 0 0 50% !important;
     margin: 0 !important;
+    font-weight: 500 !important;
+    height: 40px !important;
+    line-height: 40px !important;
   }
   
   /* Range end */
   .hotel-date-picker .react-datepicker__day--range-end {
-    background-color: #0057FF !important;
-    color: white !important;
+    background: radial-gradient(ellipse 65% 65%, #CCE0FF 0%, #CCE0FF 60%, #0057FF 60%, #0057FF 100%) !important;
+    color: #0F172A !important;
     border-radius: 0 50% 50% 0 !important;
     margin: 0 !important;
+    font-weight: 500 !important;
+    height: 40px !important;
+    line-height: 40px !important;
   }
   
   /* If same day (start and end) */
   .hotel-date-picker .react-datepicker__day--range-start.react-datepicker__day--range-end {
     border-radius: 50% !important;
+    background: radial-gradient(ellipse 70% 50%, #CCE0FF 0%, #CCE0FF 60%, #0057FF 60%, #0057FF 100%) !important;
+    color: #0F172A !important;
+    height: 40px !important;
+    line-height: 40px !important;
   }
 `;
 
@@ -115,7 +157,10 @@ interface HotelSearchBarProps {
   initialChildren?: string;
   initialRooms?: string;
   onSearch?: (data: {
-    hotelName: string;
+    hotelId?: string;
+    hotelName?: string;
+    cityId?: string;
+    cityName?: string;
     checkIn: Date | null;
     checkOut: Date | null;
     adults: number;
@@ -134,6 +179,7 @@ export function HotelSearchBar({
   onSearch,
 }: HotelSearchBarProps) {
   const [selectedCity, setSelectedCity] = useState<City | null>(null);
+  const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null);
   const [checkInDate, setCheckInDate] = useState<Date | null>(
     initialCheckIn ? new Date(initialCheckIn) : null
   );
@@ -147,6 +193,7 @@ export function HotelSearchBar({
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showGuestPicker, setShowGuestPicker] = useState(false);
+  const [isDatePickerClosing, setIsDatePickerClosing] = useState(false);
   const [datePickerClick, setDatePickerClick] = useState<'first' | 'second'>(
     checkInDate && checkOutDate ? 'first' : 'first'
   );
@@ -190,7 +237,7 @@ export function HotelSearchBar({
 
   const formatGuestDisplay = () => {
     const adultText = adults === 1 ? '1 người lớn' : `${adults} người lớn`;
-    const childText = children === 0 ? '' : children === 1 ? ', 1 Trẻ em' : `, ${children} Trẻ em`;
+    const childText = children === 1 ? ', 1 Trẻ em' : `, ${children} Trẻ em`;
     const roomText = `, ${rooms} phòng`;
     return `${adultText}${childText}${roomText}`;
   };
@@ -221,7 +268,15 @@ export function HotelSearchBar({
       setCheckInDate(finalCheckIn);
       setCheckOutDate(finalCheckOut);
       setDatePickerClick('first'); // Reset for next selection
-      setShowDatePicker(false); // Close dropdown
+      
+      // Close dropdown with fade out animation
+      setTimeout(() => {
+        setIsDatePickerClosing(true);
+        setTimeout(() => {
+          setShowDatePicker(false);
+          setIsDatePickerClosing(false);
+        }, 300); // Match animation duration
+      }, 300); // Show highlight for 400ms first
     }
   };
 
@@ -242,7 +297,10 @@ export function HotelSearchBar({
     }
 
     onSearch?.({
-      hotelName: selectedCity?.name || initialHotelName || '',
+      hotelId: selectedHotel?.id || undefined,
+      hotelName: selectedHotel?.name || initialHotelName || undefined,
+      cityId: selectedCity?.id || undefined,
+      cityName: selectedCity?.name || undefined,
       checkIn: checkInDate,
       checkOut: checkOutDate,
       adults,
@@ -269,7 +327,7 @@ export function HotelSearchBar({
             <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
           </svg>
           <span className="truncate text-[#374151] font-medium">
-            {selectedCity?.name || initialHotelName || 'Chọn khách sạn'}
+            {selectedHotel?.name || selectedCity?.name || initialHotelName || 'Chọn khách sạn'}
           </span>
         </button>
 
@@ -279,8 +337,14 @@ export function HotelSearchBar({
               onCitySelect={(city) => {
                 if (city) {
                   setSelectedCity(city);
+                  setSelectedHotel(null);
                   setShowLocationPicker(false);
                 }
+              }}
+              onHotelSelect={(hotel) => {
+                setSelectedHotel(hotel);
+                setSelectedCity(hotel.city || null);
+                setShowLocationPicker(false);
               }}
               initialHotelName={initialHotelName}
             />
@@ -307,7 +371,36 @@ export function HotelSearchBar({
         </button>
 
         {showDatePicker && (
-          <div className="absolute top-full left-0 mt-2 bg-white border border-[#D1D5DB] rounded-2xl shadow-lg z-50 p-6">
+          <div 
+            className="absolute top-full left-0 mt-2 bg-white border border-[#D1D5DB] rounded-2xl shadow-lg z-50 p-6"
+            style={{ 
+              animation: isDatePickerClosing ? 'fadeOutDown 0.3s ease-out' : 'fadeInUp 0.3s ease-out',
+              opacity: isDatePickerClosing ? 0 : 1,
+              transform: isDatePickerClosing ? 'translateY(-8px)' : 'translateY(0)'
+            }}
+          >
+            <style>{`
+              @keyframes fadeInUp {
+                from {
+                  opacity: 0;
+                  transform: translateY(-8px);
+                }
+                to {
+                  opacity: 1;
+                  transform: translateY(0);
+                }
+              }
+              @keyframes fadeOutDown {
+                from {
+                  opacity: 1;
+                  transform: translateY(0);
+                }
+                to {
+                  opacity: 0;
+                  transform: translateY(-8px);
+                }
+              }
+            `}</style>
             <div>
               <h3 className="text-lg font-bold text-[#0F172A] mb-4">Ngày ở</h3>
               
@@ -330,7 +423,7 @@ export function HotelSearchBar({
               {/* Calendars - Horizontal Layout */}
               <div className="hotel-date-picker">
                 <DatePicker
-                  selected={datePickerClick === 'first' ? checkInDate : checkOutDate}
+                  selected={checkInDate}
                   onChange={handleDatePick}
                   minDate={new Date()}
                   inline
@@ -338,6 +431,7 @@ export function HotelSearchBar({
                   startDate={checkInDate}
                   endDate={checkOutDate}
                   selectsRange={false}
+                  highlightDates={checkInDate && !checkOutDate ? [checkInDate] : []}
                 />
               </div>
             </div>

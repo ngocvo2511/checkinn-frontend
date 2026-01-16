@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { bookingApi, type BookingResponse } from "@/lib/api/booking";
+import { useAuth } from "@/hooks/useAuth";
 
 const formatPrice = (value?: number) => {
   if (value === undefined || value === null) return "Liên hệ";
@@ -14,6 +15,7 @@ const formatPrice = (value?: number) => {
 export default function PaymentPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { user, isLoading: authLoading } = useAuth();
 
   const hotelName = searchParams.get("hotelName") || "";
   const roomName = searchParams.get("roomName") || "";
@@ -76,6 +78,15 @@ export default function PaymentPage() {
   const displaySpecialRequests = booking?.specialRequests ?? specialRequests;
 
   useEffect(() => {
+    // Wait for auth to finish loading
+    if (authLoading) return;
+
+    // Check if user is authenticated
+    if (!user) {
+      router.push("/");
+      return;
+    }
+
     if (!bookingId) return;
 
     // Client-side auth check: if no token, force login before fetching booking details
