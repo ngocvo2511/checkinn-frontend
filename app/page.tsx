@@ -7,8 +7,11 @@ import { LocationSearch } from "@/components/LocationSearch";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { RoomGuestPicker } from "@/components/RoomGuestPicker";
 import Header from "@/components/Header";
+import Logo from "@/components/Logo";
+import Footer from "@/components/Footer";
 import { FeaturedHotels } from "@/components/FeaturedHotels";
 import { useAuth } from "@/hooks/useAuth";
+import { CustomerOnlyRoute } from "@/components/CustomerOnlyRoute";
 
 const heroBg = "/hero.png";
 const heroBadgeIcon = "https://www.figma.com/api/mcp/asset/7f84ae0a-9727-4a93-bfaf-6464772bb8df";
@@ -197,7 +200,8 @@ export default function Home() {
   if (isLoading) return null;
 
   return (
-    <div className="bg-white text-[#121316]">
+    <CustomerOnlyRoute>
+      <div className="bg-white text-[#121316]">
       <Header
         onLogin={() => setShowLogin(true)}
         onSignup={() => { setSignupVariant('user'); setShowSignup(true); }}
@@ -228,7 +232,8 @@ export default function Home() {
         </main>
       </div>
       <Footer />
-    </div>
+      </div>
+    </CustomerOnlyRoute>
   );
 }
 
@@ -1093,68 +1098,6 @@ function Testimonials() {
         ))}
       </div>
     </section>
-  );
-}
-
-function Footer() {
-  return (
-    <footer className="mt-10 bg-[#121316] text-white">
-      <div className="mx-auto flex max-w-screen-xl flex-col gap-10 px-4 py-12 md:px-8 lg:px-10">
-        <div className="grid gap-8 md:grid-cols-4">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 text-xl font-semibold text-white">tripto</div>
-            <p className="text-sm text-white/80">
-              We help you find and book the perfect stay—from cozy guesthouses to top hotels—with ease, trust, and the best deals.
-            </p>
-            <div className="flex gap-3 text-lg text-white/80">
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-          </div>
-          <div className="space-y-3 text-sm">
-            <p className="text-[#99BDFF] font-semibold">Explore</p>
-            <ul className="space-y-2 text-white/80">
-              <li>Trending Destinations</li>
-              <li>Summer Hotspots</li>
-              <li>Winter Getaways</li>
-              <li>Weekend Deals</li>
-              <li>Family-Friendly Stays</li>
-            </ul>
-          </div>
-          <div className="space-y-3 text-sm">
-            <p className="text-[#99BDFF] font-semibold">Property Types</p>
-            <ul className="space-y-2 text-white/80">
-              <li>Hotels</li>
-              <li>Apartments</li>
-              <li>Villas</li>
-              <li>Cabins</li>
-              <li>Glamping</li>
-              <li>Domes</li>
-            </ul>
-          </div>
-          <div className="space-y-3 text-sm">
-            <p className="text-[#99BDFF] font-semibold">Get in touch</p>
-            <ul className="space-y-2 text-white/80">
-              <li>+1 (800) 123‑456</li>
-              <li>support@tripto.com</li>
-              <li className="flex gap-2 text-xs text-white/70">
-                <img src={heroBadgeIcon} alt="divider" className="h-1 w-16" />
-              </li>
-              <li className="flex gap-2 text-xs text-white/70">Payments: Visa | MC | Stripe | PayPal</li>
-            </ul>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-4 border-t border-white/10 pt-6 text-xs text-white/70">
-          <span>© 2025 Tripto. All rights reserved.</span>
-          <div className="flex items-center gap-3">
-            <span className="rounded border border-white/20 px-3 py-2">App Store</span>
-            <span className="rounded border border-white/20 px-3 py-2">Google Play</span>
-          </div>
-        </div>
-      </div>
-    </footer>
   );
 }
 

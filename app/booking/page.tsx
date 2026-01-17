@@ -7,6 +7,7 @@ import Footer from "@/components/Footer";
 import { bookingApi, loyaltyApi, type CreateBookingPayload } from "@/lib/api/booking";
 import { type AuthResponse } from "@/lib/api/auth";
 import { useAuth } from "@/hooks/useAuth";
+import { CustomerOnlyRoute } from "@/components/CustomerOnlyRoute";
 
 const formatPrice = (value?: number) => {
   if (value === undefined || value === null) return "Liên hệ";
@@ -230,7 +231,8 @@ export default function BookingPage() {
   };
 
   return (
-    <div className="bg-white text-[#111827]">
+    <CustomerOnlyRoute>
+      <div className="bg-white text-[#111827]">
       <Header />
 
       <main className="bg-[#F8FAFC] pb-12">
@@ -678,6 +680,7 @@ Khi nhận phòng, bạn phải mang theo Chứng minh thư. Các tài liệu c�
       </main>
 
       <Footer />
-    </div>
+      </div>
+    </CustomerOnlyRoute>
   );
 }
