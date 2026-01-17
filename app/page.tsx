@@ -347,10 +347,11 @@ function LoginModal({ onClose, onOpenHostSignup }: { onClose: () => void; onOpen
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const handleSubmit = async () => {
     if (!email || !password) {
-      setError("Please fill in all fields");
+      setError("Vui lòng điền đầy đủ thông tin");
       return;
     }
 
@@ -376,7 +377,7 @@ function LoginModal({ onClose, onOpenHostSignup }: { onClose: () => void; onOpen
         location.reload();
       }
     } catch (err: any) {
-      setError(err.message || "Login failed");
+      setError(err.message || "Đăng nhập thất bại");
     } finally {
       setLoading(false);
     }
@@ -384,12 +385,376 @@ function LoginModal({ onClose, onOpenHostSignup }: { onClose: () => void; onOpen
 
   return (
     <div className="pointer-events-auto w-full max-w-xl rounded-2xl border border-[#E8E9F1] bg-white/95 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.16)] backdrop-blur sm:p-8">
-      <div className="relative flex items-center justify-center pb-2">
-        <p className="text-sm font-semibold text-[#2B3037]">Log in or sign up</p>
+      {showForgotPassword ? (
+        <ForgotPasswordModal 
+          onBack={() => setShowForgotPassword(false)} 
+          onClose={onClose}
+        />
+      ) : (
+        <>
+          <div className="relative flex items-center justify-center pb-2">
+            <p className="text-sm font-semibold text-[#2B3037]">Đăng nhập hoặc đăng ký</p>
+            <button
+              type="button"
+              aria-label="Close"
+              className="absolute right-0 top-0 text-lg font-semibold text-[#8B94A4] transition hover:text-[#2B3037]"
+              onClick={onClose}
+            >
+              x
+            </button>
+          </div>
+
+          <div className="space-y-6">
+            <div className="text-center">
+              <p className="text-xl font-bold text-[#1F2226]">Chào mừng đến với CheckInn</p>
+            </div>
+
+            {error && (
+              <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+                {error}
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-[#2B3037]">Email address</label>
+              <input
+                type="email"
+                placeholder="Enter your email address"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded-lg border border-[#E0E2E7] bg-[#F7F8FA] px-4 py-3 text-sm text-[#2B3037] placeholder:text-[#8B94A4] focus:border-[#0057FF] focus:bg-white focus:outline-none"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-[#2B3037]">Mật khẩu</label>
+              <input
+                type="password"
+                placeholder="Nhập mật khẩu của bạn"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-lg border border-[#E0E2E7] bg-[#F7F8FA] px-4 py-3 text-sm text-[#2B3037] placeholder:text-[#8B94A4] focus:border-[#0057FF] focus:bg-white focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setShowForgotPassword(true)}
+                className="text-xs font-semibold text-[#0057FF] hover:underline transition"
+              >
+                Quên mật khẩu?
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={loading}
+              className="w-full rounded-xl bg-[#0057FF] py-3 text-sm font-semibold text-white shadow-sm hover:bg-[#0046CC] disabled:opacity-50"
+            >
+              {loading ? "Đang xử lý..." : "Tiếp tục"}
+            </button>
+
+            <button
+              type="button"
+              onClick={onOpenHostSignup}
+              className="w-full rounded-xl border border-[#0057FF] bg-white py-3 text-sm font-semibold text-[#0057FF] shadow-sm hover:bg-[#0057FF] hover:text-white"
+            >
+              Bạn là chưa có tài khoản? Đăng ký ngay
+            </button>
+
+            <div className="relative py-2">
+              <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-[#E0E2E7]" />
+              <span className="relative mx-auto block w-fit bg-white px-3 text-sm font-semibold text-[#656F81]">hoặc</span>
+            </div>
+
+            <button
+              type="button"
+              className="flex w-full items-center gap-3 rounded-xl border border-[#CED3DD] px-4 py-3 text-sm font-semibold text-[#2B3037] shadow-sm transition hover:border-[#0057FF] hover:text-[#0057FF]"
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-full border border-[#E0E2E7] bg-white text-base font-bold text-[#DB4437]">G</span>
+              <span>Tiếp tục với Google</span>
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ForgotPasswordModal({ onBack, onClose }: { onBack: () => void; onClose: () => void }) {
+  const [step, setStep] = useState<'email' | 'otp' | 'password'>('email');
+  const [email, setEmail] = useState("");
+  const [otpDigits, setOtpDigits] = useState<string[]>(["", "", "", "", "", ""]);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
+  const [otpExpiryTime, setOtpExpiryTime] = useState<number>(0);
+  const [otpTimeRemaining, setOtpTimeRemaining] = useState<number>(0);
+
+  useEffect(() => {
+    if (otpExpiryTime <= 0) return;
+
+    const timer = setInterval(() => {
+      const now = Date.now();
+      const remaining = Math.max(0, Math.floor((otpExpiryTime - now) / 1000));
+      setOtpTimeRemaining(remaining);
+      
+      if (remaining === 0) {
+        clearInterval(timer);
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [otpExpiryTime]);
+
+  const handleSendReset = async () => {
+    if (!email) {
+      setError("Vui lòng nhập email");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await authApi.forgotPassword(email);
+      if (response.success) {
+        setStep('otp');
+        setOtpExpiryTime(Date.now() + 10 * 60 * 1000);
+      }
+    } catch (err: any) {
+      setError(err.message || "Không thể gửi yêu cầu đặt lại mật khẩu");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    const otpValue = otpDigits.join("");
+    if (!otpValue || otpValue.length !== 6) {
+      setError("Vui lòng nhập đầy đủ 6 số mã OTP");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await authApi.verifyOtp(email, otpValue);
+      if (response.verified) {
+        setStep('password');
+      } else {
+        setError(response.message || "OTP verification failed");
+      }
+    } catch (err: any) {
+      setError(err.message || "OTP verification failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!newPassword || !confirmPassword) {
+      setError("Vui lòng nhập đầy đủ mật khẩu");
+      setResetSuccess(false);
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError("Mật khẩu không khớp");
+      setResetSuccess(false);
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setResetSuccess(false);
+
+    try {
+      const otpValue = otpDigits.join("");
+      const response = await authApi.resetPassword(email, otpValue, newPassword);
+      console.log("Reset password response:", response);
+      
+      // Check if response is successful (either response.success is true or response exists)
+      if (response && (response.success || response.success === undefined)) {
+        setResetSuccess(true);
+        setError("");
+        // Redirect to login after 3 seconds to give time to see the message
+        setTimeout(() => {
+          onClose();
+        }, 3000);
+      } else {
+        setResetSuccess(false);
+        setError(response.message || "Không thể đặt lại mật khẩu");
+      }
+    } catch (err: any) {
+      console.error("Reset password error:", err);
+      setResetSuccess(false);
+      setError(err.message || "Không thể đặt lại mật khẩu");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOtpDigitChange = (index: number, value: string) => {
+    if (value.length > 1) value = value.slice(-1);
+    const newDigits = [...otpDigits];
+    newDigits[index] = value;
+    setOtpDigits(newDigits);
+    if (value && index < 5) {
+      const nextInput = document.getElementById(`forgot-otp-input-${index + 1}`);
+      nextInput?.focus();
+    }
+  };
+
+  if (step === 'email') {
+    return (
+      <>
+        <div className="relative flex items-center justify-center pb-4">
+          <button
+            type="button"
+            onClick={onBack}
+            className="absolute left-0 text-lg font-semibold text-[#8B94A4] transition hover:text-[#2B3037]"
+          >
+            ←
+          </button>
+          <p className="text-sm font-semibold text-[#2B3037]">Quên mật khẩu</p>
+          <button
+            type="button"
+            aria-label="Close"
+            className="absolute right-0 text-lg font-semibold text-[#8B94A4] transition hover:text-[#2B3037]"
+            onClick={onClose}
+          >
+            x
+          </button>
+        </div>
+
+        <div className="space-y-6">
+          <div className="text-center space-y-2">
+            <p className="text-xl font-bold text-[#1F2226]">Đặt lại mật khẩu của bạn</p>
+            <p className="text-sm text-[#656F81]">Nhập email liên kết với tài khoản của bạn</p>
+          </div>
+
+          {error && (
+            <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+              {error}
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-[#2B3037]">Email</label>
+            <input
+              type="email"
+              placeholder="Nhập email của bạn"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-lg border border-[#E0E2E7] bg-[#F7F8FA] px-4 py-3 text-sm text-[#2B3037] placeholder:text-[#8B94A4] focus:border-[#0057FF] focus:bg-white focus:outline-none"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSendReset}
+            disabled={loading}
+            className="w-full rounded-xl bg-[#0057FF] py-3 text-sm font-semibold text-white shadow-sm hover:bg-[#0046CC] disabled:opacity-50"
+          >
+            {loading ? "Đang gửi..." : "Gửi mã xác thực"}
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  if (step === 'otp') {
+    return (
+      <>
+        <div className="relative flex items-center justify-center pb-4">
+          <button
+            type="button"
+            onClick={() => setStep('email')}
+            className="absolute left-0 text-lg font-semibold text-[#8B94A4] transition hover:text-[#2B3037]"
+          >
+            ←
+          </button>
+          <p className="text-sm font-semibold text-[#2B3037]">Xác thực OTP</p>
+          <button
+            type="button"
+            aria-label="Close"
+            className="absolute right-0 text-lg font-semibold text-[#8B94A4] transition hover:text-[#2B3037]"
+            onClick={onClose}
+          >
+            x
+          </button>
+        </div>
+
+        <div className="space-y-6">
+          <div className="text-center space-y-2">
+            <p className="text-xl font-bold text-[#1F2226]">Nhập mã xác thực</p>
+            <p className="text-sm text-[#656F81]">Chúng tôi đã gửi mã 6 số đến {email}</p>
+          </div>
+
+          {error && (
+            <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+              {error}
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <label className="text-sm font-semibold text-[#2B3037] block text-center">Mã xác thực OTP</label>
+            <div className="flex justify-center gap-2 sm:gap-3">
+              {otpDigits.map((digit, index) => (
+                <input
+                  key={index}
+                  id={`forgot-otp-input-${index}`}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={1}
+                  value={digit}
+                  onChange={(e) => handleOtpDigitChange(index, e.target.value)}
+                  className="w-12 h-14 sm:w-14 sm:h-16 text-center text-2xl font-bold rounded-lg border-2 border-[#E0E2E7] bg-[#F7F8FA] text-[#2B3037] focus:border-[#0057FF] focus:bg-white focus:outline-none transition"
+                  autoFocus={index === 0}
+                />
+              ))}
+            </div>
+            <div className="flex items-center justify-center gap-2">
+              <p className="text-xs text-center text-[#8B94A4]">Mã hết hạn trong</p>
+              <p className={`text-xs font-semibold ${
+                otpTimeRemaining <= 60 ? 'text-red-600' : 'text-[#0057FF]'
+              }`}>
+                {Math.floor(otpTimeRemaining / 60)}:{String(otpTimeRemaining % 60).padStart(2, '0')}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleVerifyOtp}
+            disabled={otpDigits.some(d => !d) || loading}
+            className="w-full rounded-xl bg-[#0057FF] py-3 text-sm font-semibold text-white shadow-sm hover:bg-[#0046CC] disabled:opacity-50"
+          >
+            {loading ? "Đang xác thực..." : "Tiếp tục"}
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="relative flex items-center justify-center pb-4">
+        <button
+          type="button"
+          onClick={() => setStep('otp')}
+          className="absolute left-0 text-lg font-semibold text-[#8B94A4] transition hover:text-[#2B3037]"
+        >
+          ←
+        </button>
+        <p className="text-sm font-semibold text-[#2B3037]">Đặt mật khẩu mới</p>
         <button
           type="button"
           aria-label="Close"
-          className="absolute right-0 top-0 text-lg font-semibold text-[#8B94A4] transition hover:text-[#2B3037]"
+          className="absolute right-0 text-lg font-semibold text-[#8B94A4] transition hover:text-[#2B3037]"
           onClick={onClose}
         >
           x
@@ -397,9 +762,17 @@ function LoginModal({ onClose, onOpenHostSignup }: { onClose: () => void; onOpen
       </div>
 
       <div className="space-y-6">
-        <div className="text-center">
-          <p className="text-xl font-bold text-[#1F2226]">Welcome to Tripto</p>
+        <div className="text-center space-y-2">
+          <p className="text-xl font-bold text-[#1F2226]">Mật khẩu mới</p>
+          <p className="text-sm text-[#656F81]">Nhập mật khẩu mới cho tài khoản của bạn</p>
         </div>
+
+        {resetSuccess && (
+          <div className="rounded-lg bg-green-50 px-4 py-3 text-green-700">
+            <div className="font-semibold">Đặt lại mật khẩu thành công!</div>
+            <div className="text-sm mt-1">Bạn sẽ được chuyển đến trang đăng nhập để đăng nhập với mật khẩu mới...</div>
+          </div>
+        )}
 
         {error && (
           <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
@@ -408,58 +781,37 @@ function LoginModal({ onClose, onOpenHostSignup }: { onClose: () => void; onOpen
         )}
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-[#2B3037]">Email address</label>
+          <label className="text-sm font-semibold text-[#2B3037]">Mật khẩu mới</label>
           <input
-            type="email"
-            placeholder="Enter your email address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            type="password"
+            placeholder="Nhập mật khẩu mới"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
             className="w-full rounded-lg border border-[#E0E2E7] bg-[#F7F8FA] px-4 py-3 text-sm text-[#2B3037] placeholder:text-[#8B94A4] focus:border-[#0057FF] focus:bg-white focus:outline-none"
           />
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-[#2B3037]">Password</label>
+          <label className="text-sm font-semibold text-[#2B3037]">Xác nhận mật khẩu</label>
           <input
             type="password"
-            placeholder="Enter your password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Nhập lại mật khẩu mới"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
             className="w-full rounded-lg border border-[#E0E2E7] bg-[#F7F8FA] px-4 py-3 text-sm text-[#2B3037] placeholder:text-[#8B94A4] focus:border-[#0057FF] focus:bg-white focus:outline-none"
           />
         </div>
 
         <button
           type="button"
-          onClick={handleSubmit}
+          onClick={handleResetPassword}
           disabled={loading}
           className="w-full rounded-xl bg-[#0057FF] py-3 text-sm font-semibold text-white shadow-sm hover:bg-[#0046CC] disabled:opacity-50"
         >
-          {loading ? "Loading..." : "Continue"}
-        </button>
-
-        <button
-          type="button"
-          onClick={onOpenHostSignup}
-          className="w-full rounded-xl border border-[#0057FF] bg-white py-3 text-sm font-semibold text-[#0057FF] shadow-sm hover:bg-[#0057FF] hover:text-white"
-        >
-          Bạn là chủ khách sạn? Đăng ký ngay
-        </button>
-
-        <div className="relative py-2">
-          <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-[#E0E2E7]" />
-          <span className="relative mx-auto block w-fit bg-white px-3 text-sm font-semibold text-[#656F81]">or</span>
-        </div>
-
-        <button
-          type="button"
-          className="flex w-full items-center gap-3 rounded-xl border border-[#CED3DD] px-4 py-3 text-sm font-semibold text-[#2B3037] shadow-sm transition hover:border-[#0057FF] hover:text-[#0057FF]"
-        >
-          <span className="flex h-7 w-7 items-center justify-center rounded-full border border-[#E0E2E7] bg-white text-base font-bold text-[#DB4437]">G</span>
-          <span>Continue with Google</span>
+          {loading ? "Đang xử lý..." : "Đặt lại mật khẩu"}
         </button>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -474,19 +826,44 @@ function SignupModal({ onClose, variant = 'user' }: { onClose: () => void; varia
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedVariant, setSelectedVariant] = useState<'user' | 'host'>(variant);
+  const [step, setStep] = useState<'register' | 'verify'>('register');
+  const [registeredEmail, setRegisteredEmail] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpDigits, setOtpDigits] = useState<string[]>(["", "", "", "", "", ""]);
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpError, setOtpError] = useState("");
+  const [authResponse, setAuthResponse] = useState<any>(null);
+  const [otpExpiryTime, setOtpExpiryTime] = useState<number>(0);
+  const [otpTimeRemaining, setOtpTimeRemaining] = useState<number>(0);
 
   useEffect(() => {
     setSelectedVariant(variant);
   }, [variant]);
 
+  useEffect(() => {
+    if (otpExpiryTime <= 0) return;
+
+    const timer = setInterval(() => {
+      const now = Date.now();
+      const remaining = Math.max(0, Math.floor((otpExpiryTime - now) / 1000));
+      setOtpTimeRemaining(remaining);
+      
+      if (remaining === 0) {
+        clearInterval(timer);
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [otpExpiryTime]);
+
   const handleSubmit = async () => {
     if (!fullName || !username || !email || !password || !confirmPassword) {
-      setError("Please fill in all fields");
+      setError("Vui lòng điền đầy đủ thông tin");
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
+      setError("Mật khẩu không khớp");
       return;
     }
 
@@ -494,37 +871,243 @@ function SignupModal({ onClose, variant = 'user' }: { onClose: () => void; varia
     setError("");
 
     try {
-      const response = await authApi.register({
+      // Call appropriate API based on variant
+      const registerData = {
         fullName,
         username,
         email,
         password,
-      });
+      };
 
-      localStorage.setItem("token", response.token);
-      await login(response);
+      const response = selectedVariant === 'host' 
+        ? await authApi.registerOwner(registerData)
+        : await authApi.register(registerData);
 
-      const role = response.role?.toLowerCase?.() || "";
-      if (role.includes("admin")) {
-        router.push("/admin/dashboard");
-      } else if (role.includes("owner") || role.includes("host") || selectedVariant === "host") {
-        router.push("/host/dashboard");
-      } else {
-        // Reload page to update UI
-        location.reload();
-      }
+      setAuthResponse(response);
+      setRegisteredEmail(email);
+      setStep('verify');
+      setOtpCode("");
+      setOtpDigits(["", "", "", "", "", ""]);
+      setOtpError("");
+      setOtpExpiryTime(Date.now() + 10 * 60 * 1000);
     } catch (err: any) {
-      setError(err.message || "Registration failed");
+      setError(err.message || "Đăng ký thất bại");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleVerifyOtp = async () => {
+    const otpValue = otpDigits.join("");
+    if (!otpValue || otpValue.length !== 6) {
+      setOtpError("Vui lòng nhập đầy đủ 6 số mã OTP");
+      return;
+    }
+
+    setOtpLoading(true);
+    setOtpError("");
+
+    try {
+      const response = await authApi.verifyOtp(registeredEmail, otpValue);
+      
+      if (response.verified) {
+        localStorage.setItem("token", authResponse.token);
+        await login(authResponse);
+
+        const role = authResponse.role?.toLowerCase?.() || "";
+        if (role.includes("admin")) {
+          router.push("/admin/dashboard");
+        } else if (role.includes("owner") || role.includes("host") || selectedVariant === "host") {
+          router.push("/host/dashboard");
+        } else {
+          location.reload();
+        }
+      } else {
+        setOtpError(response.message || "OTP verification failed");
+      }
+    } catch (err: any) {
+      setOtpError(err.message || "OTP verification failed");
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setOtpLoading(true);
+    setOtpError("");
+
+    try {
+      const response = await authApi.resendOtp(registeredEmail);
+      if (response.success) {
+        setOtpDigits(["", "", "", "", "", ""]);
+        setOtpError("Mã OTP đã được gửi lại! Vui lòng kiểm tra email của bạn.");
+        setOtpExpiryTime(Date.now() + 10 * 60 * 1000);
+      } else {
+        setOtpError(response.message || "Không thể gửi lại OTP");
+      }
+    } catch (err: any) {
+      setOtpError(err.message || "Không thể gửi lại OTP");
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleOtpDigitChange = (index: number, value: string) => {
+    // Only allow single digit
+    if (value.length > 1) {
+      value = value.slice(-1);
+    }
+
+    const newOtpDigits = [...otpDigits];
+    newOtpDigits[index] = value;
+    setOtpDigits(newOtpDigits);
+
+    // Auto-focus next input
+    if (value && index < 5) {
+      const nextInput = document.getElementById(`otp-input-${index + 1}`);
+      nextInput?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace" && !otpDigits[index] && index > 0) {
+      const prevInput = document.getElementById(`otp-input-${index - 1}`);
+      prevInput?.focus();
+    }
+  };
+
+  const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    const newOtpDigits = pastedData.split("").concat(["", "", "", "", "", ""]).slice(0, 6);
+    setOtpDigits(newOtpDigits);
+  };
+
+  if (step === 'verify') {
+    return (
+      <div className="pointer-events-auto w-full max-w-xl rounded-2xl border border-[#E8E9F1] bg-white/95 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.16)] backdrop-blur sm:p-8">
+        <div className="relative flex items-center justify-center pb-2">
+          <p className="text-sm font-semibold text-[#2B3037]">Xác thực Email</p>
+          <button
+            type="button"
+            aria-label="Close"
+            className="absolute right-0 top-0 text-lg font-semibold text-[#8B94A4] transition hover:text-[#2B3037]"
+            onClick={onClose}
+          >
+            x
+          </button>
+        </div>
+
+        <div className="space-y-6">
+          <div className="text-center space-y-3">
+            <div className="mx-auto w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" fill="#0057FF"/>
+              </svg>
+            </div>
+            <p className="text-xl font-bold text-[#1F2226]">Nhập mã xác thực</p>
+            <p className="text-sm text-[#656F81]">
+              Chúng tôi đã gửi mã xác thực 6 số đến<br />
+              <span className="font-semibold text-[#2B3037]">{registeredEmail}</span>
+            </p>
+          </div>
+
+          {otpError && (
+            <div className={`rounded-lg px-4 py-3 text-sm ${
+              otpError.includes("gửi lại") || otpError.includes("successfully") 
+                ? "bg-green-50 text-green-600" 
+                : "bg-red-50 text-red-600"
+            }`}>
+              {otpError}
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <label className="text-sm font-semibold text-[#2B3037] block text-center">Mã xác thực OTP</label>
+            <div className="flex justify-center gap-2 sm:gap-3">
+              {otpDigits.map((digit, index) => (
+                <input
+                  key={index}
+                  id={`otp-input-${index}`}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={1}
+                  value={digit}
+                  onChange={(e) => handleOtpDigitChange(index, e.target.value)}
+                  onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                  onPaste={index === 0 ? handleOtpPaste : undefined}
+                  className="w-12 h-14 sm:w-14 sm:h-16 text-center text-2xl font-bold rounded-lg border-2 border-[#E0E2E7] bg-[#F7F8FA] text-[#2B3037] focus:border-[#0057FF] focus:bg-white focus:outline-none transition"
+                  autoFocus={index === 0}
+                />
+              ))}
+            </div>
+            <div className="flex items-center justify-center gap-2">
+              <p className="text-xs text-center text-[#8B94A4]">
+                Mã OTP hết hạn trong
+              </p>
+              <p className={`text-xs font-semibold ${
+                otpTimeRemaining <= 60 ? 'text-red-600' : 'text-[#0057FF]'
+              }`}>
+                {Math.floor(otpTimeRemaining / 60)}:{String(otpTimeRemaining % 60).padStart(2, '0')}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleVerifyOtp}
+            disabled={otpLoading || otpDigits.some(d => !d)}
+            className="w-full rounded-xl bg-[#0057FF] py-3.5 text-sm font-semibold text-white shadow-sm hover:bg-[#0046CC] disabled:opacity-50 disabled:cursor-not-allowed transition"
+          >
+            {otpLoading ? (
+              <span className="flex items-center justify-center gap-2">
+                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Đang xác thực...
+              </span>
+            ) : (
+              "Xác thực & Tiếp tục"
+            )}
+          </button>
+
+          <div className="flex items-center justify-center gap-2 pt-2">
+            <p className="text-sm text-[#656F81]">Không nhận được mã?</p>
+            <button
+              type="button"
+              onClick={handleResendOtp}
+              disabled={otpLoading}
+              className="text-sm font-semibold text-[#0057FF] hover:underline disabled:opacity-50 transition"
+            >
+              Gửi lại
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setStep('register');
+              setOtpDigits(["", "", "", "", "", ""]);
+              setOtpError("");
+            }}
+            className="w-full text-sm text-[#656F81] hover:text-[#0057FF] transition flex items-center justify-center gap-1"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/>
+            </svg>
+            Quay lại đăng ký
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="pointer-events-auto w-full max-w-xl rounded-2xl border border-[#E8E9F1] bg-white/95 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.16)] backdrop-blur sm:p-8">
       <div className="relative flex items-center justify-center pb-2">
         <p className="text-sm font-semibold text-[#2B3037]">
-          {selectedVariant === 'host' ? 'Đăng ký chủ khách sạn' : 'Sign up'}
+          {selectedVariant === 'host' ? 'Đăng ký chủ khách sạn' : 'Đăng ký tài khoản'}
         </p>
         <button
           type="button"
@@ -548,7 +1131,7 @@ function SignupModal({ onClose, variant = 'user' }: { onClose: () => void; varia
                   : 'text-[#656F81] hover:text-[#2B3037]'
               }`}
             >
-              Customer
+              Khách hàng
             </button>
             <button
               type="button"
@@ -559,16 +1142,16 @@ function SignupModal({ onClose, variant = 'user' }: { onClose: () => void; varia
                   : 'text-[#656F81] hover:text-[#2B3037]'
               }`}
             >
-              Hotel owner
+              Chủ khách sạn
             </button>
           </div>
           <p className="text-xs font-medium text-[#656F81]">
-            Select the account type that best describes you.
+            Chọn loại tài khoản phù hợp với bạn.
           </p>
         </div>
         <div className="text-center">
           <p className="text-xl font-bold text-[#1F2226]">
-            {selectedVariant === 'host' ? 'Create your hotel owner account' : 'Create your customer account'}
+            {selectedVariant === 'host' ? 'Tạo tài khoản chủ khách sạn' : 'Tạo tài khoản khách hàng'}
           </p>
         </div>
 
@@ -579,10 +1162,10 @@ function SignupModal({ onClose, variant = 'user' }: { onClose: () => void; varia
         )}
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-[#2B3037]">Full name</label>
+          <label className="text-sm font-semibold text-[#2B3037]">Họ và tên</label>
           <input
             type="text"
-            placeholder="Enter your full name"
+            placeholder="Nhập họ và tên của bạn"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
             className="w-full rounded-lg border border-[#E0E2E7] bg-[#F7F8FA] px-4 py-3 text-sm text-[#2B3037] placeholder:text-[#8B94A4] focus:border-[#0057FF] focus:bg-white focus:outline-none"
@@ -590,10 +1173,10 @@ function SignupModal({ onClose, variant = 'user' }: { onClose: () => void; varia
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-[#2B3037]">Username</label>
+          <label className="text-sm font-semibold text-[#2B3037]">Tên đăng nhập</label>
           <input
             type="text"
-            placeholder="Choose a username"
+            placeholder="Chọn tên đăng nhập"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             className="w-full rounded-lg border border-[#E0E2E7] bg-[#F7F8FA] px-4 py-3 text-sm text-[#2B3037] placeholder:text-[#8B94A4] focus:border-[#0057FF] focus:bg-white focus:outline-none"
@@ -601,10 +1184,10 @@ function SignupModal({ onClose, variant = 'user' }: { onClose: () => void; varia
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-[#2B3037]">Email address</label>
+          <label className="text-sm font-semibold text-[#2B3037]">Địa chỉ email</label>
           <input
             type="email"
-            placeholder="Enter your email address"
+            placeholder="Nhập địa chỉ email của bạn"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full rounded-lg border border-[#E0E2E7] bg-[#F7F8FA] px-4 py-3 text-sm text-[#2B3037] placeholder:text-[#8B94A4] focus:border-[#0057FF] focus:bg-white focus:outline-none"
@@ -612,10 +1195,10 @@ function SignupModal({ onClose, variant = 'user' }: { onClose: () => void; varia
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-[#2B3037]">Password</label>
+          <label className="text-sm font-semibold text-[#2B3037]">Mật khẩu</label>
           <input
             type="password"
-            placeholder="Enter your password"
+            placeholder="Nhập mật khẩu của bạn"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="w-full rounded-lg border border-[#E0E2E7] bg-[#F7F8FA] px-4 py-3 text-sm text-[#2B3037] placeholder:text-[#8B94A4] focus:border-[#0057FF] focus:bg-white focus:outline-none"
@@ -623,10 +1206,10 @@ function SignupModal({ onClose, variant = 'user' }: { onClose: () => void; varia
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-[#2B3037]">Confirm password</label>
+          <label className="text-sm font-semibold text-[#2B3037]">Xác nhận mật khẩu</label>
           <input
             type="password"
-            placeholder="Re-enter your password"
+            placeholder="Nhập lại mật khẩu của bạn"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             className="w-full rounded-lg border border-[#E0E2E7] bg-[#F7F8FA] px-4 py-3 text-sm text-[#2B3037] placeholder:text-[#8B94A4] focus:border-[#0057FF] focus:bg-white focus:outline-none"
@@ -639,12 +1222,12 @@ function SignupModal({ onClose, variant = 'user' }: { onClose: () => void; varia
           disabled={loading}
           className="w-full rounded-xl bg-[#0057FF] py-3 text-sm font-semibold text-white shadow-sm hover:bg-[#0046CC] disabled:opacity-50"
         >
-          {loading ? "Loading..." : "Continue"}
+          {loading ? "Đang xử lý..." : "Tiếp tục"}
         </button>
 
         <div className="relative py-2">
           <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-[#E0E2E7]" />
-          <span className="relative mx-auto block w-fit bg-white px-3 text-sm font-semibold text-[#656F81]">or</span>
+          <span className="relative mx-auto block w-fit bg-white px-3 text-sm font-semibold text-[#656F81]">hoặc</span>
         </div>
 
         <button
@@ -652,7 +1235,7 @@ function SignupModal({ onClose, variant = 'user' }: { onClose: () => void; varia
           className="flex w-full items-center gap-3 rounded-xl border border-[#CED3DD] px-4 py-3 text-sm font-semibold text-[#2B3037] shadow-sm transition hover:border-[#0057FF] hover:text-[#0057FF]"
         >
           <span className="flex h-7 w-7 items-center justify-center rounded-full border border-[#E0E2E7] bg-white text-base font-bold text-[#DB4437]">G</span>
-          <span>Continue with Google</span>
+          <span>Tiếp tục với Google</span>
         </button>
       </div>
     </div>

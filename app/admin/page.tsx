@@ -25,7 +25,7 @@ export default function AdminLoginPage() {
     setStatus('');
 
     if (!username || !password) {
-      setError('Please fill in all fields.');
+      setError('Vui lòng điền vào tất cả các trường.');
       return;
     }
 
@@ -38,13 +38,13 @@ export default function AdminLoginPage() {
 
       const role = response.role?.toUpperCase?.() || '';
       if (role !== 'ADMIN') {
-        setError('The account does not have access.');
+        setError('Tài khoản này không có quyền truy cập.');
         setLoading(false);
         return;
       }
 
       localStorage.setItem('rememberAdmin', String(remember));
-      setStatus('Login successful. Redirecting to the admin console...');
+      setStatus('Đăng nhập thành công. Đang chuyển hướng đến bảng điều khiển quản trị...');
       
       // Use the login hook to save user data
       await login(response);
@@ -54,7 +54,7 @@ export default function AdminLoginPage() {
         router.push('/admin/dashboard');
       }, 500);
     } catch (err: any) {
-      setError(err.message || 'Login failed. Please try again.');
+      setError(err.message || 'Đăng nhập thất bại. Vui lòng thử lại.');
       setLoading(false);
     }
   };
@@ -73,10 +73,10 @@ export default function AdminLoginPage() {
           >
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-1">
-                <p className="text-sm font-semibold text-[#8B94A4]">Admin login</p>
-                <h2 className="text-2xl font-semibold text-[#1F2226]">Welcome back</h2>
+                <p className="text-sm font-semibold text-[#8B94A4]">Đăng nhập quản trị viên</p>
+                <h2 className="text-2xl font-semibold text-[#1F2226]">Chào mừng trở lại</h2>
                 <p className="text-sm text-[#656F81]">
-                  Use your admin credentials to enter the dashboard.
+                  Sử dụng thông tin đăng nhập quản trị viên của bạn để vào bảng điều khiển.
                 </p>
               </div>
               <div className="hidden sm:block shrink-0">
@@ -97,7 +97,7 @@ export default function AdminLoginPage() {
             ) : null}
 
             <AdminInputField
-              label="Username"
+              label="Tên đăng nhập"
               value={username}
               onChange={setUsername}
               placeholder="admin"
@@ -110,11 +110,11 @@ export default function AdminLoginPage() {
 
             <div className="space-y-2">
               <AdminInputField
-                label="Password"
+                label="Mật khẩu"
                 type="password"
                 value={password}
                 onChange={setPassword}
-                placeholder="Enter your password"
+                placeholder="Nhập mật khẩu của bạn"
                 icon={
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M17.9996 10.75H6.00113C5.03555 10.75 4.25 11.5356 4.25 12.5011V18.2489C4.25 19.2144 5.03555 20 6.00113 20H17.9996C18.9652 20 19.7507 19.2144 19.7507 18.2489V12.5011C19.7507 11.5356 18.9652 10.75 17.9996 10.75Z" stroke="#8B94A4" strokeWidth="1.5" />
@@ -131,10 +131,10 @@ export default function AdminLoginPage() {
                     onChange={(e) => setRemember(e.target.checked)}
                     className="h-4 w-4 rounded border-[#DDDFE3] text-[#0057FF] focus:ring-0"
                   />
-                  Remember this device
+                  Ghi nhớ thiết bị này
                 </label>
                 <a className="font-semibold text-[#0057FF] hover:underline" href="#">
-                  Forgot access?
+                  Quên mật khẩu?
                 </a>
               </div>
             </div>
@@ -145,13 +145,13 @@ export default function AdminLoginPage() {
                 disabled={loading}
                 className="h-12 w-full rounded-xl bg-[#0057FF] text-sm font-semibold text-white shadow-sm transition hover:bg-[#0046CC] disabled:opacity-60"
               >
-                {loading ? 'Signing in...' : 'Sign in'}
+                {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
               </button>
             </div>
 
             <div className="flex items-center gap-3 text-xs text-[#8B94A4]">
               <span className="h-px flex-1 bg-[#E0E2E7]" />
-              <span className="px-3">Secure workspace · Admin only</span>
+              <span className="px-3">Không gian làm việc an toàn · Chỉ quản trị viên</span>
               <span className="h-px flex-1 bg-[#E0E2E7]" />
             </div>
           </form>

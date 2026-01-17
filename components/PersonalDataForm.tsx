@@ -191,8 +191,8 @@ export default function PersonalDataForm() {
 
       setPasswordSuccess(true);
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      setTimeout(() => setPasswordSuccess(false), 3000);
       setError('');
+      setTimeout(() => setPasswordSuccess(false), 3000);
     } catch (err) {
       console.error('Error changing password:', err);
       setError(err instanceof Error ? err.message : 'Không thể đổi mật khẩu');
