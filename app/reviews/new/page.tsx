@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import ReviewForm from '@/components/ReviewForm';
-import { ArrowLeft, Hotel, Calendar } from 'lucide-react';
+import { ArrowLeft, Hotel, Calendar, Lightbulb, Dot } from 'lucide-react';
 import { bookingApi } from '@/lib/api/booking';
 import { hotelApi } from '@/lib/api/hotels';
 
@@ -208,20 +208,20 @@ function NewReviewContent() {
         {/* Tips Card */}
         <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-6">
           <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
-            <span className="text-xl">💡</span>
+            <Lightbulb className="h-5 w-5 text-blue-700" />
             Mẹo viết đánh giá hữu ích
           </h3>
           <ul className="space-y-2 text-sm text-blue-800">
             <li className="flex items-start gap-2">
-              <span className="text-blue-600 mt-0.5">•</span>
+              <Dot className="h-4 w-4 text-blue-600 mt-0.5" />
               <span>Mô tả cụ thể những gì bạn thích và không thích</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-blue-600 mt-0.5">•</span>
+              <Dot className="h-4 w-4 text-blue-600 mt-0.5" />
               <span>Đánh giá theo từng tiêu chí để người đọc dễ hiểu</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-blue-600 mt-0.5">•</span>
+              <Dot className="h-4 w-4 text-blue-600 mt-0.5" />
               <span>Chia sẻ trung thực nhưng lịch sự và mang tính xây dựng</span>
             </li>
           </ul>

@@ -2,6 +2,20 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Ban,
+  BedDouble,
+  Building2,
+  Clock3,
+  Mail,
+  MessageCircle,
+  Phone,
+  Soup,
+  Wifi,
+  XCircle,
+  Info,
+  Users,
+} from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { bookingApi, type BookingResponse } from "@/lib/api/booking";
@@ -130,7 +144,6 @@ export default function PaymentPage() {
       router.replace(`/booking/${booking.id}`);
     } else if (booking.status === "PENDING" && !error) {
       // Show info message for retry scenario
-      setSuccessMessage("Bạn có thể chọn lại phương thức thanh toán.");
     }
   }, [booking, isPayableStatus, router, error]);
 
@@ -300,12 +313,12 @@ export default function PaymentPage() {
             <div className="space-y-4">
               <div className="rounded-2xl shadow-sm p-4 flex items-center justify-between bg-gradient-to-r from-[#0A6CDC] to-[#0B8FF9] text-white">
                 <div className="flex items-center gap-2">
-                  <span className="text-lg">💬</span>
+                  <MessageCircle className="h-5 w-5" />
                   <p className="text-sm font-semibold">Đừng lo lắng, giá vẫn giữ nguyên. Hoàn tất thanh toán của bạn bằng</p>
                 </div>
                 <div className="flex items-center gap-2 font-bold text-lg text-[#C3FF5A]">
                   <span>{formatTime(timeRemaining)}</span>
-                  <span role="img" aria-label="clock">⏰</span>
+                  <Clock3 className="h-5 w-5" />
                 </div>
               </div>
 
@@ -395,7 +408,9 @@ export default function PaymentPage() {
             <div className="rounded-2xl border border-[#E5E7EB] bg-white shadow-lg sticky top-20 overflow-hidden">
               {/* Header */}
               <div className="bg-gradient-to-r from-[#1C6AE4] to-[#1E90FF] text-white px-4 py-4 flex items-center gap-3">
-                <div className="h-12 w-12 rounded-xl bg-white/15 flex items-center justify-center text-2xl">🏨</div>
+                <div className="h-12 w-12 rounded-xl bg-white/15 flex items-center justify-center">
+                  <Building2 className="h-7 w-7" />
+                </div>
                 <div>
                   <p className="text-lg font-semibold">Tóm tắt khách sạn</p>
                   <p className="text-sm opacity-90">Mã đặt chỗ <span className="font-semibold">{booking?.id || bookingId || "--"}</span></p>
@@ -425,28 +440,23 @@ export default function PaymentPage() {
                 <div className="space-y-2 text-sm text-[#0F172A]">
                   <p className="font-semibold">({displayQuantity}x) {displayRoomName || "Hạng phòng"}</p>
                   <ul className="space-y-1 text-[#374151]">
-                    <li className="flex items-center gap-2"><span>👥</span> {displayAdults} khách</li>
-                    <li className="flex items-center gap-2"><span>🛏</span> 1 giường</li>
-                    <li className="flex items-center gap-2"><span>🍳</span> Bữa sáng cho 2 người</li>
-                    <li className="flex items-center gap-2"><span>📶</span> WiFi miễn phí</li>
+                    <li className="flex items-center gap-2"><Users className="h-4 w-4" /> {displayAdults} khách</li>
+                    <li className="flex items-center gap-2"><BedDouble className="h-4 w-4" /> 1 giường</li>
+                    <li className="flex items-center gap-2"><Soup className="h-4 w-4" /> Bữa sáng cho 2 người</li>
+                    <li className="flex items-center gap-2"><Wifi className="h-4 w-4" /> WiFi miễn phí</li>
                   </ul>
                 </div>
 
-                {/* Special request */}
-                <div className="space-y-2 text-sm text-[#0F172A]">
-                  <p className="font-semibold">Yêu cầu đặc biệt (nếu có)</p>
-                  <p className="text-[#374151]">{displaySpecialRequests || "Non Smoking Room, Connecting Rooms"}</p>
-                </div>
 
                 {/* Guest & policies */}
                 <div className="space-y-2 text-sm text-[#0F172A]">
                   <p className="font-semibold">Tên khách</p>
                   <p className="text-[#374151]">{displayGuestInfoName || displayContactName || "--"}</p>
                   <div className="flex items-center gap-2 text-[#374151]">
-                    <span>❌</span> Không hoàn tiền
+                    <XCircle className="h-4 w-4 text-red-500" /> Không hoàn tiền
                   </div>
                   <div className="flex items-center gap-2 text-[#374151]">
-                    <span>🚫</span> Không đổi lịch
+                    <Ban className="h-4 w-4 text-[#9CA3AF]" /> Không đổi lịch
                   </div>
                 </div>
 
@@ -455,11 +465,11 @@ export default function PaymentPage() {
                   <p className="font-semibold">Chi tiết người liên lạc</p>
                   <p className="text-[#374151]">{displayContactName || "--"}</p>
                   <div className="flex items-center gap-2 text-[#374151]">
-                    <span role="img" aria-label="phone">📞</span>
+                    <Phone className="h-4 w-4" />
                     <span>{displayContactPhone || "--"}</span>
                   </div>
                   <div className="flex items-center gap-2 text-[#374151]">
-                    <span role="img" aria-label="email">✉️</span>
+                    <Mail className="h-4 w-4" />
                     <span>{displayContactEmail || "--"}</span>
                   </div>
                 </div>

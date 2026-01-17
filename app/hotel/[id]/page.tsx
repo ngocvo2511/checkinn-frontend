@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
+import { Ban, BedDouble } from "lucide-react";
 import HotelDetailHeader from "@/components/HotelDetailHeader";
 import Footer from "@/components/Footer";
 import { hotelApi, Hotel as ApiHotel, RoomType, MediaAsset } from "@/lib/api/hotels";
@@ -884,11 +885,11 @@ export default function HotelDetailPage() {
                             <p className="text-sm text-[#9CA3AF]">Không bao gồm bữa sáng</p>
                           )}
                           <div className="flex items-center gap-2 text-sm text-[#6B7280]">
-                            <span>🛏</span>
+                            <BedDouble className="h-4 w-4 text-[#6B7280]" />
                             <span>{room.capacity?.bedType || "Giường linh hoạt"}</span>
                           </div>
                           <div className="flex items-center gap-2 text-sm text-[#6B7280]">
-                            <span>✅</span>
+                            <Ban className="h-4 w-4 text-[#DC2626]" />
                             <span>Không được hoàn tiền</span>
                           </div>
                         </div>
@@ -1213,7 +1214,7 @@ export default function HotelDetailPage() {
                     </div>
                     {roomModal.room.capacity?.bedType && (
                       <div className="flex items-center gap-2">
-                        <span>🛏</span>
+                        <BedDouble className="h-4 w-4 text-[#4B5563]" />
                         <span>{roomModal.room.capacity.bedType}</span>
                       </div>
                     )}

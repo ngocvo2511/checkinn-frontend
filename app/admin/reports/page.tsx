@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import Header from '@/components/Header';
 import AdminMenu from '@/components/admin/menu/AdminMenu';
 import { revenueApi, AdminSummaryResponse, AdminRevenueResponse, TopHotelItem } from '@/lib/api/revenue';
 
@@ -88,9 +87,9 @@ export default function AdminReportsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F9F9F9] flex flex-col">
-        <Header />
-        <main className="flex-1 px-6 py-10 flex items-center justify-center">
+      <div className="min-h-screen bg-[#F9F9F9]">
+        <AdminMenu />
+        <main className="ml-[280px] px-8 py-6 flex items-center justify-center">
           <p className="text-lg text-[#656F81]">Đang tải dữ liệu...</p>
         </main>
       </div>
@@ -99,9 +98,9 @@ export default function AdminReportsPage() {
 
   if (error || !adminSummary) {
     return (
-      <div className="min-h-screen bg-[#F9F9F9] flex flex-col">
-        <Header />
-        <main className="flex-1 px-6 py-10 flex items-center justify-center">
+      <div className="min-h-screen bg-[#F9F9F9]">
+        <AdminMenu />
+        <main className="ml-[280px] px-8 py-6 flex items-center justify-center">
           <p className="text-lg text-red-600">{error || 'Không tìm thấy dữ liệu'}</p>
         </main>
       </div>
@@ -109,30 +108,22 @@ export default function AdminReportsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F9F9F9] flex flex-col">
-      <Header />
+    <div className="min-h-screen bg-[#F9F9F9]">
+      <AdminMenu />
 
-      <main className="flex-1 px-6 py-10">
-        <div className="mx-auto flex w-full max-w-6xl gap-6">
-          <AdminMenu />
-
-          <div className="flex-1 space-y-4">
-            {/* Hero Section */}
-            <section className="rounded-3xl bg-gradient-to-br from-[#0B1B3F] via-[#0E264F] to-[#0A3D8F] px-6 py-8 text-white shadow-[0_24px_45px_rgba(0,0,0,0.18)]">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-white/80">
-                <span className="h-2 w-2 rounded-full bg-[#FFCC00]" />
-                Báo cáo toàn hệ thống
+      <main className="ml-[280px] px-8 py-6">
+        <div className="max-w-7xl space-y-4">
+          {/* Hero Section */}
+          <section className="rounded-xl bg-gradient-to-br from-[#0B1B3F] via-[#0E264F] to-[#0A3D8F] px-5 py-4 text-white">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-white/70">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#FFCC00]" />
+                CheckInn Admin
               </div>
-              <div className="mt-4 space-y-2">
-                <h1 className="text-3xl font-semibold leading-[38px]">Doanh thu & hiệu suất</h1>
-                <p className="max-w-2xl text-sm text-white/85">
-                  Giám sát toàn bộ nền tảng, đánh giá hiệu quả hệ thống và phân tích tăng trưởng
-                </p>
-              </div>
-            </section>
+              <h1 className="mt-2 text-2xl font-semibold">Doanh thu & hiệu suất</h1>
+          </section>
 
-            {/* Date Range Filter */}
-            <section className="rounded-2xl border border-[#E8E9F1] bg-white p-4 shadow-[0_12px_28px_rgba(0,0,0,0.08)]">
+          {/* Date Range Filter */}
+          <section className="rounded-2xl border border-[#E8E9F1] bg-white p-4 shadow-[0_12px_28px_rgba(0,0,0,0.08)]">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#8B94A4]">Chọn khoảng thời gian</p>
@@ -163,8 +154,8 @@ export default function AdminReportsPage() {
               </div>
             </section>
 
-            {/* Summary Cards */}
-            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {/* Summary Cards */}
+          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-2xl border border-[#E8E9F1] bg-gradient-to-br from-[#0066FF] to-[#004FC4] p-5 text-white shadow-[0_14px_30px_rgba(0,102,255,0.25)]">
                 <p className="text-xs font-semibold uppercase tracking-[0.08em] opacity-90">Tổng doanh thu</p>
                 <div className="text-3xl font-bold mt-2">{adminSummary.totalRevenue.toLocaleString('vi-VN')} ₫</div>
@@ -241,18 +232,18 @@ export default function AdminReportsPage() {
               </section>
             )}
 
-            {/* Revenue Chart */}
-            <section className="rounded-2xl border border-[#E8E9F1] bg-white p-6 shadow-[0_14px_30px_rgba(0,0,0,0.08)]">
-              <div className="flex items-center justify-between gap-3 pb-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#8B94A4]">Biểu đồ doanh thu</p>
-                  <h2 className="text-xl font-semibold text-[#1F2226]">Toàn hệ thống</h2>
-                  <p className="text-sm text-[#656F81] mt-1">6 tháng gần nhất</p>
-                </div>
-                <span className="rounded-full bg-[#E8EFFC] px-3 py-1 text-xs font-semibold text-[#0B2E68]">
-                  6 tháng
-                </span>
+          {/* Revenue Chart */}
+          <section className="rounded-2xl border border-[#E8E9F1] bg-white p-6 shadow-[0_14px_30px_rgba(0,0,0,0.08)]">
+            <div className="flex items-center justify-between gap-3 pb-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#8B94A4]">Biểu đồ doanh thu</p>
+                <h2 className="text-xl font-semibold text-[#1F2226]">Toàn hệ thống</h2>
+                <p className="text-sm text-[#656F81] mt-1">6 tháng gần nhất</p>
               </div>
+              <span className="rounded-full bg-[#E8EFFC] px-3 py-1 text-xs font-semibold text-[#0B2E68]">
+                6 tháng
+              </span>
+            </div>
 
               <div className="relative h-[320px]">
                 {/* Grid */}
@@ -467,8 +458,7 @@ export default function AdminReportsPage() {
                   ))}
                 </div>
               </section>
-            )}
-          </div>
+          )}
         </div>
       </main>
     </div>
