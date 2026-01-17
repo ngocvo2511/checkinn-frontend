@@ -9,6 +9,7 @@ import { bookingApi, type BookingResponse } from "@/lib/api/booking";
 import { type AuthResponse } from "@/lib/api/auth";
 import { reviewApi } from "@/lib/api/reviews";
 import hotelApi from "@/lib/api/hotels";
+import { CustomerOnlyRoute } from "@/components/CustomerOnlyRoute";
 
 const statusColor: Record<string, string> = {
   PENDING: "bg-amber-100 text-amber-800",
@@ -166,7 +167,8 @@ export default function BookingHistoryPage() {
   if (!mounted) return null;
 
   return (
-    <div className="bg-white text-[#0F172A] min-h-screen flex flex-col">
+    <CustomerOnlyRoute>
+      <div className="bg-white text-[#0F172A] min-h-screen flex flex-col">
       <Header 
         onLogin={() => setShowLogin(true)} 
         onSignup={() => { setSignupVariant('user'); setShowSignup(true); }} 
@@ -394,6 +396,7 @@ export default function BookingHistoryPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </CustomerOnlyRoute>
   );
 }

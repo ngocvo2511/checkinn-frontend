@@ -1,6 +1,28 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
 
 // ==========================================
+// HELPER FUNCTIONS
+// ==========================================
+
+// Transform flat rating fields from API into nested ratings object
+function normalizeReviewRatings(review: any): Review {
+  if (!review.ratings && (review.staffRating || review.amenitiesRating || review.cleanlinessRating || review.comfortRating || review.valueForMoneyRating || review.locationRating)) {
+    return {
+      ...review,
+      ratings: {
+        staff: review.staffRating,
+        amenities: review.amenitiesRating,
+        cleanliness: review.cleanlinessRating,
+        comfort: review.comfortRating,
+        valueForMoney: review.valueForMoneyRating,
+        location: review.locationRating,
+      },
+    };
+  }
+  return review;
+}
+
+// ==========================================
 // TYPES
 // ==========================================
 
@@ -30,6 +52,8 @@ export interface Review {
   guestName?: string;
   guestAvatar?: string;
   userFeedback?: 'HELPFUL' | 'UNHELPFUL' | null; // Current user's feedback
+  ownerResponse?: ReviewResponse; // Owner's response to this review
+  hotelName?: string; // For owner's view of all their hotels' reviews
 }
 
 export interface ReviewStats {
@@ -381,14 +405,28 @@ export const reviewApi = {
 
   // Add response to review (owner)
   async addReviewResponse(reviewId: string, request: CreateReviewResponseRequest, token: string): Promise<ReviewResponse> {
+    // Build headers with required X-User-Id
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    };
+
+    try {
+      const payloadBase64 = token.split('.')[1];
+      const decodedPayload = JSON.parse(atob(payloadBase64));
+      const ownerId = decodedPayload.userId || decodedPayload.sub;
+      if (ownerId) {
+        headers['X-User-Id'] = ownerId;
+      }
+    } catch (e) {
+      // Ignore token decode errors; backend will reject without header
+    }
+
     const response = await fetch(
       `${API_BASE_URL}/api/v1/reviews/${reviewId}/response`,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers,
         body: JSON.stringify(request),
       }
     );
@@ -422,14 +460,25 @@ export const reviewApi = {
 
   // Update response
   async updateReviewResponse(responseId: string, request: CreateReviewResponseRequest, token: string): Promise<ReviewResponse> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    };
+
+    try {
+      const payloadBase64 = token.split('.')[1];
+      const decodedPayload = JSON.parse(atob(payloadBase64));
+      const ownerId = decodedPayload.userId || decodedPayload.sub;
+      if (ownerId) headers['X-User-Id'] = ownerId;
+    } catch (e) {
+      // ignore token decode errors
+    }
+
     const response = await fetch(
       `${API_BASE_URL}/api/v1/reviews/response/${responseId}`,
       {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers,
         body: JSON.stringify(request),
       }
     );
@@ -443,18 +492,101 @@ export const reviewApi = {
 
   // Delete response
   async deleteReviewResponse(responseId: string, token: string): Promise<void> {
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${token}`,
+    };
+
+    try {
+      const payloadBase64 = token.split('.')[1];
+      const decodedPayload = JSON.parse(atob(payloadBase64));
+      const ownerId = decodedPayload.userId || decodedPayload.sub;
+      if (ownerId) headers['X-User-Id'] = ownerId;
+    } catch (e) {
+      // ignore token decode errors
+    }
+
     const response = await fetch(
       `${API_BASE_URL}/api/v1/reviews/response/${responseId}`,
       {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        headers,
       }
     );
 
     if (!response.ok) {
       throw new Error(`Failed to delete response: ${response.statusText}`);
     }
+  },
+
+  // ==========================================
+  // HOTEL OWNER ENDPOINTS
+  // ==========================================
+
+  // Get all reviews for hotels owned by the authenticated owner
+  async getOwnerReviews(token: string, page: number = 0, size: number = 10): Promise<{
+    content: Review[];
+    totalPages: number;
+    totalElements: number;
+  }> {
+    // Decode JWT to get userId (ownerId)
+    const payloadBase64 = token.split('.')[1];
+    const decodedPayload = JSON.parse(atob(payloadBase64));
+    const ownerId = decodedPayload.userId || decodedPayload.sub;
+
+    const response = await fetch(
+      `${API_BASE_URL}/api/v1/reviews/owner/all?page=${page}&size=${size}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'X-User-Id': ownerId,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch owner reviews: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return {
+      ...data,
+      content: data.content.map(normalizeReviewRatings),
+    };
+  },
+
+  // Get reviews for a specific hotel owned by the authenticated owner
+  async getOwnerHotelReviews(hotelId: string, token: string, page: number = 0, size: number = 10): Promise<{
+    content: Review[];
+    totalPages: number;
+    totalElements: number;
+  }> {
+    // Decode JWT to get userId (ownerId)
+    const payloadBase64 = token.split('.')[1];
+    const decodedPayload = JSON.parse(atob(payloadBase64));
+    const ownerId = decodedPayload.userId || decodedPayload.sub;
+
+    const response = await fetch(
+      `${API_BASE_URL}/api/v1/reviews/owner/hotel/${hotelId}?page=${page}&size=${size}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'X-User-Id': ownerId,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch hotel reviews: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return {
+      ...data,
+      content: data.content.map(normalizeReviewRatings),
+    };
   },
 };

@@ -3,7 +3,6 @@
 import type { ChangeEvent, FormEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Header from '@/components/Header';
 import HostMenu from '@/components/host/menu/HostMenu';
 import { cityApi, type City } from '@/lib/api/cities';
 
@@ -368,26 +367,17 @@ export default function HostCreateHotelPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F9F9F9] flex flex-col">
-      <Header />
-      <main className="flex-1 px-6 py-10 text-[15px] md:text-base">
-        <div className="mx-auto flex w-full max-w-6xl gap-6">
-          <HostMenu />
-
-          <div className="flex-1 space-y-6">
-            <div className="rounded-3xl bg-gradient-to-br from-[#0B1B3F] via-[#0E264F] to-[#0A3D8F] px-6 py-8 text-white shadow-[0_24px_45px_rgba(0,0,0,0.18)]">
-              <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.08em] text-white/80">
-                <span className="h-2 w-2 rounded-full bg-[#FFCC00]" />
-                Tao khach san moi
+    <div className="min-h-screen bg-[#F9F9F9]">
+      <HostMenu />
+      <main className="ml-[280px] px-8 py-6">
+        <div className="max-w-7xl">
+          <div className="space-y-6">
+            <div className="rounded-xl bg-gradient-to-br from-[#0B1B3F] via-[#0E264F] to-[#0A3D8F] px-5 py-4 text-white">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-white/70">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#FFCC00]" />
+                Tạo khách sạn mới
               </div>
-              <div className="mt-4 flex flex-wrap items-start gap-4">
-                <div className="space-y-2">
-                  <h1 className="text-3xl font-semibold leading-[38px]">Thông tin khách sạn</h1>
-                  <p className="max-w-2xl text-base text-white/85">
-                    Nhập chi tiết cơ bản, giấy tờ pháp lý và tài ảnh (thumbnail + thư viện) để gửi duyệt listing khách sạn.
-                  </p>
-                </div>
-              </div>
+              <h1 className="mt-2 text-2xl font-semibold">Thông tin khách sạn</h1>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">

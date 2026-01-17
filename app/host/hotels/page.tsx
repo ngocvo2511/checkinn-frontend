@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Header from '@/components/Header';
 import HostMenu from '@/components/host/menu/HostMenu';
 import { Hotel as ApiHotel, hotelApi } from '@/lib/api/hotels';
 
@@ -72,26 +71,17 @@ export default function HostHotelsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F9F9F9] flex flex-col">
-      <Header />
-      <main className="flex-1 px-6 py-10">
-        <div className="mx-auto flex w-full max-w-6xl gap-6">
-          <HostMenu />
-          <div className="flex-1 space-y-6">
-            <div className="rounded-3xl bg-gradient-to-br from-[#0B1B3F] via-[#0E264F] to-[#0A3D8F] px-6 py-8 text-white shadow-[0_24px_45px_rgba(0,0,0,0.18)]">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-white/80">
-                <span className="h-2 w-2 rounded-full bg-[#FFCC00]" />
+    <div className="min-h-screen bg-[#F9F9F9]">
+      <HostMenu />
+      <main className="ml-[280px] px-8 py-6">
+        <div className="max-w-7xl">
+          <div className="space-y-6">
+            <div className="rounded-xl bg-gradient-to-br from-[#0B1B3F] via-[#0E264F] to-[#0A3D8F] px-5 py-4 text-white">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-white/70">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#FFCC00]" />
                 Quản lý khách sạn
               </div>
-              <div className="mt-4 flex flex-wrap items-start gap-4">
-                <div className="space-y-2">
-                  <h1 className="text-3xl font-semibold leading-[38px]">Danh sách khách sạn</h1>
-                  <p className="max-w-2xl text-sm text-white/85">
-                    Xem nhanh các khách sạn bạn đang quản lý, trạng thái hoạt động và thao tác thêm mới.
-                  </p>
-                </div>
-                
-              </div>
+              <h1 className="mt-2 text-2xl font-semibold">Danh sách khách sạn</h1>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">

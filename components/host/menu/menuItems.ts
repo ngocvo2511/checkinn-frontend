@@ -21,8 +21,13 @@ export const hostMenuItems: HostMenuItem[] = [
     iconPath: 'M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z',
   },
   {
-    label: 'Quản lý booking',
+    label: 'Quản lý đơn đặt phòng',
     href: '/host/bookings',
     iconPath: 'M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z',
+  },
+  {
+    label: 'Quản lý đánh giá',
+    href: '/host/reviews',
+    iconPath: 'M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z',
   },
 ];

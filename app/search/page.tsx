@@ -11,6 +11,7 @@ import { hotelApi, Hotel as ApiHotel } from "@/lib/api/hotels";
 import { reviewApi } from "@/lib/api/reviews";
 import { availabilityApi } from "@/lib/api/availability";
 import { useAuth } from "@/hooks/useAuth";
+import { CustomerOnlyRoute } from "@/components/CustomerOnlyRoute";
 
 interface Hotel {
   id: string;
@@ -183,16 +184,12 @@ export default function SearchPage() {
                   1
                 );
                 minAvailableRooms = availabilityCheck.availableRooms;
+                console.log(`Hotel ${hotel.name} - Available rooms:`, minAvailableRooms, 'for room type:', cheapestRoom.name);
               }
             } catch (err) {
               console.error(`Error fetching availability for hotel ${hotel.id}:`, err);
-              // Fallback to totalRooms if API fails
-              const availableRoomsList = hotel.roomTypes
-                .filter(rt => rt.totalRooms !== undefined && rt.totalRooms !== null)
-                .map(rt => rt.totalRooms!);
-              if (availableRoomsList.length > 0) {
-                minAvailableRooms = Math.min(...availableRoomsList);
-              }
+              // Don't use fallback - if we can't get real availability, don't show it
+              minAvailableRooms = undefined;
             }
           }
 
@@ -245,7 +242,7 @@ export default function SearchPage() {
     };
 
     fetchHotels();
-  }, [cityName, hotelName]);
+  }, [cityName, hotelName, checkIn, checkOut, rooms, adults, children]);
 
   const handleSelectHotel = (hotel: Hotel) => {
     const params = new URLSearchParams();
@@ -313,8 +310,9 @@ export default function SearchPage() {
   };
 
   return (
-    <div className="bg-white text-[#121316] min-h-screen flex flex-col">
-      <Header />
+    <CustomerOnlyRoute>
+      <div className="bg-white text-[#121316] min-h-screen flex flex-col">
+        <Header />
 
       <main className="flex-1">
         {/* Search Bar */}
@@ -351,6 +349,15 @@ export default function SearchPage() {
                 // If selected city, redirect to search with city filter
                 else if (data.cityId && data.cityName) {
                   router.push(`/search?cityId=${data.cityId}&cityName=${encodeURIComponent(data.cityName)}&${queryString}`);
+                }
+                // If no new city selected but we're already on search page, refresh with current city
+                else if (cityName && cityName !== "Destination") {
+                  const cityId = searchParams.get("cityId");
+                  if (cityId) {
+                    router.push(`/search?cityId=${cityId}&cityName=${encodeURIComponent(cityName)}&${queryString}`);
+                  } else {
+                    router.push(`/search?cityName=${encodeURIComponent(cityName)}&${queryString}`);
+                  }
                 }
               }}
             />
@@ -407,6 +414,7 @@ export default function SearchPage() {
       </main>
 
       <Footer />
-    </div>
+      </div>
+    </CustomerOnlyRoute>
   );
 }

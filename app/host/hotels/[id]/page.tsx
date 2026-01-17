@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Header from "@/components/Header";
 import HostMenu from "@/components/host/menu/HostMenu";
 import { hotelApi, Hotel as ApiHotel, RoomType, MediaAsset } from "@/lib/api/hotels";
 
@@ -174,6 +173,15 @@ export default function HostHotelDetailPage() {
     );
   }, [cityInput, cities]);
 
+  const handleScrollTo = (id: string) => {
+    setActiveSection(id);
+    const el = document.getElementById(id);
+    if (!el) return;
+    const offset = 96 + 52; // nav height
+    const top = el.getBoundingClientRect().top + window.scrollY - offset;
+    window.scrollTo({ top, behavior: "auto" });
+  };
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -220,23 +228,55 @@ export default function HostHotelDetailPage() {
   }, [showEditModal, cities.length]);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setActiveSection(entry.target.id);
+    const handleScroll = () => {
+      const viewportMiddle = window.innerHeight / 2;
+      
+      let newActiveSection = 'overview';
+      
+      // Check each section from bottom to top
+      for (let i = sectionList.length - 1; i >= 0; i--) {
+        const section = sectionList[i];
+        const el = document.getElementById(section.id);
+        
+        if (!el) continue;
+        
+        // Find the heading text to locate the section better
+        let heading = null;
+        const headings = el.querySelectorAll('h2, h3');
+        
+        if (headings.length > 0) {
+          heading = headings[0];
+        }
+        
+        if (heading) {
+          const rect = heading.getBoundingClientRect();
+          // If heading is at or above middle of viewport, activate this section
+          if (rect.top <= viewportMiddle) {
+            newActiveSection = section.id;
+            break;
           }
-        });
-      },
-      { rootMargin: "-40% 0px -40% 0px", threshold: 0.25 }
-    );
-
-    sectionList.forEach((section) => {
-      const el = document.getElementById(section.id);
-      if (el) observer.observe(el);
-    });
-
-    return () => observer.disconnect();
+        } else {
+          // Fallback: use section top
+          const rect = el.getBoundingClientRect();
+          if (rect.top <= viewportMiddle) {
+            newActiveSection = section.id;
+            break;
+          }
+        }
+      }
+      
+      setActiveSection(newActiveSection);
+    };
+    
+    // Initial check
+    handleScroll();
+    
+    // Listen to scroll
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, [sectionList]);
 
   useEffect(() => {
@@ -327,14 +367,6 @@ export default function HostHotelDetailPage() {
     () => (showAllImages ? heroImages.slice(1) : secondaryImages),
     [heroImages, secondaryImages, showAllImages]
   );
-
-  const handleScrollTo = (id: string) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    const offset = 72;
-    const top = el.getBoundingClientRect().top + window.scrollY - offset;
-    window.scrollTo({ top, behavior: "smooth" });
-  };
 
   const handleToggleActive = async () => {
     if (!hotel) return;
@@ -732,9 +764,9 @@ export default function HostHotelDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white">
-        <Header />
-        <div className="flex items-center justify-center min-h-[calc(100vh-72px)] text-[#2B3037]">
+      <div className="min-h-screen bg-[#F9F9F9]">
+        <HostMenu />
+        <div className="ml-[280px] flex items-center justify-center min-h-screen text-[#2B3037]">
           Đang tải...
         </div>
       </div>
@@ -743,9 +775,9 @@ export default function HostHotelDetailPage() {
 
   if (error || !hotel) {
     return (
-      <div className="min-h-screen bg-white">
-        <Header />
-        <div className="flex items-center justify-center min-h-[calc(100vh-72px)]">
+      <div className="min-h-screen bg-[#F9F9F9]">
+        <HostMenu />
+        <div className="ml-[280px] flex items-center justify-center min-h-screen">
           <div className="text-center">
             <p className="text-red-600 text-lg">{error || "Không tìm thấy khách sạn"}</p>
             <button
@@ -761,15 +793,12 @@ export default function HostHotelDetailPage() {
   }
 
   return (
-    <div className="bg-white">
-      <Header />
+    <div className="min-h-screen bg-[#F9F9F9]">
+      <HostMenu />
 
-      <main className="flex">
-        {/* Sidebar */}
-        <HostMenu />
-
+      <main className="ml-[280px]">
         {/* Content */}
-        <div className="flex-1 bg-[#F8FAFC]">
+        <div className="bg-[#F8FAFC]">
           <nav className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-[#E5E7EB]">
             <div className="mx-auto max-w-5xl px-4 md:px-8 lg:px-12 flex items-center gap-2 overflow-x-auto py-3">
               {sectionList.map((section) => (

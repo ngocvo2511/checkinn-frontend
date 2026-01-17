@@ -44,6 +44,7 @@ export interface BookingResponse {
   status: string;
   totalAmount: number;
   paidAmount: number;
+  paymentMethod?: string; // HOTEL, VNPAY
   voucherCode?: string;
   voucherDiscount?: number;
   contactName: string;
@@ -131,6 +132,11 @@ export const bookingApi = {
     return handleJsonResponse<BookingResponse[]>(res);
   },
 
+  async getHotelBookings(hotelId: string): Promise<BookingResponse[]> {
+    const res = await fetch(`${BOOKING_API_BASE}/api/bookings/hotel/${encodeURIComponent(hotelId)}`, { headers: { ...authHeaders() } });
+    return handleJsonResponse<BookingResponse[]>(res);
+  },
+
   async createPayment(bookingId: string, amount: number, method: PaymentMethod) {
     const res = await fetch(`${BOOKING_API_BASE}/api/payments`, {
       method: 'POST',
@@ -151,6 +157,27 @@ export const bookingApi = {
   async processVnPayReturn(queryString: string) {
     const res = await fetch(`${BOOKING_API_BASE}/api/payments/vnpay/return?${queryString}`, { headers: { ...authHeaders() } });
     return handleJsonResponse<PaymentResponse>(res);
+  },
+
+  async getBookingPayment(bookingId: string): Promise<PaymentResponse> {
+    const res = await fetch(`${BOOKING_API_BASE}/api/payments/booking/${encodeURIComponent(bookingId)}`, { headers: { ...authHeaders() } });
+    return handleJsonResponse<PaymentResponse>(res);
+  },
+
+  async confirmPayment(bookingId: string): Promise<PaymentResponse> {
+    const res = await fetch(`${BOOKING_API_BASE}/api/payments/${encodeURIComponent(bookingId)}/confirm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    return handleJsonResponse<PaymentResponse>(res);
+  },
+
+  async updateBookingStatus(bookingId: string, status: string): Promise<BookingResponse> {
+    const res = await fetch(`${BOOKING_API_BASE}/api/bookings/${encodeURIComponent(bookingId)}/status?status=${encodeURIComponent(status)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    });
+    return handleJsonResponse<BookingResponse>(res);
   },
 };
 
