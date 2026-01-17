@@ -4,31 +4,31 @@ interface AdminHeroPanelProps {
 }
 
 export default function AdminHeroPanel({
-  title = 'Sign in to the control room',
-  subtitle = 'Manage listings, bookings, payouts, and support tools in one place. Built for operational speed with Tripto\'s design language.',
+  title = 'Đăng nhập vào phòng điều khiển',
+  subtitle = 'Quản lý danh sách, đặt phòng, thanh toán và công cụ hỗ trợ tại một nơi. Được xây dựng để tốc độ hoạt động với ngôn ngữ thiết kế của Tripto.',
 }: AdminHeroPanelProps) {
   const features = [
     {
-      title: 'Role based access',
-      description: 'Separate permissions for managers, finance, and support so every change is auditable.',
+      title: 'Truy cập dựa trên vai trò',
+      description: 'Quyền riêng biệt cho các nhà quản lý, tài chính và hỗ trợ để mỗi thay đổi đều có thể kiểm toán được.',
     },
     {
-      title: 'Real-time activity feed',
-      description: 'Track check-ins, escalations, and payments without leaving the dashboard.',
+      title: 'Luồng hoạt động thực tế',
+      description: 'Theo dõi check-in, xử lý sự cố và thanh toán mà không cần rời khỏi bảng điều khiển.',
     },
     {
-      title: 'Secure by default',
-      description: 'Enforced 2FA and device-aware sessions for safer admin actions.',
+      title: 'An toàn theo mặc định',
+      description: 'Xác thực 2FA bắt buộc và phiên nhận biết thiết bị để các hành động quản trị an toàn hơn.',
     },
   ];
 
-  const badges = ['24/7 monitoring', 'SOC2 inspired controls', 'Encrypted sessions'];
+  const badges = ['Giám sát 24/7', 'Kiểm soát lấy cảm hứng từ SOC2', 'Phiên được mã hóa'];
 
   return (
     <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0B1B3F] via-[#0E264F] to-[#0A3D8F] p-8 text-white shadow-[0_24px_45px_rgba(0,0,0,0.18)]">
       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-white/80">
         <span className="h-2 w-2 rounded-full bg-[#FFCC00]" />
-        CheckInn admin
+        Quản trị CheckInn
       </div>
 
       <div className="mt-5 flex flex-col gap-3 max-w-xl">

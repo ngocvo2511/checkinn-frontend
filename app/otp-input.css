@@ -1,0 +1,82 @@
+/* OTP Input Enhancements */
+
+/* Smooth transitions for OTP inputs */
+@keyframes otp-focus {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Add pulse effect when OTP input is focused */
+input[id^="otp-input-"]:focus {
+  animation: otp-focus 0.3s ease-in-out;
+  box-shadow: 0 0 0 3px rgba(0, 87, 255, 0.1);
+}
+
+/* Loading spinner animation for button */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Success state for OTP inputs when all filled */
+input[id^="otp-input-"]:not(:placeholder-shown):valid {
+  border-color: #10b981;
+  background-color: #f0fdf4;
+}
+
+/* Error shake animation */
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-5px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(5px);
+  }
+}
+
+.otp-error {
+  animation: shake 0.5s ease-in-out;
+}
+
+/* Mobile optimization */
+@media (max-width: 640px) {
+  input[id^="otp-input-"] {
+    width: 2.5rem;
+    height: 3rem;
+    font-size: 1.25rem;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  input[id^="otp-input-"]:focus {
+    border-width: 3px;
+    border-color: #0057FF;
+  }
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  input[id^="otp-input-"]:focus {
+    animation: none;
+  }
+  
+  .otp-error {
+    animation: none;
+  }
+}

@@ -1512,6 +1512,12 @@ function SignupModal({ onClose, onSwitchToLogin }: { onClose: () => void; onSwit
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState<'register' | 'verify'>('register');
+  const [registeredEmail, setRegisteredEmail] = useState("");
+  const [otpDigits, setOtpDigits] = useState<string[]>(["", "", "", "", "", ""]);
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpError, setOtpError] = useState("");
+  const [authResponse, setAuthResponse] = useState<any>(null);
 
   const handleSubmit = async () => {
     if (!fullName || !username || !email || !password || !confirmPassword) {
@@ -1535,17 +1541,222 @@ function SignupModal({ onClose, onSwitchToLogin }: { onClose: () => void; onSwit
         password,
       });
 
-      localStorage.setItem("token", response.token);
-      await login(response);
-
-      // Reload page to update UI
-      location.reload();
+      setAuthResponse(response);
+      setRegisteredEmail(email);
+      setStep('verify');
+      setOtpCode("");
+      setOtpDigits(["", "", "", "", "", ""]);
+      setOtpError("");
     } catch (err: any) {
       setError(err.message || "Registration failed");
     } finally {
       setLoading(false);
     }
   };
+
+  const handleVerifyOtp = async () => {
+    const otpValue = otpDigits.join("");
+    if (!otpValue || otpValue.length !== 6) {
+      setOtpError("Vui lòng nhập đầy đủ 6 số mã OTP");
+      return;
+    }
+
+    setOtpLoading(true);
+    setOtpError("");
+
+    try {
+      const response = await authApi.verifyOtp(registeredEmail, otpValue);
+      
+      if (response.verified) {
+        localStorage.setItem("token", authResponse.token);
+        await login(authResponse);
+        location.reload();
+      } else {
+        setOtpError(response.message || "OTP verification failed");
+      }
+    } catch (err: any) {
+      setOtpError(err.message || "OTP verification failed");
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setOtpLoading(true);
+    setOtpError("");
+
+    try {
+      const response = await authApi.resendOtp(registeredEmail);
+      if (response.success) {
+        setOtpDigits(["", "", "", "", "", ""]);
+        setOtpError("Mã OTP đã được gửi lại! Vui lòng kiểm tra email của bạn.");
+      } else {
+        setOtpError(response.message || "Không thể gửi lại OTP");
+      }
+    } catch (err: any) {
+      setOtpError(err.message || "Không thể gửi lại OTP");
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleOtpDigitChange = (index: number, value: string) => {
+    // Only allow single digit
+    if (value.length > 1) {
+      value = value.slice(-1);
+    }
+    
+    // Only allow numbers
+    if (value && !/^\d$/.test(value)) {
+      return;
+    }
+
+    const newDigits = [...otpDigits];
+    newDigits[index] = value;
+    setOtpDigits(newDigits);
+
+    // Auto-focus next input
+    if (value && index < 5) {
+      const nextInput = document.getElementById(`otp-input-${index + 1}`);
+      nextInput?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace" && !otpDigits[index] && index > 0) {
+      const prevInput = document.getElementById(`otp-input-${index - 1}`);
+      prevInput?.focus();
+    }
+  };
+
+  const handleOtpPaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData("text").trim();
+    
+    if (/^\d{6}$/.test(pastedData)) {
+      const digits = pastedData.split("");
+      setOtpDigits(digits);
+      
+      // Focus last input
+      const lastInput = document.getElementById("otp-input-5");
+      lastInput?.focus();
+    }
+  };
+
+  if (step === 'verify') {
+    return (
+      <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/35 px-4 py-10 sm:py-16">
+        <div className="pointer-events-auto w-full max-w-xl rounded-2xl border border-[#E8E9F1] bg-white/95 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.16)] backdrop-blur sm:p-8">
+          <div className="relative flex items-center justify-center pb-4">
+            <p className="text-sm font-semibold text-[#2B3037]">Xác thực Email</p>
+            <button
+              type="button"
+              aria-label="Close"
+              className="absolute right-0 top-0 text-lg font-semibold text-[#8B94A4] transition hover:text-[#2B3037]"
+              onClick={onClose}
+            >
+              x
+            </button>
+          </div>
+
+          <div className="space-y-6">
+            <div className="text-center space-y-3">
+              <div className="mx-auto w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" fill="#0057FF"/>
+                </svg>
+              </div>
+              <p className="text-xl font-bold text-[#1F2226]">Nhập mã xác thực</p>
+              <p className="text-sm text-[#656F81]">
+                Chúng tôi đã gửi mã xác thực 6 số đến<br />
+                <span className="font-semibold text-[#2B3037]">{registeredEmail}</span>
+              </p>
+            </div>
+
+            {otpError && (
+              <div className={`rounded-lg px-4 py-3 text-sm ${
+                otpError.includes("gửi lại") || otpError.includes("successfully") 
+                  ? "bg-green-50 text-green-600" 
+                  : "bg-red-50 text-red-600"
+              }`}>
+                {otpError}
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <label className="text-sm font-semibold text-[#2B3037] block text-center">Mã xác thực OTP</label>
+              <div className="flex justify-center gap-2 sm:gap-3">
+                {otpDigits.map((digit, index) => (
+                  <input
+                    key={index}
+                    id={`otp-input-${index}`}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={digit}
+                    onChange={(e) => handleOtpDigitChange(index, e.target.value)}
+                    onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                    onPaste={index === 0 ? handleOtpPaste : undefined}
+                    className="w-12 h-14 sm:w-14 sm:h-16 text-center text-2xl font-bold rounded-lg border-2 border-[#E0E2E7] bg-[#F7F8FA] text-[#2B3037] focus:border-[#0057FF] focus:bg-white focus:outline-none transition"
+                    autoFocus={index === 0}
+                  />
+                ))}
+              </div>
+              <p className="text-xs text-center text-[#8B94A4]">
+                Mã OTP có hiệu lực trong 10 phút
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleVerifyOtp}
+              disabled={otpLoading || otpDigits.some(d => !d)}
+              className="w-full rounded-xl bg-[#0057FF] py-3.5 text-sm font-semibold text-white shadow-sm hover:bg-[#0046CC] disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+              {otpLoading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Đang xác thực...
+                </span>
+              ) : (
+                "Xác thực & Tiếp tục"
+              )}
+            </button>
+
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <p className="text-sm text-[#656F81]">Không nhận được mã?</p>
+              <button
+                type="button"
+                onClick={handleResendOtp}
+                disabled={otpLoading}
+                className="text-sm font-semibold text-[#0057FF] hover:underline disabled:opacity-50 transition"
+              >
+                Gửi lại
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setStep('register');
+                setOtpDigits(["", "", "", "", "", ""]);
+                setOtpError("");
+              }}
+              className="w-full text-sm text-[#656F81] hover:text-[#0057FF] transition flex items-center justify-center gap-1"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/>
+              </svg>
+              Quay lại đăng ký
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/35 px-4 py-10 sm:py-16">
