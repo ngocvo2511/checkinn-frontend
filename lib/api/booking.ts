@@ -1,5 +1,5 @@
-const BOOKING_API_BASE = process.env.NEXT_PUBLIC_BOOKING_API_URL || 'http://localhost:8080';
-const USER_API_BASE = process.env.NEXT_PUBLIC_USER_API_URL || 'http://localhost:8080';
+const BOOKING_API_BASE = process.env.NEXT_PUBLIC_BOOKING_API_URL || 'http://34.126.166.54';
+const USER_API_BASE = process.env.NEXT_PUBLIC_USER_API_URL || 'http://34.126.166.54';
 
 export type PaymentMethod = 'HOTEL' | 'VNPAY';
 

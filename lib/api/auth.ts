@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:8080/api/auth';
+const API_BASE_URL = 'http://34.126.166.54/api/auth';
 
 export interface AuthResponse {
   token: string;
@@ -100,7 +100,7 @@ export const authApi = {
   },
 
   changePassword: async (currentPassword: string, newPassword: string, token: string): Promise<void> => {
-    const response = await fetch(`http://localhost:8080/api/user/change-password`, {
+      const response = await fetch(`http://34.126.166.54/api/user/change-password`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
