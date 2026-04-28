@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import PersonalDataForm from '@/components/PersonalDataForm';
 import { AuthResponse } from '@/lib/api/auth';
+import { CustomerOnlyRoute } from '@/components/CustomerOnlyRoute';
 
 export default function PersonalDataPage() {
   const router = useRouter();
@@ -28,11 +29,13 @@ export default function PersonalDataPage() {
   }
 
   return (
-    <div className="bg-white text-[#0F172A] min-h-screen flex flex-col">
+    <CustomerOnlyRoute>
+      <div className="bg-white text-[#0F172A] min-h-screen flex flex-col">
       <Header />
       <main className="flex-1">
         <PersonalDataForm />
       </main>
-    </div>
+      </div>
+    </CustomerOnlyRoute>
   );
 }

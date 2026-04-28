@@ -1,7 +1,9 @@
+import Logo from './Logo';
+
 export default function Footer() {
-  const exploreLinks = ['Trending Destinations', 'Summer Hotspots', 'Winter Getaways', 'Weekend Deals', 'Family-Friendly Stays'];
-  const propertyTypes = ['Hotels', 'Apartments', 'Villas', 'Cabins', 'Glamping', 'Domes'];
-  const supportLinks = ['Help Centre', 'Live Chat Support', 'FAQs', 'Contact Us'];
+  const exploreLinks = ['Điểm đến phổ biến', 'Nghỉ dưỡng mùa hè', 'Du lịch mùa đông', 'Ưu đãi cuối tuần', 'Khách sạn gia đình'];
+  const propertyTypes = ['Khách sạn', 'Căn hộ', 'Biệt thự', 'Nhà gỗ', 'Glamping', 'Nhà dome'];
+  const supportLinks = ['Trung tâm trợ giúp', 'Hỗ trợ trực tuyến', 'Câu hỏi thường gặp', 'Liên hệ'];
   const socialIcons = ['facebook', 'instagram', 'youtube', 'twitter'];
 
   return (
@@ -9,7 +11,7 @@ export default function Footer() {
       <div className="max-w-[1440px] mx-auto px-[104px]">
         <div className="flex justify-between mb-8">
           <div className="flex flex-col gap-2">
-            <h3 className="text-lg font-semibold leading-6 text-[#99BDFF] mb-2">Explore</h3>
+            <h3 className="text-lg font-semibold leading-6 text-[#99BDFF] mb-2">Khám phá</h3>
             {exploreLinks.map(link => (
               <a key={link} href="#" className="text-base font-normal leading-6 text-white hover:text-[#99BDFF] transition-colors">
                 {link}
@@ -18,7 +20,7 @@ export default function Footer() {
           </div>
 
           <div className="flex flex-col gap-2">
-            <h3 className="text-lg font-semibold leading-6 text-[#99BDFF] mb-2">Property Types</h3>
+            <h3 className="text-lg font-semibold leading-6 text-[#99BDFF] mb-2">Loại hình lưu trú</h3>
             {propertyTypes.map(type => (
               <a key={type} href="#" className="text-base font-normal leading-6 text-white hover:text-[#99BDFF] transition-colors">
                 {type}
@@ -27,7 +29,7 @@ export default function Footer() {
           </div>
 
           <div className="flex flex-col gap-2">
-            <h3 className="text-lg font-semibold leading-6 text-[#99BDFF] mb-2">Support</h3>
+            <h3 className="text-lg font-semibold leading-6 text-[#99BDFF] mb-2">Hỗ trợ</h3>
             {supportLinks.map(link => (
               <a key={link} href="#" className="text-base font-normal leading-6 text-white hover:text-[#99BDFF] transition-colors">
                 {link}
@@ -36,9 +38,9 @@ export default function Footer() {
           </div>
 
           <div className="flex flex-col gap-2">
-            <h3 className="text-lg font-semibold leading-6 text-[#99BDFF] mb-2">Get In Touch </h3>
-            <p className="text-base font-normal leading-6 text-white"> +1 (800) 123‑456</p>
-            <p className="text-base font-normal leading-6 text-white">support@tripto.com</p>
+            <h3 className="text-lg font-semibold leading-6 text-[#99BDFF] mb-2">Liên hệ</h3>
+            <p className="text-base font-normal leading-6 text-white">+84 (028) 3822 5678</p>
+            <p className="text-base font-normal leading-6 text-white">support@checkinn.vn</p>
             <div className="flex gap-2 mt-2">
               {socialIcons.map(icon => (
                 <a
@@ -73,9 +75,13 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-[#B5BAC2]">
-          <div className="flex items-center justify-center h-16 py-4">
+          <div className="flex items-center justify-center gap-2 h-16 py-4">
             <p className="text-xs font-normal leading-4 text-[#F1F2F3] text-center">
-              © 2025 Tripto. All rights reserved.
+              © 2026
+            </p>
+            <Logo />
+            <p className="text-xs font-normal leading-4 text-[#F1F2F3] text-center">
+              All rights reserved.
             </p>
           </div>
         </div>

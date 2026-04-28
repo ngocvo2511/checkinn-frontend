@@ -9,6 +9,7 @@ import { bookingApi, type BookingResponse } from "@/lib/api/booking";
 import { reviewApi, type Review } from "@/lib/api/reviews";
 import { type AuthResponse } from "@/lib/api/auth";
 import hotelApi from "@/lib/api/hotels";
+import { CustomerOnlyRoute } from "@/components/CustomerOnlyRoute";
 
 function formatDate(value?: string | Date) {
   if (!value) return "--";
@@ -127,7 +128,22 @@ export default function ReviewsPage() {
           }
         }
         
-        setReviews(allReviews);
+        // Enrich each review with owner response
+        const responses = await Promise.all(
+          allReviews.map(async (r) => {
+            try {
+              return await reviewApi.getReviewResponse(r.id);
+            } catch {
+              return null;
+            }
+          })
+        );
+        const enriched = allReviews.map((r, idx) => ({
+          ...r,
+          ownerResponse: responses[idx] ?? r.ownerResponse,
+        }));
+
+        setReviews(enriched);
         
         setError(null);
       } catch (err: any) {
@@ -181,7 +197,8 @@ export default function ReviewsPage() {
   if (!mounted) return null;
 
   return (
-    <div className="bg-white text-[#0F172A] min-h-screen flex flex-col">
+    <CustomerOnlyRoute>
+      <div className="bg-white text-[#0F172A] min-h-screen flex flex-col">
       <Header 
         onLogin={() => {}}
         onSignup={() => {}}
@@ -359,6 +376,28 @@ export default function ReviewsPage() {
 
                                 <p className="text-sm text-[#4B5563]">{review.content}</p>
 
+                                {review.ownerResponse && (
+                                  <div className="mt-4 bg-[#F9FAFB] rounded-lg p-4 border-l-4 border-[#0057FF]">
+                                    <p className="text-xs font-semibold text-[#0057FF] uppercase mb-2">
+                                      Phản hồi từ chủ khách sạn
+                                    </p>
+                                    <div className="flex items-start gap-2 mb-2">
+                                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#10B981] to-[#059669] flex items-center justify-center text-white text-sm font-bold">
+                                        {(review.ownerResponse.ownerName?.[0]?.toUpperCase() || 'O')}
+                                      </div>
+                                      <div className="flex-1">
+                                        <p className="font-semibold text-sm text-[#111827]">
+                                          {review.ownerResponse.ownerName || 'Chủ khách sạn'}
+                                        </p>
+                                        <p className="text-xs text-[#9CA3AF]">
+                                          {formatDate(review.ownerResponse.createdAt)}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <p className="text-sm text-[#4B5563]">{review.ownerResponse.content}</p>
+                                  </div>
+                                )}
+
                                 <div className="flex items-center gap-3">
                                   <button className="flex items-center gap-1 text-[#6B7280] hover:text-[#0057ff] transition-colors">
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-5 h-5">
@@ -385,6 +424,7 @@ export default function ReviewsPage() {
         </div>
       </main>
       <Footer />
-    </div>
+      </div>
+    </CustomerOnlyRoute>
   );
 }

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Header from "@/components/Header";
 import HostMenu from "@/components/host/menu/HostMenu";
 import { hotelApi } from "@/lib/api/hotels";
 
@@ -176,10 +175,8 @@ export default function NewRoomPage() {
 
   return (
     <div className="min-h-screen bg-[#F9FAFB]">
-      <Header />
-      <div className="flex">
-        <HostMenu />
-        <main className="flex-1 p-8">
+      <HostMenu />
+      <main className="ml-[280px] p-8">
           <div className="max-w-4xl mx-auto">
             {/* Header */}
             <div className="mb-6">
@@ -539,8 +536,7 @@ export default function NewRoomPage() {
               </div>
             )}
           </div>
-        </main>
-      </div>
+      </main>
     </div>
   );
 }

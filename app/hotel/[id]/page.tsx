@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
+import { Ban, BedDouble } from "lucide-react";
 import HotelDetailHeader from "@/components/HotelDetailHeader";
 import Footer from "@/components/Footer";
 import { hotelApi, Hotel as ApiHotel, RoomType, MediaAsset } from "@/lib/api/hotels";
 import { reviewApi } from "@/lib/api/reviews";
 import { authApi } from "@/lib/api/auth";
 import { useAuth } from "@/hooks/useAuth";
+import { CustomerOnlyRoute } from "@/components/CustomerOnlyRoute";
 
 type Review = {
   id: string;
@@ -163,11 +165,28 @@ export default function HotelDetailPage() {
         
         const stats = await reviewApi.getReviewStats(hotel.id, token || undefined);
         setReviewStats(stats);
-        setReviews(stats.recentReviews || []);
-        
+
+        // Enrich with owner responses
+        const recent = stats.recentReviews || [];
+        const responses = await Promise.all(
+          recent.map(async (r) => {
+            try {
+              return await reviewApi.getReviewResponse(r.id);
+            } catch {
+              return null;
+            }
+          })
+        );
+        const enriched = recent.map((r, idx) => ({
+          ...r,
+          ownerResponse: responses[idx] ?? r.ownerResponse,
+        }));
+
+        setReviews(enriched);
+
         // Initialize feedback status from server response
         const initialFeedback: Record<string, 'helpful' | 'unhelpful' | null> = {};
-        (stats.recentReviews || []).forEach((review) => {
+        enriched.forEach((review) => {
           if (review.userFeedback) {
             initialFeedback[review.id] = review.userFeedback.toLowerCase() as 'helpful' | 'unhelpful';
           }
@@ -348,7 +367,8 @@ export default function HotelDetailPage() {
   const secondaryImages = heroImages.slice(1, 2); // Chỉ lấy 1 ảnh phụ
   const hasMoreImages = heroImages.length > 2; // Nếu có > 2 ảnh
   const overlayImage = heroImages[2]?.url || heroImages[1]?.url || primaryImage;
-  const ratingScore = reviewStats?.averageRating ?? 0;
+  const ratingScore = hotel?.starRating ?? 0; // Hotel star rating (scale 1-5)
+  const averageRating = reviewStats?.averageRating ?? 0; // Customer review average (scale 0-10)
   const lowestPrice = hotel?.lowestPrice ?? 0;
   const reviewCount = reviewStats?.totalReviews ?? 0;
   const amenityCategories = hotel?.amenityCategories || [];
@@ -518,7 +538,8 @@ export default function HotelDetailPage() {
   if (!mounted) return null;
 
   return (
-    <div className="bg-white text-[#111827]">
+    <CustomerOnlyRoute>
+      <div className="bg-white text-[#111827]">
       <HotelDetailHeader 
         sections={sectionList}
         activeSection={activeSection}
@@ -658,6 +679,34 @@ export default function HotelDetailPage() {
           </div>
         )}
 
+        {/* Hotel Info Bar */}
+        <section className="mx-auto max-w-screen-xl px-4 md:px-8 lg:px-12 py-6 flex items-center justify-between bg-white border-b border-[#E5E7EB]">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-2xl font-bold text-[#0F172A]">{hotel?.name}</h1>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                {[...Array(5)].map((_, i) => (
+                  <img
+                    key={i}
+                    src="https://ik.imagekit.io/tvlk/image/imageResource/2024/05/13/1715575526353-f84706e8ff60eebdb59c3e338fe33e4b.png?tr=h-16,q-75,w-16"
+                    alt="star"
+                    className={`w-4 h-4 ${i < Math.floor(ratingScore) ? 'opacity-100' : 'opacity-30'}`}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => handleScrollTo("rooms")}
+            className="flex items-center gap-2 px-6 py-3 bg-[#0057FF] text-white font-semibold rounded-lg hover:bg-[#0046CC] transition shadow-md"
+          >
+            <span>Chọn phòng</span>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            </svg>
+          </button>
+        </section>
+
         {/* Overview: rating + main amenities */}
         <section id="overview" className="mx-auto max-w-screen-xl px-4 md:px-8 lg:px-12 pt-8">
           <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
@@ -666,8 +715,8 @@ export default function HotelDetailPage() {
                 <div>
                   <p className="text-xs uppercase text-[#6B7280]">Đánh giá tổng quan</p>
                   <div className="mt-1 flex items-baseline gap-3">
-                    <span className="text-4xl font-bold text-[#0F172A]">{ratingScore > 0 ? ratingScore.toFixed(1) : 'N/A'}</span>
-                    <span className="text-sm text-[#4B5563]">/ 10 · {getRatingLabel(ratingScore)}</span>
+                    <span className="text-4xl font-bold text-[#0F172A]">{averageRating > 0 ? averageRating.toFixed(1) : 'N/A'}</span>
+                    <span className="text-sm text-[#4B5563]">/ 10 · {getRatingLabel(averageRating)}</span>
                   </div>
                   <p className="text-sm text-[#4B5563]">{reviewCount > 0 ? `Dựa trên ${reviewCount} đánh giá` : 'Chưa có đánh giá'}</p>
                 </div>
@@ -696,7 +745,12 @@ export default function HotelDetailPage() {
                             </div>
                           </div>
                           <span className="inline-flex items-center gap-1 rounded-full bg-[#2563EB] px-2 py-1 text-xs font-semibold text-white">
-                            ★ {review.rating.toFixed(1)}
+                            <img
+                              src="https://ik.imagekit.io/tvlk/image/imageResource/2024/05/13/1715575526353-f84706e8ff60eebdb59c3e338fe33e4b.png?tr=h-16,q-75,w-16"
+                              alt="star"
+                              className="w-3 h-3"
+                            />
+                            {review.rating.toFixed(1)}
                           </span>
                         </div>
                         {review.title && (
@@ -831,11 +885,11 @@ export default function HotelDetailPage() {
                             <p className="text-sm text-[#9CA3AF]">Không bao gồm bữa sáng</p>
                           )}
                           <div className="flex items-center gap-2 text-sm text-[#6B7280]">
-                            <span>🛏</span>
+                            <BedDouble className="h-4 w-4 text-[#6B7280]" />
                             <span>{room.capacity?.bedType || "Giường linh hoạt"}</span>
                           </div>
                           <div className="flex items-center gap-2 text-sm text-[#6B7280]">
-                            <span>✅</span>
+                            <Ban className="h-4 w-4 text-[#DC2626]" />
                             <span>Không được hoàn tiền</span>
                           </div>
                         </div>
@@ -1160,7 +1214,7 @@ export default function HotelDetailPage() {
                     </div>
                     {roomModal.room.capacity?.bedType && (
                       <div className="flex items-center gap-2">
-                        <span>🛏</span>
+                        <BedDouble className="h-4 w-4 text-[#4B5563]" />
                         <span>{roomModal.room.capacity.bedType}</span>
                       </div>
                     )}
@@ -1281,7 +1335,11 @@ export default function HotelDetailPage() {
                           {/* Rating + Date Row */}
                           <div className="flex items-center mb-3">
                             <div className="flex items-center gap-2">
-                              <span className="text-lg font-bold text-[#FFB812]">★</span>
+                              <img
+                                src="https://ik.imagekit.io/tvlk/image/imageResource/2024/05/13/1715575526353-f84706e8ff60eebdb59c3e338fe33e4b.png?tr=h-16,q-75,w-16"
+                                alt="star"
+                                className="w-5 h-5"
+                              />
                               <span className="font-bold text-[#0F172A] text-lg">{review.rating?.toFixed(1) || '0'}</span>
                               <span className="text-base font-bold text-[#9CA3AF]">/10</span>
                               <p className="text-base font-bold text-[#6B7280] whitespace-nowrap ml-3">{formatDate(review.createdAt)}</p>
@@ -1298,6 +1356,29 @@ export default function HotelDetailPage() {
                             {displayContent}
                             {isContentLong && !isExpanded && '...'}
                           </p>
+
+                          {/* Owner Response */}
+                          {review.ownerResponse && (
+                            <div className="mt-3 bg-[#F9FAFB] rounded-lg p-4 border-l-4 border-[#0057FF]">
+                              <p className="text-xs font-semibold text-[#0057FF] uppercase mb-2">
+                                Phản hồi từ chủ khách sạn
+                              </p>
+                              <div className="flex items-start gap-2 mb-2">
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#10B981] to-[#059669] flex items-center justify-center text-white text-sm font-bold">
+                                  {(review.ownerResponse.ownerName?.[0]?.toUpperCase() || 'O')}
+                                </div>
+                                <div className="flex-1">
+                                  <p className="font-semibold text-sm text-[#111827]">
+                                    {review.ownerResponse.ownerName || 'Chủ khách sạn'}
+                                  </p>
+                                  <p className="text-xs text-[#9CA3AF]">
+                                    {new Date(review.ownerResponse.createdAt).toLocaleDateString('vi-VN')}
+                                  </p>
+                                </div>
+                              </div>
+                              <p className="text-sm text-[#4B5563]">{review.ownerResponse.content}</p>
+                            </div>
+                          )}
 
                           {/* Read More Button */}
                           {isContentLong && (
@@ -1386,7 +1467,8 @@ export default function HotelDetailPage() {
           }}
         />
       )}
-    </div>
+      </div>
+    </CustomerOnlyRoute>
   );
 }
 

@@ -2,11 +2,13 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, Ban, CheckCircle2, Info, MinusCircle } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { bookingApi, loyaltyApi, type CreateBookingPayload } from "@/lib/api/booking";
 import { type AuthResponse } from "@/lib/api/auth";
 import { useAuth } from "@/hooks/useAuth";
+import { CustomerOnlyRoute } from "@/components/CustomerOnlyRoute";
 
 const formatPrice = (value?: number) => {
   if (value === undefined || value === null) return "Liên hệ";
@@ -230,7 +232,8 @@ export default function BookingPage() {
   };
 
   return (
-    <div className="bg-white text-[#111827]">
+    <CustomerOnlyRoute>
+      <div className="bg-white text-[#111827]">
       <Header />
 
       <main className="bg-[#F8FAFC] pb-12">
@@ -493,37 +496,7 @@ export default function BookingPage() {
                 </div>
               )}
 
-              {/* Special Requests */}
-              <div className="rounded-2xl border border-[#E5E7EB] bg-white shadow-sm p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-6 h-6">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                  </svg>
-                  <h2 className="text-lg font-semibold text-[#0F172A]">Yêu cầu đặc biệt</h2>
-                </div>
-                <p className="text-sm text-[#6B7280] mb-4">
-                  Bạn cần thêm giường phụ hoặc có yêu cầu đặc biệt? Gửi yêu cầu của bạn và khách sạn sẽ cố gắng đáp ứng nguyện vọng của bạn (Xin lưu ý: yêu cầu đặc biệt không được đảm bảo và có thể bị tính phí thêm)
-                </p>
-
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <input type="checkbox" id="nonSmoking" className="h-4 w-4 rounded border-[#E5E7EB]" />
-                    <label htmlFor="nonSmoking" className="text-sm text-[#4B5563]">Phòng không hút thuốc</label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input type="checkbox" id="adjoining" className="h-4 w-4 rounded border-[#E5E7EB]" />
-                    <label htmlFor="adjoining" className="text-sm text-[#4B5563]">Phòng liền thông</label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input type="checkbox" id="floor" className="h-4 w-4 rounded border-[#E5E7EB]" />
-                    <label htmlFor="floor" className="text-sm text-[#4B5563]">Tầng lầu</label>
-                  </div>
-
-                  <button className="text-sm text-[#2563EB] font-semibold hover:text-[#1D4ED8]">
-                    Đọc tất cả
-                  </button>
-                </div>
-              </div>
+              
 
               {/* Policies */}
               <div className="rounded-2xl border border-[#E5E7EB] bg-white shadow-sm p-6">
@@ -573,8 +546,9 @@ Khi nhận phòng, bạn phải mang theo Chứng minh thư. Các tài liệu c�
             {/* Right: Price Summary */}
               <div className="space-y-6">
               <div className="rounded-2xl border border-[#E5E7EB] bg-white shadow-sm p-6 sticky top-20">
-                <div className="mb-4 rounded-lg bg-[#E0F2FE] p-3 text-sm text-[#075985]">
-                  ⏰ Đừng khoảnh chứng là 2 giây! Chỉ còn <span className="font-bold">1 phòng</span> có giá thấp nhất này!
+                <div className="mb-4 rounded-lg bg-[#E0F2FE] p-3 text-sm text-[#075985] flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  <span>Đừng khoảnh chừng là 2 giây! Chỉ còn <span className="font-bold">8 phòng</span> có giá thấp nhất này!</span>
                 </div>
 
                 <div className="mb-4">
@@ -604,11 +578,15 @@ Khi nhận phòng, bạn phải mang theo Chứng minh thư. Các tài liệu c�
                 <div className="space-y-2 border-t border-[#E5E7EB] pt-4 mt-4">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-[#6B7280]">Đặt phòng chờ hoàn tiền</span>
-                    <span className="text-[#0F172A]">✅</span>
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-[#6B7280]">🚭 Non-reschedulable</span>
-                    <span className="text-[#0F172A]">ℹ️</span>
+                    <span className="text-[#6B7280]">Non-reschedulable</span>
+                    <Ban className="h-4 w-4 text-[#9CA3AF]" />
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-[#6B7280]">Chi tiết chính sách</span>
+                    <Info className="h-4 w-4 text-[#2563EB]" />
                   </div>
                 </div>
 
@@ -678,6 +656,7 @@ Khi nhận phòng, bạn phải mang theo Chứng minh thư. Các tài liệu c�
       </main>
 
       <Footer />
-    </div>
+      </div>
+    </CustomerOnlyRoute>
   );
 }

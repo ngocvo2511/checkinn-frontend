@@ -57,7 +57,23 @@ export default function ReviewSection({
           );
         }
 
-        setReviews(sortedReviews);
+        // Enrich with owner responses
+        const responses = await Promise.all(
+          sortedReviews.map(async (r) => {
+            try {
+              return await reviewApi.getReviewResponse(r.id);
+            } catch {
+              return null;
+            }
+          })
+        );
+
+        const enriched = sortedReviews.map((r, idx) => ({
+          ...r,
+          ownerResponse: responses[idx] ?? r.ownerResponse,
+        }));
+
+        setReviews(enriched);
         setTotalPages(reviewsData.totalPages);
       } catch (err) {
         setError(
@@ -266,6 +282,7 @@ export default function ReviewSection({
               <ReviewCard
                 key={review.id}
                 review={review}
+                ownerResponse={review.ownerResponse}
                 canReply={isOwner || false}
                 onReplyAdded={handleRefresh}
               />

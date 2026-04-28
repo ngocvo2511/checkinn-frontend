@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Header from '@/components/Header';
 import AdminStatCard from '@/components/AdminStatCard';
 import AdminMenu from '@/components/admin/menu/AdminMenu';
 import { useProtectedRoute } from '@/hooks/useProtectedRoute';
@@ -77,28 +76,20 @@ export default function AdminDashboardPage() {
     return null;
   }
   return (
-    <div className="min-h-screen bg-[#F9F9F9] flex flex-col">
-      <Header />
+    <div className="min-h-screen bg-[#F9F9F9]">
+      <AdminMenu />
 
-      <main className="flex-1 px-6 py-10">
-        <div className="mx-auto flex w-full max-w-6xl gap-6">
-          <AdminMenu />
+      <main className="ml-[280px] px-8 py-6">
+        <div className="max-w-7xl">
+          <section className="rounded-xl bg-gradient-to-br from-[#0B1B3F] via-[#0E264F] to-[#0A3D8F] px-5 py-4 text-white">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-white/70">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#FFCC00]" />
+              CheckInn Admin
+            </div>
+            <h1 className="mt-2 text-2xl font-semibold">Bảng điều khiển Admin</h1>
+          </section>
 
-          <div className="flex-1 flex flex-col gap-8">
-            <section className="rounded-3xl bg-gradient-to-br from-[#0B1B3F] via-[#0E264F] to-[#0A3D8F] px-6 py-8 text-white shadow-[0_24px_45px_rgba(0,0,0,0.18)]">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-white/80">
-                <span className="h-2 w-2 rounded-full bg-[#FFCC00]" />
-                CheckInn admin
-              </div>
-              <div className="mt-4 space-y-2">
-                <h1 className="text-3xl font-semibold leading-[38px]">Bảng điều khiển Admin</h1>
-                <p className="max-w-2xl text-sm text-white/85">
-                  Giám sát kiểm duyệt khách sạn, booking và người dùng. Dữ liệu được cập nhật từ backend trong thời gian thực.
-                </p>
-              </div>
-            </section>
-
-            <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mt-6">
               <AdminStatCard
                 label="Tổng khách sạn đã duyệt"
                 value={isLoadingStats ? '...' : String(stats.totalApprovedHotels)}
@@ -128,8 +119,6 @@ export default function AdminDashboardPage() {
                 trendPositive={stats.todayBookings > 0}
               />
             </section>
-
-          </div>
         </div>
       </main>
     </div>

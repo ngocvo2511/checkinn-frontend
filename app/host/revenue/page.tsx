@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
-import Header from '@/components/Header';
 import HostMenu from '@/components/host/menu/HostMenu';
 import { revenueApi, OwnerSummaryResponse, OwnerRevenueResponse, HotelSummaryItem, GroupBy } from '@/lib/api/revenue';
 import type { AuthResponse } from '@/lib/api/auth';
@@ -144,9 +143,9 @@ export default function HostRevenuePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F9F9F9] flex flex-col">
-        <Header />
-        <main className="flex-1 px-6 py-10 flex items-center justify-center">
+      <div className="min-h-screen bg-[#F9F9F9]">
+        <HostMenu />
+        <main className="ml-[280px] px-8 py-6 flex items-center justify-center">
           <p className="text-lg text-[#656F81]">Đang tải dữ liệu...</p>
         </main>
       </div>
@@ -155,9 +154,9 @@ export default function HostRevenuePage() {
 
   if (error || !ownerSummary) {
     return (
-      <div className="min-h-screen bg-[#F9F9F9] flex flex-col">
-        <Header />
-        <main className="flex-1 px-6 py-10 flex items-center justify-center">
+      <div className="min-h-screen bg-[#F9F9F9]">
+        <HostMenu />
+        <main className="ml-[280px] px-8 py-6 flex items-center justify-center">
           <p className="text-lg text-red-600">{error || 'Không tìm thấy dữ liệu'}</p>
         </main>
       </div>
@@ -174,21 +173,16 @@ export default function HostRevenuePage() {
   ] : [];
 
   return (
-    <div className="min-h-screen bg-[#F9F9F9] flex flex-col">
-      <Header />
-      <main className="flex-1 px-6 py-10">
-        <div className="mx-auto flex w-full max-w-6xl gap-6">
-          <HostMenu />
-          <div className="flex-1 space-y-4">
-            <section className="rounded-3xl bg-gradient-to-br from-[#0B1B3F] via-[#0E264F] to-[#0A3D8F] px-6 py-8 text-white shadow-[0_24px_45px_rgba(0,0,0,0.18)]">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-white/80">
-                <span className="h-2 w-2 rounded-full bg-[#FFCC00]" />
-                Quản lý doanh thu
+    <div className="min-h-screen bg-[#F9F9F9]">
+      <HostMenu />
+      <main className="ml-[280px] px-8 py-6">
+        <div className="max-w-7xl space-y-4">
+            <section className="rounded-xl bg-gradient-to-br from-[#0B1B3F] via-[#0E264F] to-[#0A3D8F] px-5 py-4 text-white">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-white/70">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#FFCC00]" />
+                Chủ khách sạn
               </div>
-              <div className="mt-4 space-y-2">
-                <h1 className="text-3xl font-semibold leading-[38px]">Doanh thu & payout</h1>
-                <p className="max-w-2xl text-sm text-white/85">Mock data để xem layout: biểu đồ doanh thu, tóm tắt payout và phân bổ phòng được hiển thị mẫu.</p>
-              </div>
+              <h1 className="mt-2 text-2xl font-semibold">Doanh thu & Payout</h1>
             </section>
 
             <section className="rounded-2xl border border-[#E8E9F1] bg-white p-4 shadow-[0_12px_28px_rgba(0,0,0,0.08)]">
@@ -249,7 +243,6 @@ export default function HostRevenuePage() {
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#8B94A4]">{hotel.hotelId}</p>
                           <p className={`text-base font-semibold ${active ? 'text-[#0B2E68]' : 'text-[#1F2226]'}`}>{hotel.hotelName}</p>
                         </div>
                         <span className={`rounded-full px-3 py-1 text-[11px] font-semibold ${active ? 'bg-white text-[#0B2E68]' : 'bg-[#F1F2F3] text-[#383E48]'}`}>
@@ -532,7 +525,6 @@ export default function HostRevenuePage() {
                 </table>
               </div>
             </section>
-          </div>
         </div>
       </main>
     </div>

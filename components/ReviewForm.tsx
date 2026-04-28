@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { reviewApi, ReviewRatings } from '@/lib/api/reviews';
-import { CheckCircle } from 'lucide-react';
+import { BadgeDollarSign, BedDouble, Brush, CheckCircle, MapPin, Sparkles, Users } from 'lucide-react';
 
 interface ReviewFormProps {
   hotelId: string;
@@ -15,16 +15,16 @@ interface ReviewFormProps {
 interface CriteriaInfo {
   key: keyof ReviewRatings;
   label: string;
-  icon: string;
+  icon: ReactNode;
 }
 
 const RATING_CRITERIA: CriteriaInfo[] = [
-  { key: 'staff', label: 'Nhân viên phục vụ', icon: '👥' },
-  { key: 'amenities', label: 'Tiện nghi', icon: '🏊' },
-  { key: 'cleanliness', label: 'Sạch sẽ', icon: '✨' },
-  { key: 'comfort', label: 'Thoải mái', icon: '🛏️' },
-  { key: 'valueForMoney', label: 'Đáng giá tiền', icon: '💰' },
-  { key: 'location', label: 'Địa điểm', icon: '📍' },
+  { key: 'staff', label: 'Nhân viên phục vụ', icon: <Users className="h-4 w-4 text-[#0F172A]" /> },
+  { key: 'amenities', label: 'Tiện nghi', icon: <Sparkles className="h-4 w-4 text-[#0F172A]" /> },
+  { key: 'cleanliness', label: 'Sạch sẽ', icon: <Brush className="h-4 w-4 text-[#0F172A]" /> },
+  { key: 'comfort', label: 'Thoải mái', icon: <BedDouble className="h-4 w-4 text-[#0F172A]" /> },
+  { key: 'valueForMoney', label: 'Đáng giá tiền', icon: <BadgeDollarSign className="h-4 w-4 text-[#0F172A]" /> },
+  { key: 'location', label: 'Địa điểm', icon: <MapPin className="h-4 w-4 text-[#0F172A]" /> },
 ];
 
 export default function ReviewForm({ 
@@ -216,7 +216,7 @@ export default function ReviewForm({
             <div key={criteria.key} className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium text-[#374151] flex items-center gap-2">
-                  <span className="text-xl">{criteria.icon}</span>
+                  <span className="text-xl flex items-center justify-center">{criteria.icon}</span>
                   {criteria.label}
                 </label>
                 <div className="flex items-center gap-2">

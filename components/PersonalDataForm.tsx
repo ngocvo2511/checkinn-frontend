@@ -6,6 +6,7 @@ import Link from 'next/link';
 import DatePicker from 'react-datepicker';
 import UserSidebar from './UserSidebar';
 import { authApi } from '@/lib/api/auth';
+import { loyaltyApi } from '@/lib/api/booking';
 import 'react-datepicker/dist/react-datepicker.css';
 
 export default function PersonalDataForm() {
@@ -19,7 +20,12 @@ export default function PersonalDataForm() {
     gender: '',
     birthday: '',
     country: '',
-    address: ''
+    address: '',
+    loyaltyPoints: {
+      totalPoints: 0,
+      usedPoints: 0,
+      availablePoints: 0
+    }
   });
   const [originalData, setOriginalData] = useState(formData);
   const [loading, setLoading] = useState(true);
@@ -93,6 +99,24 @@ export default function PersonalDataForm() {
       }
 
       const data = await response.json();
+      
+      // Fetch loyalty points
+      let loyaltyPoints = {
+        totalPoints: 0,
+        usedPoints: 0,
+        availablePoints: 0
+      };
+      
+      try {
+        if (data.id) {
+          const pointsData = await loyaltyApi.getUserPoints(data.id);
+          loyaltyPoints = pointsData;
+        }
+      } catch (pointsErr) {
+        console.error('Error fetching loyalty points:', pointsErr);
+        // Continue without loyalty points data
+      }
+      
       const newData = {
         fullName: data.fullName || '',
         email: data.email || '',
@@ -101,7 +125,8 @@ export default function PersonalDataForm() {
         birthday: data.birthday || '',
         address: data.address || '',
         gender: data.gender || '',
-        country: data.country || ''
+        country: data.country || '',
+        loyaltyPoints: loyaltyPoints
       };
       setFormData(newData);
       setOriginalData(newData);
@@ -219,6 +244,20 @@ export default function PersonalDataForm() {
                   <div>
                     <h1 className="text-4xl font-semibold text-[#454c58] mb-2">Hồ sơ của tôi</h1>
                     <p className="text-lg text-[#8b94a4]">Thông tin và hoạt động cá nhân của bạn.</p>
+                    <div className="flex gap-8 mt-4">
+                      <div className="bg-blue-50 px-4 py-2 rounded-lg">
+                        <p className="text-sm text-gray-600">Điểm tích luỹ</p>
+                        <p className="text-2xl font-semibold text-[#0057FF]">{formData.loyaltyPoints?.availablePoints || 0}</p>
+                      </div>
+                      <div className="bg-green-50 px-4 py-2 rounded-lg">
+                        <p className="text-sm text-gray-600">Tổng điểm đã tích</p>
+                        <p className="text-2xl font-semibold text-green-600">{formData.loyaltyPoints?.totalPoints || 0}</p>
+                      </div>
+                      <div className="bg-orange-50 px-4 py-2 rounded-lg">
+                        <p className="text-sm text-gray-600">Điểm đã sử dụng</p>
+                        <p className="text-2xl font-semibold text-orange-600">{formData.loyaltyPoints?.usedPoints || 0}</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <button className="flex items-center justify-center gap-2 h-14 px-4 rounded-xl text-[#B5BAC2] hover:bg-gray-50 transition-colors">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Review, ReviewResponse, reviewApi, ReviewRatings } from '@/lib/api/reviews';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -125,6 +125,11 @@ export default function ReviewCard({
       setLoadingReply(false);
     }
   };
+
+  // Sync local response state when prop updates (e.g., after async fetch of ownerResponse)
+  useEffect(() => {
+    setResponse(ownerResponse ?? null);
+  }, [ownerResponse]);
 
   const formattedDate = formatDistanceToNow(new Date(review.createdAt), {
     addSuffix: true,
@@ -263,10 +268,11 @@ export default function ReviewCard({
                 {response.ownerName || 'Chủ khách sạn'}
               </p>
               <p className="text-xs text-[#9CA3AF]">
-                {formatDistanceToNow(new Date(response.createdAt), {
-                  addSuffix: true,
-                  locale: vi,
-                })}
+                {response.updatedAt && response.updatedAt !== response.createdAt ? (
+                  <>Đã cập nhật {formatDistanceToNow(new Date(response.updatedAt), { addSuffix: true, locale: vi })}</>
+                ) : (
+                  <>{formatDistanceToNow(new Date(response.createdAt), { addSuffix: true, locale: vi })}</>
+                )}
               </p>
             </div>
           </div>
