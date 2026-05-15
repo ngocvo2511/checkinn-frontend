@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import { Ban, BedDouble } from "lucide-react";
 import HotelDetailHeader from "@/components/HotelDetailHeader";
 import Footer from "@/components/Footer";
@@ -1480,6 +1481,12 @@ function LoginModal({ onClose, onSwitchToSignup }: { onClose: () => void; onSwit
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const handleGoogleLogin = () => {
+    setError("");
+    setLoading(true);
+    signIn("google", { callbackUrl: "/" });
+  };
+
   const handleSubmit = async () => {
     if (!email || !password) {
       setError("Please fill in all fields");
@@ -1508,7 +1515,7 @@ function LoginModal({ onClose, onSwitchToSignup }: { onClose: () => void; onSwit
         location.reload();
       }
     } catch (err: any) {
-      setError(err.message || "Login failed");
+      setError(err.message || "Đăng nhập thất bại");
     } finally {
       setLoading(false);
     }
@@ -1573,6 +1580,14 @@ function LoginModal({ onClose, onSwitchToSignup }: { onClose: () => void; onSwit
 
           <button
             type="button"
+            onClick={handleGoogleLogin}
+            className="w-full rounded-xl border border-[#E0E2E7] bg-white py-3 text-sm font-semibold text-[#2B3037] shadow-sm hover:bg-[#F7F8FA]"
+          >
+            Tiếp tục với Google
+          </button>
+
+          <button
+            type="button"
             onClick={onSwitchToSignup}
             className="w-full rounded-xl border border-[#0057FF] bg-white py-3 text-sm font-semibold text-[#0057FF] shadow-sm hover:bg-[#0057FF] hover:text-white"
           >
@@ -1630,7 +1645,7 @@ function SignupModal({ onClose, onSwitchToLogin }: { onClose: () => void; onSwit
       setOtpDigits(["", "", "", "", "", ""]);
       setOtpError("");
     } catch (err: any) {
-      setError(err.message || "Registration failed");
+      setError(err.message || "Đăng ký thất bại");
     } finally {
       setLoading(false);
     }
@@ -1654,10 +1669,10 @@ function SignupModal({ onClose, onSwitchToLogin }: { onClose: () => void; onSwit
         await login(authResponse);
         location.reload();
       } else {
-        setOtpError(response.message || "OTP verification failed");
+        setOtpError(response.message || "Xác thực OTP thất bại");
       }
     } catch (err: any) {
-      setOtpError(err.message || "OTP verification failed");
+      setOtpError(err.message || "Xác thực OTP thất bại");
     } finally {
       setOtpLoading(false);
     }

@@ -35,12 +35,12 @@ export const authApi = {
       const text = await response.text();
       try {
         const json = JSON.parse(text);
-        throw new Error(json.message || json.error || 'Registration failed');
+        throw new Error(json.message || json.error || 'Đăng ký thất bại');
       } catch (err) {
         if (err instanceof Error && err.message !== text) {
           throw err;
         }
-        throw new Error(text || 'Registration failed');
+        throw new Error(text || 'Đăng ký thất bại');
       }
     }
 
@@ -60,12 +60,12 @@ export const authApi = {
       const text = await response.text();
       try {
         const json = JSON.parse(text);
-        throw new Error(json.message || json.error || 'Registration failed');
+        throw new Error(json.message || json.error || 'Đăng ký thất bại');
       } catch (err) {
         if (err instanceof Error && err.message !== text) {
           throw err;
         }
-        throw new Error(text || 'Registration failed');
+        throw new Error(text || 'Đăng ký thất bại');
       }
     }
 
@@ -92,7 +92,7 @@ export const authApi = {
         if (err instanceof Error && err.message !== text) {
           throw err;
         }
-        throw new Error(text || 'Login failed');
+        throw new Error(text || 'Đăng nhập thất bại');
       }
     }
 
@@ -131,12 +131,12 @@ export const authApi = {
       const text = await response.text();
       try {
         const json = JSON.parse(text);
-        throw new Error(json.message || json.error || 'OTP verification failed');
+        throw new Error(json.message || json.error || 'Xác thực OTP thất bại');
       } catch (err) {
         if (err instanceof Error && err.message !== text) {
           throw err;
         }
-        throw new Error(text || 'OTP verification failed');
+        throw new Error(text || 'Xác thực OTP thất bại');
       }
     }
 
@@ -155,12 +155,12 @@ export const authApi = {
       const text = await response.text();
       try {
         const json = JSON.parse(text);
-        throw new Error(json.message || json.error || 'Failed to resend OTP');
+        throw new Error(json.message || json.error || 'Không thể gửi lại OTP');
       } catch (err) {
         if (err instanceof Error && err.message !== text) {
           throw err;
         }
-        throw new Error(text || 'Failed to resend OTP');
+        throw new Error(text || 'Không thể gửi lại OTP');
       }
     }
 
@@ -179,12 +179,12 @@ export const authApi = {
       const text = await response.text();
       try {
         const json = JSON.parse(text);
-        throw new Error(json.message || json.error || 'Failed to send reset email');
+        throw new Error(json.message || json.error || 'Không thể gửi yêu cầu đặt lại mật khẩu');
       } catch (err) {
         if (err instanceof Error && err.message !== text) {
           throw err;
         }
-        throw new Error(text || 'Failed to send reset email');
+        throw new Error(text || 'Không thể gửi yêu cầu đặt lại mật khẩu');
       }
     }
 
@@ -204,12 +204,12 @@ export const authApi = {
       const text = await response.text();
       try {
         const json = JSON.parse(text);
-        throw new Error(json.message || json.error || 'Failed to reset password');
+        throw new Error(json.message || json.error || 'Không thể đặt lại mật khẩu');
       } catch (err) {
         if (err instanceof Error && err.message !== text) {
           throw err;
         }
-        throw new Error(text || 'Failed to reset password');
+        throw new Error(text || 'Không thể đặt lại mật khẩu');
       }
     }
 

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Header from '@/components/Header';
 import AdminMenu from '@/components/admin/menu/AdminMenu';
 import { hotelApi, PendingHotelDetail } from '@/lib/api/hotels';
 
@@ -118,14 +117,11 @@ export default function AdminPendingHotelDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F9F9F9] flex flex-col">
-        <Header />
-        <main className="flex-1 px-6 py-10">
-          <div className="mx-auto flex w-full max-w-6xl gap-6">
-            <AdminMenu />
-            <div className="flex-1 flex items-center justify-center">
-              <p>Loading...</p>
-            </div>
+      <div className="min-h-screen bg-[#F9F9F9]">
+        <AdminMenu />
+        <main className="ml-[280px] px-8 py-6">
+          <div className="max-w-7xl flex items-center justify-center">
+            <p>Loading...</p>
           </div>
         </main>
       </div>
@@ -134,14 +130,11 @@ export default function AdminPendingHotelDetailPage() {
 
   if (error || !hotel) {
     return (
-      <div className="min-h-screen bg-[#F9F9F9] flex flex-col">
-        <Header />
-        <main className="flex-1 px-6 py-10">
-          <div className="mx-auto flex w-full max-w-6xl gap-6">
-            <AdminMenu />
-            <div className="flex-1 flex items-center justify-center">
-              <p className="text-red-500">{error || 'Hotel not found'}</p>
-            </div>
+      <div className="min-h-screen bg-[#F9F9F9]">
+        <AdminMenu />
+        <main className="ml-[280px] px-8 py-6">
+          <div className="max-w-7xl flex items-center justify-center">
+            <p className="text-red-500">{error || 'Hotel not found'}</p>
           </div>
         </main>
       </div>
@@ -149,25 +142,20 @@ export default function AdminPendingHotelDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F9F9F9] flex flex-col">
-      <Header />
+    <div className="min-h-screen bg-[#F9F9F9]">
+      <AdminMenu />
 
-      <main className="flex-1 px-6 py-10 text-[15px] md:text-base">
-        <div className="mx-auto flex w-full max-w-6xl gap-6">
-          <AdminMenu />
-
-          <div className="flex-1 space-y-4">
-            <div className="rounded-3xl bg-gradient-to-br from-[#0B1B3F] via-[#0E264F] to-[#0A3D8F] px-6 py-8 text-white shadow-[0_24px_45px_rgba(0,0,0,0.18)]">
-              <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.08em] text-white/80">
-                <span className="h-2 w-2 rounded-full bg-[#FFCC00]" />
-                Chi tiết khách sạn
+      <main className="ml-[280px] px-8 py-6">
+        <div className="max-w-7xl space-y-4">
+            <div className="rounded-xl bg-gradient-to-br from-[#0B1B3F] via-[#0E264F] to-[#0A3D8F] px-5 py-4 text-white">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-white/70">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#FFCC00]" />
+                CheckInn Admin
               </div>
-              <div className="mt-4 space-y-2">
-                <h1 className="text-3xl font-semibold leading-[38px]">{hotel.name}</h1>
-                <p className="max-w-2xl text-base text-white/85">
-                  Xem chi tiết và quyết định duyệt hoặc từ chối khách sạn.
-                </p>
-              </div>
+              <h1 className="mt-2 text-2xl font-semibold">{hotel.name}</h1>
+              <p className="mt-1 text-sm text-white/85">
+                Xem chi tiết và quyết định duyệt hoặc từ chối khách sạn.
+              </p>
             </div>
 
             <div className="rounded-2xl border border-[#E8E9F1] bg-white p-6 text-base text-[#383E48] shadow-[0_14px_30px_rgba(0,0,0,0.08)]">
@@ -391,8 +379,7 @@ export default function AdminPendingHotelDetailPage() {
               </div>
             </div>
           </div>
-        </div>
-      </main>
-    </div>
-  );
+        </main>
+      </div>
+    );
 }

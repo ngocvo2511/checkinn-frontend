@@ -12,6 +12,8 @@ import Footer from "@/components/Footer";
 import { FeaturedHotels } from "@/components/FeaturedHotels";
 import { useAuth } from "@/hooks/useAuth";
 import { CustomerOnlyRoute } from "@/components/CustomerOnlyRoute";
+import type { Hotel } from "@/lib/api/hotels";
+import type { City } from "@/lib/api/cities";
 
 const heroBg = "/hero.png";
 const heroBadgeIcon = "https://www.figma.com/api/mcp/asset/7f84ae0a-9727-4a93-bfaf-6464772bb8df";
@@ -239,7 +241,8 @@ export default function Home() {
 
 function Hero() {
   const router = useRouter();
-  const [selectedCity, setSelectedCity] = useState<any>(null);
+  const [selectedCity, setSelectedCity] = useState<City | null>(null);
+  const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null);
   const [checkInDate, setCheckInDate] = useState<Date | null>(null);
   const [checkOutDate, setCheckOutDate] = useState<Date | null>(null);
   const [rooms, setRooms] = useState(1);
@@ -248,12 +251,12 @@ function Hero() {
 
   const handleSearch = () => {
     // Validate required fields
-    if (!selectedCity) {
-      alert("Please select a destination");
+    if (!selectedCity && !selectedHotel) {
+      alert("Vui lòng chọn điểm đến hoặc khách sạn");
       return;
     }
     if (!checkInDate || !checkOutDate) {
-      alert("Please select check-in and check-out dates");
+      alert("Vui lòng chọn ngày nhận và trả phòng");
       return;
     }
 
@@ -267,14 +270,19 @@ function Hero() {
 
     // Build search params
     const searchParams = new URLSearchParams({
-      cityId: selectedCity.id,
-      cityName: selectedCity.name,
       checkIn: formatDateLocal(checkInDate),
       checkOut: formatDateLocal(checkOutDate),
       rooms: rooms.toString(),
       adults: adults.toString(),
       children: children.toString(),
     });
+
+    if (selectedHotel) {
+      searchParams.set("hotelName", selectedHotel.name);
+    } else if (selectedCity) {
+      searchParams.set("cityId", selectedCity.id);
+      searchParams.set("cityName", selectedCity.name);
+    }
 
     // Navigate to search results page
     router.push(`/search?${searchParams.toString()}`);
@@ -308,7 +316,16 @@ function Hero() {
 
           <div className="relative overflow-visible rounded-3xl bg-white shadow-2xl backdrop-blur z-30">
             <div className="grid grid-cols-1 gap-4 px-4 py-5 md:grid-cols-[1fr_2fr_1.2fr_auto] md:gap-0 md:px-2 md:py-3 items-stretch">
-              <LocationSearch onCitySelect={setSelectedCity} />
+              <LocationSearch
+                onCitySelect={(city) => {
+                  setSelectedCity(city);
+                  if (city) setSelectedHotel(null);
+                }}
+                onHotelSelect={(hotel) => {
+                  setSelectedHotel(hotel);
+                  if (hotel) setSelectedCity(null);
+                }}
+              />
               <DateRangePicker
                 checkInLabel="Nhận phòng"
                 checkOutLabel="Trả phòng"
@@ -545,10 +562,10 @@ function ForgotPasswordModal({ onBack, onClose }: { onBack: () => void; onClose:
       if (response.verified) {
         setStep('password');
       } else {
-        setError(response.message || "OTP verification failed");
+        setError(response.message || "Xác thực OTP thất bại");
       }
     } catch (err: any) {
-      setError(err.message || "OTP verification failed");
+      setError(err.message || "Xác thực OTP thất bại");
     } finally {
       setLoading(false);
     }
@@ -923,10 +940,10 @@ function SignupModal({ onClose, variant = 'user' }: { onClose: () => void; varia
           location.reload();
         }
       } else {
-        setOtpError(response.message || "OTP verification failed");
+        setOtpError(response.message || "Xác thực OTP thất bại");
       }
     } catch (err: any) {
-      setOtpError(err.message || "OTP verification failed");
+      setOtpError(err.message || "Xác thực OTP thất bại");
     } finally {
       setOtpLoading(false);
     }

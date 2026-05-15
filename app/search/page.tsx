@@ -10,7 +10,6 @@ import { HotelSearchBar } from "@/components/HotelSearchBar";
 import { hotelApi, Hotel as ApiHotel } from "@/lib/api/hotels";
 import { reviewApi } from "@/lib/api/reviews";
 import { availabilityApi } from "@/lib/api/availability";
-import { useAuth } from "@/hooks/useAuth";
 import { CustomerOnlyRoute } from "@/components/CustomerOnlyRoute";
 
 interface Hotel {
@@ -30,10 +29,21 @@ interface Hotel {
   loyaltyPoints?: number;
 }
 
+interface SearchFilterValues {
+  priceRange?: number[];
+  amenities?: string[];
+  types?: string[];
+  starRatings?: number[];
+  guestRatings?: number[];
+}
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  return error instanceof Error && error.message ? error.message : fallback;
+};
+
 export default function SearchPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user } = useAuth();
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [filteredHotels, setFilteredHotels] = useState<Hotel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,6 +88,75 @@ export default function SearchPage() {
   // Fetch hotels from API
   useEffect(() => {
     const fetchHotels = async () => {
+      const requestedRooms = Math.max(1, Number.parseInt(rooms, 10) || 1);
+      const requestedAdults = Math.max(1, Number.parseInt(adults, 10) || 1);
+      const requestedChildren = Math.max(0, Number.parseInt(children, 10) || 0);
+
+      const getRoomAdults = (roomType: NonNullable<ApiHotel["roomTypes"]>[number]) => {
+        return roomType.capacity?.adults ?? roomType.maxOccupancy ?? 0;
+      };
+
+      const getRoomChildren = (roomType: NonNullable<ApiHotel["roomTypes"]>[number]) => {
+        return roomType.capacity?.children ?? 0;
+      };
+
+      const getConfiguredRoomCount = (roomType: NonNullable<ApiHotel["roomTypes"]>[number]) => {
+        return roomType.totalRooms ?? roomType.roomAmount ?? roomType.availableRooms ?? 10;
+      };
+
+      const evaluateHotelAvailability = async (hotel: ApiHotel): Promise<{ eligible: boolean; availableRooms?: number }> => {
+        const activeRoomTypes = (hotel.roomTypes || []).filter((roomType) => {
+          const adultCapacity = getRoomAdults(roomType);
+          const childCapacity = getRoomChildren(roomType);
+          return roomType.isActive !== false && adultCapacity > 0 && childCapacity >= 0;
+        });
+
+        if (activeRoomTypes.length === 0) {
+          return { eligible: false };
+        }
+
+        let bestAvailableRooms: number | undefined;
+
+        for (const roomType of activeRoomTypes) {
+          let availableRooms = getConfiguredRoomCount(roomType);
+
+          if (checkIn && checkOut) {
+            try {
+              const availabilityCheck = await availabilityApi.checkAvailability(
+                roomType.id,
+                checkIn,
+                checkOut,
+                1
+              );
+              availableRooms = availabilityCheck.availableRooms;
+            } catch (err) {
+              console.error(`Error fetching availability for room type ${roomType.id}:`, err);
+              availableRooms = 0;
+            }
+          }
+
+          if (availableRooms <= 0) {
+            continue;
+          }
+
+          const adultCapacity = availableRooms * getRoomAdults(roomType);
+          const childCapacity = availableRooms * getRoomChildren(roomType);
+          const canSatisfyRequestedStay =
+            availableRooms >= requestedRooms &&
+            adultCapacity >= requestedAdults &&
+            childCapacity >= requestedChildren;
+
+          if (canSatisfyRequestedStay) {
+            bestAvailableRooms = Math.max(bestAvailableRooms ?? 0, availableRooms);
+          }
+        }
+
+        return {
+          eligible: bestAvailableRooms !== undefined,
+          availableRooms: bestAvailableRooms,
+        };
+      };
+
       // Handle hotel name search - redirect to hotel detail page
       if (hotelName) {
         setLoading(true);
@@ -88,9 +167,16 @@ export default function SearchPage() {
             maxPrice: priceRange[1],
           });
 
-          if (apiHotels && apiHotels.length > 0) {
+          const eligibleHotels = (
+            await Promise.all(apiHotels.map(async (hotel) => ({
+              hotel,
+              availability: await evaluateHotelAvailability(hotel),
+            })))
+          ).filter(({ availability }) => availability.eligible);
+
+          if (eligibleHotels.length > 0) {
             // Redirect to the first hotel found
-            const hotelId = apiHotels[0].id;
+            const hotelId = eligibleHotels[0].hotel.id;
             const params = new URLSearchParams();
             if (checkIn) params.set("checkIn", checkIn);
             if (checkOut) params.set("checkOut", checkOut);
@@ -104,9 +190,9 @@ export default function SearchPage() {
             setError("Không tìm thấy khách sạn");
             setLoading(false);
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           console.error("Error searching hotel:", err);
-          setError(err.message || "Lỗi khi tìm khách sạn");
+          setError(getErrorMessage(err, "Lỗi khi tìm khách sạn"));
           setLoading(false);
         }
         return;
@@ -135,8 +221,15 @@ export default function SearchPage() {
           return str.replace(/^"(.*)"$/, '$1').trim();
         };
 
+        const eligibleHotelResults = (
+          await Promise.all(apiHotels.map(async (hotel) => ({
+            hotel,
+            availability: await evaluateHotelAvailability(hotel),
+          })))
+        ).filter(({ availability }) => availability.eligible);
+
         // Transform API data to UI format
-        const transformedHotels: Hotel[] = await Promise.all(apiHotels.map(async (hotel: ApiHotel) => {
+        const transformedHotels: Hotel[] = await Promise.all(eligibleHotelResults.map(async ({ hotel, availability }) => {
           const minPrice = hotel.lowestPrice ?? (
             hotel.roomTypes && hotel.roomTypes.length > 0
               ? Math.min(...hotel.roomTypes.map(rt => rt.basePrice ?? rt.pricePerNight ?? 0))
@@ -152,9 +245,14 @@ export default function SearchPage() {
             console.error(`Error fetching review stats for hotel ${hotel.id}:`, err);
           }
 
+          const address = hotel.address as ApiHotel["address"] & {
+            ward?: string;
+            district?: string;
+          };
+
           const locationParts = [
-            hotel.address?.ward,
-            hotel.address?.district,
+            address?.ward,
+            address?.district,
             hotel.city?.name,
           ].filter(Boolean);
 
@@ -166,32 +264,6 @@ export default function SearchPage() {
             ...(hotel.mediaAssets?.map(m => m.url) || []),
             ...((hotel.roomTypes?.flatMap(rt => rt.mediaAssets?.map(m => m.url) || []) || []))
           ];
-
-          // Calculate minimum available rooms from all room types
-          let minAvailableRooms: number | undefined = undefined;
-          if (hotel.roomTypes && hotel.roomTypes.length > 0 && checkIn && checkOut) {
-            try {
-              // Get cheapest room type to check availability
-              const cheapestRoom = hotel.roomTypes
-                .filter(rt => rt.basePrice !== undefined || rt.pricePerNight !== undefined)
-                .sort((a, b) => (a.basePrice ?? a.pricePerNight ?? 0) - (b.basePrice ?? b.pricePerNight ?? 0))[0];
-              
-              if (cheapestRoom) {
-                const availabilityCheck = await availabilityApi.checkAvailability(
-                  cheapestRoom.id,
-                  checkIn,
-                  checkOut,
-                  1
-                );
-                minAvailableRooms = availabilityCheck.availableRooms;
-                console.log(`Hotel ${hotel.name} - Available rooms:`, minAvailableRooms, 'for room type:', cheapestRoom.name);
-              }
-            } catch (err) {
-              console.error(`Error fetching availability for hotel ${hotel.id}:`, err);
-              // Don't use fallback - if we can't get real availability, don't show it
-              minAvailableRooms = undefined;
-            }
-          }
 
           // Extract amenities from amenityCategories
           let hotelAmenities: string[] = [];
@@ -225,7 +297,7 @@ export default function SearchPage() {
             images: allImages,
             amenities: hotelAmenities,
             type: "Hotel",
-            availableRooms: minAvailableRooms,
+            availableRooms: availability.availableRooms,
             starRating: hotel.starRating,
             loyaltyPoints: minPrice > 0 ? Math.floor(minPrice / 100000) : 0,
           };
@@ -233,16 +305,16 @@ export default function SearchPage() {
 
         setHotels(transformedHotels);
         setFilteredHotels(transformedHotels);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Error fetching hotels:", err);
-        setError(err.message || "Không thể tải danh sách khách sạn");
+        setError(getErrorMessage(err, "Không thể tải danh sách khách sạn"));
       } finally {
         setLoading(false);
       }
     };
 
     fetchHotels();
-  }, [cityName, hotelName, checkIn, checkOut, rooms, adults, children]);
+  }, [cityName, hotelName, checkIn, checkOut, rooms, adults, children, priceRange, router]);
 
   const handleSelectHotel = (hotel: Hotel) => {
     const params = new URLSearchParams();
@@ -292,21 +364,12 @@ export default function SearchPage() {
     setFilteredHotels(filtered);
   }, [hotels, priceRange, selectedAmenities, selectedTypes, selectedStarRatings, selectedGuestRatings]);
 
-  const handleFilterChange = (filters: any) => {
+  const handleFilterChange = (filters: SearchFilterValues) => {
     if (filters.priceRange) setPriceRange(filters.priceRange);
     if (filters.amenities) setSelectedAmenities(filters.amenities);
     if (filters.types) setSelectedTypes(filters.types);
     if (filters.starRatings !== undefined) setSelectedStarRatings(filters.starRatings);
     if (filters.guestRatings !== undefined) setSelectedGuestRatings(filters.guestRatings);
-  };
-
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return "";
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-    });
   };
 
   return (
@@ -326,6 +389,10 @@ export default function SearchPage() {
               initialChildren={children}
               initialRooms={rooms}
               onSearch={(data) => {
+                if (!data.checkIn || !data.checkOut) {
+                  return;
+                }
+
                 const formatDateLocal = (date: Date) => {
                   const year = date.getFullYear();
                   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -342,9 +409,9 @@ export default function SearchPage() {
                 
                 const queryString = params.toString();
                 
-                // If selected hotel, redirect to hotel detail
-                if (data.hotelId) {
-                  router.push(`/hotel/${data.hotelId}?${queryString}`);
+                // If selected hotel, route through hotel-name search so availability and capacity filters still apply
+                if (data.hotelId && data.hotelName) {
+                  router.push(`/search?hotelName=${encodeURIComponent(data.hotelName)}&${queryString}`);
                 }
                 // If selected city, redirect to search with city filter
                 else if (data.cityId && data.cityName) {

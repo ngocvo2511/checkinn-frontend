@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback, Dispatch, SetStateAction } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback } from 'react';
+import { signOut, useSession } from 'next-auth/react';
 
 export function useAuth() {
   const [user, setUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { data: session } = useSession();
 
   // Load user from localStorage on mount
   useEffect(() => {
@@ -19,17 +20,39 @@ export function useAuth() {
     setIsLoading(false);
   }, []);
 
+  useEffect(() => {
+    if (!session?.user) return;
+
+    const sessionUser = {
+      email: session.user.email,
+      fullName: session.user.name,
+      avatar: session.user.image,
+      role: 'customer',
+      accessToken: session.accessToken,
+      provider: session.provider,
+    };
+
+    setUser(sessionUser);
+    localStorage.setItem("user", JSON.stringify(sessionUser));
+    if (session.accessToken) {
+      localStorage.setItem("token", session.accessToken);
+    }
+  }, [session]);
+
   const login = useCallback((userData: any) => {
     setUser(userData);
     localStorage.setItem("user", JSON.stringify(userData));
     localStorage.setItem("token", userData.token || userData.accessToken);
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
     setUser(null);
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-  }, []);
+    if (session) {
+      await signOut({ redirect: false });
+    }
+  }, [session]);
 
   const updateUser = useCallback((userData: any): void => {
     setUser((prev: any | null) => {
