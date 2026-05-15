@@ -1,4 +1,4 @@
-const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080'}/cities`;
+const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://34.126.166.54'}/cities`;
 
 export interface City {
   id: string;
