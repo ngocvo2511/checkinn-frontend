@@ -546,7 +546,8 @@ export const reviewApi = {
     );
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch owner reviews: ${response.statusText}`);
+      const errorData = await response.json().catch(() => null);
+      throw new Error(errorData?.message || errorData?.error || 'Không thể tải đánh giá');
     }
 
     const data = await response.json();
@@ -580,7 +581,8 @@ export const reviewApi = {
     );
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch hotel reviews: ${response.statusText}`);
+      const errorData = await response.json().catch(() => null);
+      throw new Error(errorData?.message || errorData?.error || 'Không thể tải đánh giá');
     }
 
     const data = await response.json();

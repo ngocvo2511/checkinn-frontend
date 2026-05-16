@@ -81,7 +81,7 @@ export default function PersonalDataForm() {
       setLoading(true);
       const token = localStorage.getItem('token');
       if (!token) {
-        setError('No authentication token found');
+        setError('Không tìm thấy token xác thực');
         setLoading(false);
         return;
       }
@@ -95,7 +95,7 @@ export default function PersonalDataForm() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch user data');
+        throw new Error('Không thể lấy thông tin người dùng');
       }
 
       const data = await response.json();
@@ -133,7 +133,7 @@ export default function PersonalDataForm() {
       setError('');
     } catch (err) {
       console.error('Error fetching user data:', err);
-      setError('Failed to load user data');
+      setError('Không thể tải thông tin người dùng');
     } finally {
       setLoading(false);
     }
@@ -146,7 +146,7 @@ export default function PersonalDataForm() {
       const token = localStorage.getItem('token');
       
       if (!token) {
-        setError('No authentication token found');
+        setError('Không tìm thấy token xác thực');
         return;
       }
 
@@ -168,7 +168,7 @@ export default function PersonalDataForm() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to save changes');
+        throw new Error(errorData.message || 'Không thể lưu thay đổi');
       }
 
       setSaveSuccess(true);
@@ -176,7 +176,7 @@ export default function PersonalDataForm() {
       setError('');
     } catch (err) {
       console.error('Error saving user data:', err);
-      setError(err instanceof Error ? err.message : 'Failed to save changes');
+      setError(err instanceof Error ? err.message : 'Không thể lưu thay đổi');
     } finally {
       setIsSaving(false);
     }

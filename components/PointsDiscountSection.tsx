@@ -46,7 +46,7 @@ export default function PointsDiscountSection({
       setLoading(true);
       const response = await fetch(`/api/loyalty-points/${userId}`);
       if (!response.ok) {
-        throw new Error("Failed to fetch loyalty points");
+        throw new Error("Không thể lấy điểm tích lũy");
       }
       const data = await response.json();
       setLoyaltyPoints(data);

@@ -76,7 +76,7 @@ export default function HostReviewsPage() {
         const hotel = hotels.find(h => h.id === review.hotelId);
         return {
           ...review,
-          hotelName: hotel?.name || 'Unknown Hotel',
+          hotelName: hotel?.name || 'Khách sạn không xác định',
         };
       });
 
@@ -85,7 +85,7 @@ export default function HostReviewsPage() {
       setTotalElements(response.totalElements);
     } catch (err) {
       console.error('Error loading reviews:', err);
-      setError('Không thể tải đánh giá');
+      setError(err instanceof Error ? err.message : 'Không thể tải đánh giá');
     } finally {
       setLoading(false);
     }
