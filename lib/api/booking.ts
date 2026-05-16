@@ -102,7 +102,7 @@ function getAuthToken(): string | null {
 async function handleJsonResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(text || `Request failed with status ${res.status}`);
+    throw new Error(text || `Yêu cầu thất bại với mã trạng thái ${res.status}`);
   }
   return res.json();
 }

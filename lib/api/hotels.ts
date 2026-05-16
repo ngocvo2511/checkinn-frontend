@@ -280,7 +280,7 @@ export const hotelApi = {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to get owner hotels: ${response.status} ${response.statusText}`);
+        throw new Error(`Không thể tải danh sách khách sạn của chủ khách sạn: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();

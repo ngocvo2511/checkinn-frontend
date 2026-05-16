@@ -27,7 +27,7 @@ export async function GET(
     );
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch loyalty points: ${response.status}`);
+      throw new Error(`Không thể lấy điểm tích lũy: ${response.status}`);
     }
 
     const data = await response.json();
@@ -35,7 +35,7 @@ export async function GET(
   } catch (error) {
     console.error("Error fetching loyalty points:", error);
     return NextResponse.json(
-      { error: "Failed to fetch loyalty points" },
+      { error: "Không thể lấy điểm tích lũy" },
       { status: 500 }
     );
   }
