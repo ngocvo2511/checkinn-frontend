@@ -86,7 +86,7 @@ export default function PersonalDataForm() {
         return;
       }
 
-      const response = await fetch('http://localhost:8080/api/user/profile', {
+      const response = await fetch('http://34.126.166.54/api/user/profile', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -150,7 +150,7 @@ export default function PersonalDataForm() {
         return;
       }
 
-      const response = await fetch('http://localhost:8080/api/user/profile', {
+      const response = await fetch('http://34.126.166.54/api/user/profile', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

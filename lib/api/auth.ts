@@ -100,7 +100,7 @@ export const authApi = {
   },
 
   changePassword: async (currentPassword: string, newPassword: string, token: string): Promise<void> => {
-    const response = await fetch(`http://localhost:8080/api/user/change-password`, {
+      const response = await fetch(`http://34.126.166.54/api/user/change-password`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
