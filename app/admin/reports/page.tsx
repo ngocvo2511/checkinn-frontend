@@ -166,7 +166,9 @@ export default function AdminReportsPage() {
                 <p className="text-xs font-semibold uppercase tracking-[0.08em] opacity-90">Hoa hồng thu được</p>
                 <div className="text-3xl font-bold mt-2">{adminSummary.totalCommission.toLocaleString('vi-VN')} ₫</div>
                 <p className="text-sm opacity-80 mt-1">
-                  {((adminSummary.totalCommission / adminSummary.totalRevenue) * 100).toFixed(1)}% của doanh thu
+                  {adminSummary.commissionRate !== undefined
+                    ? `${adminSummary.commissionRate.toFixed(1)}% của doanh thu`
+                    : `${((adminSummary.totalCommission / adminSummary.totalRevenue) * 100).toFixed(1)}% của doanh thu`}
                 </p>
               </div>
               

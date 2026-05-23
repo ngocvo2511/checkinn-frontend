@@ -107,6 +107,7 @@ export interface CustomerAnalytics {
 export interface AdminSummaryResponse {
   totalRevenue: number;
   totalCommission: number;
+  commissionRate?: number;
   totalBookings: number;
   systemCancellationRate: number;
   topHotels: TopHotelItem[];
