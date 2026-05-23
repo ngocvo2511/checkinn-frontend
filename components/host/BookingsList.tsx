@@ -16,7 +16,6 @@ export default function BookingsList({ bookings, isLoading, onBookingUpdated }: 
   const [selectedBooking, setSelectedBooking] = useState<BookingResponse | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Format date
   const formatDate = (dateString: string) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('vi-VN', {
@@ -26,7 +25,6 @@ export default function BookingsList({ bookings, isLoading, onBookingUpdated }: 
     });
   };
 
-  // Map status backend thành status display
   const mapStatusForDisplay = (status: string) => {
     const upperStatus = status?.toUpperCase() || '';
     if (upperStatus === 'PENDING' || upperStatus === 'PENDING_PAYMENT') {
@@ -35,10 +33,8 @@ export default function BookingsList({ bookings, isLoading, onBookingUpdated }: 
     return upperStatus;
   };
 
-  // Filter and search bookings
   const filteredBookings = useMemo(() => {
     return bookings.filter(booking => {
-      // Filter by status - gộp status giống nhau
       if (filterStatus !== 'ALL') {
         const displayStatus = mapStatusForDisplay(booking.status);
         if (displayStatus !== filterStatus) {
@@ -46,9 +42,8 @@ export default function BookingsList({ bookings, isLoading, onBookingUpdated }: 
         }
       }
 
-      // Search by booking ID or email
       const query = searchQuery.toLowerCase();
-      const matchesSearch = 
+      const matchesSearch =
         booking.id.toLowerCase().includes(query) ||
         booking.contactEmail.toLowerCase().includes(query) ||
         booking.contactName.toLowerCase().includes(query) ||
@@ -58,7 +53,6 @@ export default function BookingsList({ bookings, isLoading, onBookingUpdated }: 
     });
   }, [bookings, searchQuery, filterStatus]);
 
-  // Get status badge style
   const getStatusBadge = (status: string) => {
     const displayStatus = mapStatusForDisplay(status);
     switch (displayStatus) {
@@ -79,7 +73,6 @@ export default function BookingsList({ bookings, isLoading, onBookingUpdated }: 
     }
   };
 
-  // Get status Vietnamese name with payment method if needed
   const getStatusName = (status: string, paymentMethod?: string) => {
     const displayStatus = mapStatusForDisplay(status);
     let statusName = '';
@@ -89,7 +82,6 @@ export default function BookingsList({ bookings, isLoading, onBookingUpdated }: 
         break;
       case 'AWAITING_PAYMENT':
         statusName = 'Chờ thanh toán';
-        // Add payment method for pending payments
         if (paymentMethod?.toUpperCase() === 'HOTEL') {
           statusName += ' (tại khách sạn)';
         } else if (paymentMethod?.toUpperCase() === 'VNPAY') {
@@ -118,10 +110,8 @@ export default function BookingsList({ bookings, isLoading, onBookingUpdated }: 
 
   return (
     <div className="space-y-4">
-      {/* Search and Filter Bar */}
       <div className="rounded-2xl border border-[#E8E9F1] bg-white p-4 shadow-[0_12px_28px_rgba(0,0,0,0.08)]">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-          {/* Search Input */}
           <div className="flex-1 min-w-0">
             <div className="relative">
               <svg
@@ -139,7 +129,7 @@ export default function BookingsList({ bookings, isLoading, onBookingUpdated }: 
               </svg>
               <input
                 type="text"
-                placeholder="Tìm theo booking code, email, tên hoặc số điện thoại..."
+                placeholder="Tìm theo mã đặt phòng, email, tên hoặc số điện thoại..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full rounded-lg border border-[#E5E7EB] bg-white py-2 pl-10 pr-3 text-sm text-[#374151] placeholder-[#9CA3AF] transition focus:border-[#0057FF] focus:outline-none focus:ring-1 focus:ring-[#0057FF]"
@@ -147,7 +137,6 @@ export default function BookingsList({ bookings, isLoading, onBookingUpdated }: 
             </div>
           </div>
 
-          {/* Filter Dropdown */}
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
@@ -162,10 +151,9 @@ export default function BookingsList({ bookings, isLoading, onBookingUpdated }: 
         </div>
       </div>
 
-      {/* Bookings Table */}
       <div className="rounded-2xl border border-[#E8E9F1] bg-white shadow-[0_14px_30px_rgba(0,0,0,0.08)] overflow-hidden">
         {isLoading ? (
-          <div className="py-10 text-center text-[#656F81]">Đang tải danh sách booking...</div>
+          <div className="py-10 text-center text-[#656F81]">Đang tải danh sách đơn đặt phòng...</div>
         ) : filteredBookings.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-10 text-center">
             <svg
@@ -182,11 +170,11 @@ export default function BookingsList({ bookings, isLoading, onBookingUpdated }: 
               />
             </svg>
             <div>
-              <p className="text-base font-semibold text-[#1F2226]">Không có booking nào</p>
+              <p className="text-base font-semibold text-[#1F2226]">Không có đơn đặt phòng nào</p>
               <p className="text-sm text-[#656F81]">
                 {searchQuery || filterStatus !== 'ALL'
-                  ? 'Không tìm thấy booking phù hợp với tiêu chí tìm kiếm'
-                  : 'Hiện tại chưa có booking nào'}
+                  ? 'Không tìm thấy đơn đặt phòng phù hợp với tiêu chí tìm kiếm'
+                  : 'Hiện tại chưa có đơn đặt phòng nào'}
               </p>
             </div>
           </div>
@@ -195,7 +183,7 @@ export default function BookingsList({ bookings, isLoading, onBookingUpdated }: 
             <table className="w-full text-left text-sm text-[#1F2226] table-fixed">
               <thead className="bg-[#F7F8FA] text-xs font-semibold uppercase tracking-[0.08em] text-[#8B94A4] border-b border-[#E8E9F1]">
                 <tr>
-                  <th className="px-6 py-4">Booking ID</th>
+                  <th className="px-6 py-4">Mã đặt phòng</th>
                   <th className="px-6 py-4">Khách</th>
                   <th className="px-6 py-4">Email</th>
                   <th className="px-6 py-4">Nhận phòng</th>
@@ -267,17 +255,15 @@ export default function BookingsList({ bookings, isLoading, onBookingUpdated }: 
           </div>
         )}
 
-        {/* Footer with count */}
         {filteredBookings.length > 0 && (
           <div className="border-t border-[#E8E9F1] bg-[#F7F8FA] px-6 py-3">
             <p className="text-xs font-semibold text-[#8B94A4]">
-              Hiển thị {filteredBookings.length} trong {bookings.length} booking
+              Hiển thị {filteredBookings.length} trong {bookings.length} đơn đặt phòng
             </p>
           </div>
         )}
       </div>
 
-      {/* Detail Modal */}
       <BookingDetailModal
         booking={selectedBooking}
         isOpen={isModalOpen}

@@ -3,6 +3,10 @@
 import { useState } from 'react';
 import { BookingResponse, bookingApi } from '@/lib/api/booking';
 
+const getErrorMessage = (error: unknown, fallback: string) => {
+  return error instanceof Error && error.message ? error.message : fallback;
+};
+
 interface BookingPaymentConfirmProps {
   booking: BookingResponse;
   onConfirmed: () => void;
@@ -13,13 +17,12 @@ export default function BookingPaymentConfirm({ booking, onConfirmed }: BookingP
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  // Check if booking can be paid (HOTEL payment method and PENDING/PENDING_PAYMENT status)
   const canConfirmPayment = () => {
     const status = booking.status?.toUpperCase() || '';
     const isAwaitingPayment = status === 'PENDING' || status === 'PENDING_PAYMENT';
     const isHotelPayment = booking.paymentMethod?.toUpperCase() === 'HOTEL';
     const unpaidAmount = (booking.totalAmount || 0) - (booking.paidAmount || 0);
-    
+
     return isAwaitingPayment && isHotelPayment && unpaidAmount > 0;
   };
 
@@ -34,8 +37,8 @@ export default function BookingPaymentConfirm({ booking, onConfirmed }: BookingP
       setTimeout(() => {
         onConfirmed();
       }, 1000);
-    } catch (err: any) {
-      setError(err.message || 'Không thể xác nhận thanh toán');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Không thể xác nhận thanh toán'));
       console.error('Error confirming payment:', err);
     } finally {
       setIsLoading(false);

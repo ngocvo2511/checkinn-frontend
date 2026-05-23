@@ -9,6 +9,8 @@ import { authApi } from '@/lib/api/auth';
 import { loyaltyApi } from '@/lib/api/booking';
 import 'react-datepicker/dist/react-datepicker.css';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+
 export default function PersonalDataForm() {
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
@@ -86,7 +88,7 @@ export default function PersonalDataForm() {
         return;
       }
 
-      const response = await fetch('http://34.126.166.54/api/user/profile', {
+      const response = await fetch(`${API_BASE_URL}/api/user/profile`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -150,7 +152,7 @@ export default function PersonalDataForm() {
         return;
       }
 
-      const response = await fetch('http://34.126.166.54/api/user/profile', {
+      const response = await fetch(`${API_BASE_URL}/api/user/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

@@ -1,4 +1,5 @@
-const API_BASE_URL = 'http://localhost:8080/api/auth';
+const API_ROOT = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+const API_BASE_URL = `${API_ROOT}/api/auth`;
 
 export interface AuthResponse {
   token: string;
@@ -100,7 +101,7 @@ export const authApi = {
   },
 
   changePassword: async (currentPassword: string, newPassword: string, token: string): Promise<void> => {
-      const response = await fetch(`http://34.126.166.54/api/user/change-password`, {
+      const response = await fetch(`${API_ROOT}/api/user/change-password`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',

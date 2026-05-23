@@ -8,6 +8,10 @@ import { bookingApi, BookingResponse } from '@/lib/api/booking';
 import { hotelApi, Hotel as ApiHotel } from '@/lib/api/hotels';
 import { useProtectedRoute } from '@/hooks/useProtectedRoute';
 
+const getErrorMessage = (error: unknown, fallback: string) => {
+  return error instanceof Error && error.message ? error.message : fallback;
+};
+
 export default function HostBookingsPage() {
   const router = useRouter();
   const { isLoading: isAuthLoading, isAuthenticated, hasAccess } = useProtectedRoute('OWNER');
@@ -18,7 +22,6 @@ export default function HostBookingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Redirect if not authenticated or no access
   useEffect(() => {
     if (!isAuthLoading) {
       if (!isAuthenticated) {
@@ -32,7 +35,6 @@ export default function HostBookingsPage() {
     }
   }, [isAuthLoading, isAuthenticated, hasAccess, router]);
 
-  // Fetch hotels
   useEffect(() => {
     if (isAuthLoading || !hasAccess) return;
 
@@ -50,13 +52,12 @@ export default function HostBookingsPage() {
         const hotelList = Array.isArray(data) ? data : [];
         setHotels(hotelList);
 
-        // Set default hotel
         if (hotelList.length > 0) {
           setSelectedHotelId(hotelList[0].id);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Failed to fetch hotels:', err);
-        setError(err.message || 'Không thể tải danh sách khách sạn.');
+        setError(getErrorMessage(err, 'Không thể tải danh sách khách sạn.'));
       } finally {
         setIsLoading(false);
       }
@@ -65,7 +66,6 @@ export default function HostBookingsPage() {
     fetchHotels();
   }, [isAuthLoading, hasAccess]);
 
-  // Fetch bookings when hotel changes
   useEffect(() => {
     if (!selectedHotelId) return;
 
@@ -74,9 +74,9 @@ export default function HostBookingsPage() {
         setIsLoading(true);
         const data = await bookingApi.getHotelBookings(selectedHotelId);
         setBookings(Array.isArray(data) ? data : []);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Failed to fetch bookings:', err);
-        setError(err.message || 'Không thể tải danh sách booking.');
+        setError(getErrorMessage(err, 'Không thể tải danh sách đơn đặt phòng.'));
       } finally {
         setIsLoading(false);
       }
@@ -86,13 +86,12 @@ export default function HostBookingsPage() {
   }, [selectedHotelId]);
 
   const handleBookingUpdated = () => {
-    // Reload bookings when payment confirmed
     if (selectedHotelId) {
       const fetchBookings = async () => {
         try {
           const data = await bookingApi.getHotelBookings(selectedHotelId);
           setBookings(Array.isArray(data) ? data : []);
-        } catch (err: any) {
+        } catch (err: unknown) {
           console.error('Failed to fetch bookings:', err);
         }
       };
@@ -100,7 +99,6 @@ export default function HostBookingsPage() {
     }
   };
 
-  // Calculate statistics
   const stats = useMemo(() => {
     return {
       total: bookings.length,
@@ -110,7 +108,6 @@ export default function HostBookingsPage() {
     };
   }, [bookings]);
 
-  // Show loading while checking auth
   if (isAuthLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -119,7 +116,6 @@ export default function HostBookingsPage() {
     );
   }
 
-  // Don't render if no access or not authenticated
   if (!isAuthenticated || !hasAccess) {
     return null;
   }
@@ -130,7 +126,6 @@ export default function HostBookingsPage() {
       <main className="ml-[280px] px-8 py-6">
         <div className="max-w-7xl">
           <div className="space-y-6">
-            {/* Header */}
             <div className="rounded-xl bg-gradient-to-br from-[#0B1B3F] via-[#0E264F] to-[#0A3D8F] px-5 py-4 text-white">
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-white/70">
                 <span className="h-1.5 w-1.5 rounded-full bg-[#FFCC00]" />
@@ -139,7 +134,6 @@ export default function HostBookingsPage() {
               <h1 className="mt-2 text-2xl font-semibold">Danh sách đặt phòng</h1>
             </div>
 
-            {/* Hotel Selector */}
             {hotels.length > 0 && (
               <div className="rounded-2xl border border-[#E8E9F1] bg-white p-4 shadow-[0_12px_28px_rgba(0,0,0,0.08)]">
                 <label className="text-xs font-semibold uppercase tracking-[0.08em] text-[#8B94A4] block mb-2">
@@ -159,7 +153,6 @@ export default function HostBookingsPage() {
               </div>
             )}
 
-            {/* Statistics */}
             {bookings.length > 0 && (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-2xl border border-[#E8E9F1] bg-white p-5 shadow-[0_12px_28px_rgba(0,0,0,0.08)]">
@@ -191,14 +184,12 @@ export default function HostBookingsPage() {
               </div>
             )}
 
-            {/* Error State */}
             {error && !isLoading && (
               <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 {error}
               </div>
             )}
 
-            {/* Bookings List */}
             {hotels.length === 0 ? (
               <div className="rounded-2xl border border-[#E8E9F1] bg-white p-8 text-center shadow-[0_14px_30px_rgba(0,0,0,0.08)]">
                 <svg
@@ -216,7 +207,7 @@ export default function HostBookingsPage() {
                 </svg>
                 <p className="text-base font-semibold text-[#1F2226]">Chưa có khách sạn nào</p>
                 <p className="text-sm text-[#656F81]">
-                  Hãy tạo khách sạn trước để quản lý booking.
+                  Hãy tạo khách sạn trước để quản lý đơn đặt phòng.
                 </p>
                 <button
                   onClick={() => router.push('/host/hotels/newHotel')}

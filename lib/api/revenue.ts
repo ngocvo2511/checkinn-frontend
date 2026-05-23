@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_REVENUE_SERVICE_URL || "http://34.126.166.54";
+const API_BASE_URL = process.env.NEXT_PUBLIC_REVENUE_SERVICE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
 
 export interface RevenuePoint {
   periodStart: string; // LocalDate as ISO string

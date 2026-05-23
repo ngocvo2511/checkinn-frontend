@@ -2,6 +2,8 @@ import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
+
 const handler = NextAuth({
   providers: [
     GoogleProvider({
@@ -21,7 +23,7 @@ const handler = NextAuth({
 
         try {
           const response = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/auth/login`,
+            `${API_BASE_URL}/api/auth/login`,
             {
               method: "POST",
               headers: {
