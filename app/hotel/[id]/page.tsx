@@ -12,6 +12,8 @@ import { authApi } from "@/lib/api/auth";
 import { useAuth } from "@/hooks/useAuth";
 import { CustomerOnlyRoute } from "@/components/CustomerOnlyRoute";
 
+const MIN_PASSWORD_LENGTH = 12;
+
 type Review = {
   id: string;
   name: string;
@@ -1619,6 +1621,11 @@ function SignupModal({ onClose, onSwitchToLogin }: { onClose: () => void; onSwit
   const handleSubmit = async () => {
     if (!fullName || !username || !email || !password || !confirmPassword) {
       setError("Please fill in all fields");
+      return;
+    }
+
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(`Mật khẩu phải có ít nhất ${MIN_PASSWORD_LENGTH} ký tự`);
       return;
     }
 

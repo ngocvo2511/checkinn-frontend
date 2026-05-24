@@ -2,13 +2,15 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import AdminMenu from '@/components/admin/menu/AdminMenu';
-import { Regulation, regulationsApi, validateRegulation, ValidationError } from '@/lib/api/regulations';
+import { Regulation, RegulationSnapshot, regulationsApi, validateRegulation } from '@/lib/api/regulations';
 
 export default function AdminSettingsPage() {
   const [regulations, setRegulations] = useState<Regulation[]>([]);
+  const [snapshots, setSnapshots] = useState<RegulationSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [snapshotErrorMessage, setSnapshotErrorMessage] = useState<string | null>(null);
   
   const token = useMemo(() => {
     if (typeof window === 'undefined') {
@@ -21,10 +23,19 @@ export default function AdminSettingsPage() {
     const loadRegulations = async () => {
       setLoading(true);
       setErrorMessage(null);
+      setSnapshotErrorMessage(null);
       try {
-        const data = await regulationsApi.getRegulations(token || undefined);
+        const [data, snapshotData] = await Promise.all([
+          regulationsApi.getRegulations(token || undefined),
+          regulationsApi.getSnapshots(token || undefined).catch((error) => {
+            console.error('Không thể tải lịch sử snapshot quy định:', error);
+            setSnapshotErrorMessage('Không thể tải lịch sử thay đổi quy định. Vui lòng thử lại sau.');
+            return [];
+          }),
+        ]);
         setRegulations(data);
-      } catch (error) {
+        setSnapshots(snapshotData);
+      } catch {
         setErrorMessage('Không thể tải cấu hình quy định. Vui lòng thử lại sau.');
       } finally {
         setLoading(false);
@@ -61,8 +72,19 @@ export default function AdminSettingsPage() {
     try {
       const saved = await regulationsApi.saveRegulation(regulation.regulationKey, regulation, token || undefined);
       setRegulations((current) => current.map((item) => (item.regulationKey === saved.regulationKey ? saved : item)));
-    } catch (error: any) {
-      const backendError = error?.message || 'Lưu quy định thất bại. Kiểm tra kết nối backend.';
+      regulationsApi.getSnapshots(token || undefined)
+        .then((snapshotData) => {
+          setSnapshots(snapshotData);
+          setSnapshotErrorMessage(null);
+        })
+        .catch((error) => {
+          console.error('Không thể tải lại lịch sử snapshot quy định:', error);
+          setSnapshotErrorMessage('Đã lưu quy định, nhưng không thể tải lại lịch sử thay đổi.');
+        });
+    } catch (error: unknown) {
+      const backendError = error instanceof Error
+        ? error.message
+        : 'Unable to save regulation. Please check the backend connection.';
       setErrorMessage(backendError);
     } finally {
       setSavingKey(null);
@@ -181,6 +203,61 @@ export default function AdminSettingsPage() {
                   );
                   })
                 )}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-[#E8E9F1] bg-white p-6 text-sm text-[#383E48] shadow-[0_14px_30px_rgba(0,0,0,0.08)]">
+            <div className="mb-4 flex flex-col gap-1">
+              <h2 className="text-lg font-semibold text-[#202634]">Lịch sử thay đổi quy định</h2>
+              <p className="text-sm text-slate-500">
+                Snapshot được tạo sau mỗi lần lưu quy định thành công.
+              </p>
+            </div>
+
+            {loading ? (
+              <p>Đang tải lịch sử...</p>
+            ) : snapshotErrorMessage ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-700">
+                {snapshotErrorMessage}
+              </div>
+            ) : snapshots.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-slate-300 px-4 py-8 text-center text-slate-500">
+                Chưa có snapshot quy định nào.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200">
+                  <thead>
+                    <tr className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <th className="px-4 py-3">Quy định</th>
+                      <th className="px-4 py-3">Phiên bản</th>
+                      <th className="px-4 py-3">Người thay đổi</th>
+                      <th className="px-4 py-3">Thời gian</th>
+                      <th className="px-4 py-3">Snapshot</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {snapshots.map((snapshot, index) => (
+                      <tr key={`${snapshot.regulationKey}-${snapshot.version}-${snapshot.appliedAt}-${index}`}>
+                        <td className="px-4 py-3 align-top">
+                          <div className="font-semibold text-slate-900">{snapshot.regulationName}</div>
+                          <div className="mt-1 text-xs text-slate-500">{snapshot.regulationKey}</div>
+                        </td>
+                        <td className="px-4 py-3 align-top text-slate-700">v{snapshot.version}</td>
+                        <td className="px-4 py-3 align-top text-slate-700">{snapshot.sourceUser || 'system'}</td>
+                        <td className="px-4 py-3 align-top text-slate-700">
+                          {new Date(snapshot.appliedAt).toLocaleString('vi-VN')}
+                        </td>
+                        <td className="max-w-[360px] px-4 py-3 align-top">
+                          <pre className="max-h-32 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-950 p-3 text-xs text-slate-100">
+                            {snapshot.snapshotData}
+                          </pre>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>

@@ -1,6 +1,6 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
-const BOOKING_API_BASE = process.env.NEXT_PUBLIC_BOOKING_API_URL || API_BASE_URL;
-const USER_API_BASE = process.env.NEXT_PUBLIC_USER_API_URL || API_BASE_URL;
+const BOOKING_API_BASE = API_BASE_URL;
+const USER_API_BASE = API_BASE_URL;
 
 export type PaymentMethod = 'HOTEL' | 'VNPAY';
 

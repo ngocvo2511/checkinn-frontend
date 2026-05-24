@@ -16,6 +16,7 @@ import type { Hotel } from "@/lib/api/hotels";
 import type { City } from "@/lib/api/cities";
 
 const heroBg = "/hero.png";
+const MIN_PASSWORD_LENGTH = 12;
 const heroBadgeIcon = "https://www.figma.com/api/mcp/asset/7f84ae0a-9727-4a93-bfaf-6464772bb8df";
 const trendingDestinations = [
   {
@@ -578,6 +579,12 @@ function ForgotPasswordModal({ onBack, onClose }: { onBack: () => void; onClose:
       return;
     }
 
+    if (newPassword.length < MIN_PASSWORD_LENGTH) {
+      setError(`Mật khẩu phải có ít nhất ${MIN_PASSWORD_LENGTH} ký tự`);
+      setResetSuccess(false);
+      return;
+    }
+
     if (newPassword !== confirmPassword) {
       setError("Mật khẩu không khớp");
       setResetSuccess(false);
@@ -876,6 +883,11 @@ function SignupModal({ onClose, variant = 'user' }: { onClose: () => void; varia
   const handleSubmit = async () => {
     if (!fullName || !username || !email || !password || !confirmPassword) {
       setError("Vui lòng điền đầy đủ thông tin");
+      return;
+    }
+
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(`Mật khẩu phải có ít nhất ${MIN_PASSWORD_LENGTH} ký tự`);
       return;
     }
 

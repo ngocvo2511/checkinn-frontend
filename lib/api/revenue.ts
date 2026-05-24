@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_REVENUE_SERVICE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
 
 export interface RevenuePoint {
   periodStart: string; // LocalDate as ISO string
@@ -138,7 +138,7 @@ export const revenueApi = {
     hotelId?: string,
     groupBy?: GroupBy
   ): Promise<RevenueResponse> => {
-    const params: any = { from, to };
+    const params: Record<string, string> = { from, to };
     if (hotelId) params.hotelId = hotelId;
     if (groupBy) params.groupBy = groupBy;
     const response = await api.get("/api/reports/revenue", { params });
@@ -151,7 +151,7 @@ export const revenueApi = {
     to: string,
     hotelId?: string
   ): Promise<SummaryResponse> => {
-    const params: any = { from, to };
+    const params: Record<string, string> = { from, to };
     if (hotelId) params.hotelId = hotelId;
     const response = await api.get("/api/reports/summary", { params });
     return response.data;
@@ -176,7 +176,7 @@ export const revenueApi = {
     to: string,
     groupBy?: GroupBy
   ): Promise<OwnerRevenueResponse> => {
-    const params: any = { ownerId, from, to };
+    const params: Record<string, string> = { ownerId, from, to };
     if (groupBy) params.groupBy = groupBy;
     const response = await api.get("/api/reports/owner/revenue", { params });
     return response.data;
@@ -210,7 +210,7 @@ export const revenueApi = {
     to: string,
     groupBy?: GroupBy
   ): Promise<AdminRevenueResponse> => {
-    const params: any = { from, to };
+    const params: Record<string, string> = { from, to };
     if (groupBy) params.groupBy = groupBy;
     const response = await api.get("/api/reports/admin/revenue", { params });
     return response.data;
@@ -221,7 +221,7 @@ export const revenueApi = {
     to: string,
     limit?: number
   ): Promise<TopHotelItem[]> => {
-    const params: any = { from, to };
+    const params: Record<string, string | number> = { from, to };
     if (limit) params.limit = limit;
     const response = await api.get("/api/reports/admin/top-hotels", { params });
     return response.data;

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { signOut, useSession } from 'next-auth/react';
+import { authApi } from '@/lib/api/auth';
 
 export function useAuth() {
   const [user, setUser] = useState<any>(null);
@@ -46,6 +47,14 @@ export function useAuth() {
   }, []);
 
   const logout = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      try {
+        await authApi.logout(token);
+      } catch (error) {
+        console.error("Server-side logout failed", error);
+      }
+    }
     setUser(null);
     localStorage.removeItem("token");
     localStorage.removeItem("user");

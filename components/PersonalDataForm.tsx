@@ -10,6 +10,7 @@ import { loyaltyApi } from '@/lib/api/booking';
 import 'react-datepicker/dist/react-datepicker.css';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+const MIN_PASSWORD_LENGTH = 12;
 
 export default function PersonalDataForm() {
   const router = useRouter();
@@ -189,7 +190,7 @@ export default function PersonalDataForm() {
     const errors = {
       currentPassword: !passwordData.currentPassword ? 'Vui lòng nhập mật khẩu hiện tại' : '',
       newPassword: !passwordData.newPassword ? 'Vui lòng nhập mật khẩu mới' : 
-        passwordData.newPassword.length < 6 ? 'Mật khẩu phải có ít nhất 6 ký tự' : '',
+        passwordData.newPassword.length < MIN_PASSWORD_LENGTH ? `Mật khẩu phải có ít nhất ${MIN_PASSWORD_LENGTH} ký tự` : '',
       confirmPassword: !passwordData.confirmPassword ? 'Vui lòng xác nhận mật khẩu mới' : 
         passwordData.confirmPassword !== passwordData.newPassword ? 'Mật khẩu xác nhận không khớp' : ''
     };
@@ -578,14 +579,14 @@ export default function PersonalDataForm() {
                         onBlur={() => {
                           if (!passwordData.newPassword) {
                             setPasswordErrors({...passwordErrors, newPassword: 'Vui lòng nhập mật khẩu mới'});
-                          } else if (passwordData.newPassword.length < 6) {
-                            setPasswordErrors({...passwordErrors, newPassword: 'Mật khẩu phải có ít nhất 6 ký tự'});
+                          } else if (passwordData.newPassword.length < MIN_PASSWORD_LENGTH) {
+                            setPasswordErrors({...passwordErrors, newPassword: `Mật khẩu phải có ít nhất ${MIN_PASSWORD_LENGTH} ký tự`});
                           } else {
                             setPasswordErrors({...passwordErrors, newPassword: ''});
                           }
                         }}
                         className="flex-1 text-base text-[#383E48] outline-none"
-                        placeholder="Nhập mật khẩu mới (tối thiểu 6 ký tự)"
+                        placeholder={`Nhập mật khẩu mới (tối thiểu ${MIN_PASSWORD_LENGTH} ký tự)`}
                       />
                     </div>
                     {passwordErrors.newPassword && (

@@ -100,6 +100,28 @@ export const authApi = {
     return response.json();
   },
 
+  logout: async (token: string): Promise<void> => {
+    const response = await fetch(`${API_BASE_URL}/logout`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      try {
+        const json = JSON.parse(text);
+        throw new Error(json.message || json.error || 'Logout failed');
+      } catch (err) {
+        if (err instanceof Error && err.message !== text) {
+          throw err;
+        }
+        throw new Error(text || 'Logout failed');
+      }
+    }
+  },
+
   changePassword: async (currentPassword: string, newPassword: string, token: string): Promise<void> => {
       const response = await fetch(`${API_ROOT}/api/user/change-password`, {
       method: 'PUT',

@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const USER_SERVICE_URL = process.env.USER_SERVICE_URL || "http://localhost:8081";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
-    const userId = params.userId;
+    const { userId } = await params;
 
     if (!userId) {
       return NextResponse.json(
@@ -17,7 +17,7 @@ export async function GET(
     }
 
     const response = await fetch(
-      `${USER_SERVICE_URL}/api/loyalty-points/${userId}`,
+      `${API_BASE_URL}/api/loyalty-points/${userId}`,
       {
         method: "GET",
         headers: {

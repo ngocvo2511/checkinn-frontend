@@ -268,7 +268,7 @@ export default function PaymentPage() {
       setVoucherMessage("Vui lòng nhập mã giảm giá");
       return;
     }
-    setVoucherMessage(`Mã ${voucherCode.trim()} đã được áp dụng (demo).`);
+    setVoucherMessage("Dịch vụ mã giảm giá hiện chưa khả dụng");
   };
 
   const summaryRows = useMemo(
