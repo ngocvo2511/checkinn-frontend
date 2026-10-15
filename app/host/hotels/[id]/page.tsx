@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import HostMenu from "@/components/host/menu/HostMenu";
-import { hotelApi, Hotel as ApiHotel, RoomType, MediaAsset } from "@/lib/api/hotels";
+import { hotelApi, Hotel as ApiHotel, RoomType, MediaAsset, HotelVerificationDocuments } from "@/lib/api/hotels";
 
 type AmenityFormCategory = {
   title: string;
@@ -31,7 +31,7 @@ const formatPrice = (value?: number) => {
 
 const formatAddress = (address?: ApiHotel['address']) => {
   if (!address) return '';
-  return [address.street, address.district, address.city, address.country].filter(Boolean).join(', ');
+  return [address.street, (address as any).district, address.city, address.country].filter(Boolean).join(', ');
 };
 
 const formatStatus = (status?: string) => {
@@ -151,9 +151,27 @@ export default function HostHotelDetailPage() {
     }
   });
 
+  // Verification Documents state
+  const [verificationDocs, setVerificationDocs] = useState<HotelVerificationDocuments | null>(null);
+  const [showDocModal, setShowDocModal] = useState(false);
+  const [docSaving, setDocSaving] = useState(false);
+  const [docError, setDocError] = useState<string | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<{ title: string; url: string } | null>(null);
+  const [docForm, setDocForm] = useState({
+    businessLicenseNumber: '',
+    taxId: '',
+    operationLicenseNumber: '',
+    ownerIdentityNumber: '',
+  });
+  const [newBusinessLicenseFile, setNewBusinessLicenseFile] = useState<File | null>(null);
+  const [newOperationLicenseFile, setNewOperationLicenseFile] = useState<File | null>(null);
+  const [newOwnerIdentityFrontFile, setNewOwnerIdentityFrontFile] = useState<File | null>(null);
+  const [newOwnerIdentityBackFile, setNewOwnerIdentityBackFile] = useState<File | null>(null);
+
   const sectionList = useMemo(
     () => [
       { id: "overview", label: "Tổng quan" },
+      { id: "documents", label: "Giấy tờ pháp lý" },
       { id: "photos", label: "Hình ảnh" },
       { id: "rooms", label: "Phòng" },
       { id: "amenities", label: "Tiện ích" },
@@ -203,6 +221,20 @@ export default function HostHotelDetailPage() {
         const data = await hotelApi.getHotelById(hotelId);
         console.log('Fetched hotel data:', data);
         setHotel(data);
+
+        // Fetch verification documents for owner
+        try {
+          const docs = await hotelApi.getHotelDocuments(hotelId);
+          setVerificationDocs(docs);
+          setDocForm({
+            businessLicenseNumber: docs.businessLicenseNumber || '',
+            taxId: docs.taxId || '',
+            operationLicenseNumber: docs.operationLicenseNumber || '',
+            ownerIdentityNumber: docs.ownerIdentityNumber || '',
+          });
+        } catch (dErr) {
+          console.warn('Could not fetch verification docs:', dErr);
+        }
       } catch (err: any) {
         setError(err?.message || "Không thể tải thông tin khách sạn");
       } finally {
@@ -762,6 +794,69 @@ export default function HostHotelDetailPage() {
     }
   };
 
+  const handleSaveDocuments = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!hotel) return;
+    setDocSaving(true);
+    setDocError(null);
+
+    try {
+      // 1. Update legal numbers
+      await hotelApi.updateHotel(hotel.id, {
+        name: hotel.name,
+        description: hotel.description || '',
+        starRating: hotel.starRating || 0,
+        cityId: hotel.cityId,
+        address: hotel.address,
+        contactEmail: hotel.contactEmail,
+        contactPhone: hotel.contactPhone,
+        businessLicenseNumber: docForm.businessLicenseNumber.trim(),
+        taxId: docForm.taxId.trim(),
+        operationLicenseNumber: docForm.operationLicenseNumber.trim(),
+        ownerIdentityNumber: docForm.ownerIdentityNumber.trim(),
+      });
+
+      // 2. Upload files if any selected
+      if (newBusinessLicenseFile || newOperationLicenseFile || newOwnerIdentityFrontFile || newOwnerIdentityBackFile) {
+        const formData = new FormData();
+        if (newBusinessLicenseFile) formData.append('businessLicense', newBusinessLicenseFile);
+        if (newOperationLicenseFile) formData.append('operationLicense', newOperationLicenseFile);
+        if (newOwnerIdentityFrontFile) formData.append('ownerIdentityFront', newOwnerIdentityFrontFile);
+        if (newOwnerIdentityBackFile) formData.append('ownerIdentityBack', newOwnerIdentityBackFile);
+
+        await hotelApi.uploadHotelDocuments(hotel.id, formData);
+      }
+
+      setNewBusinessLicenseFile(null);
+      setNewOperationLicenseFile(null);
+      setNewOwnerIdentityFrontFile(null);
+      setNewOwnerIdentityBackFile(null);
+      setShowDocModal(false);
+
+      setSuccessMessage('Hồ sơ và tài liệu pháp lý đã được gửi lại thành công! Trạng thái chuyển về "Chờ duyệt" để Quản trị viên thẩm định.');
+      setTimeout(() => setSuccessMessage(null), 5000);
+
+      // Refresh data
+      const [updatedHotel, updatedDocs] = await Promise.all([
+        hotelApi.getHotelById(hotel.id),
+        hotelApi.getHotelDocuments(hotel.id),
+      ]);
+      setHotel(updatedHotel);
+      setVerificationDocs(updatedDocs);
+      setDocForm({
+        businessLicenseNumber: updatedDocs.businessLicenseNumber || '',
+        taxId: updatedDocs.taxId || '',
+        operationLicenseNumber: updatedDocs.operationLicenseNumber || '',
+        ownerIdentityNumber: updatedDocs.ownerIdentityNumber || '',
+      });
+    } catch (err: any) {
+      console.error('Lỗi cập nhật tài liệu xác thực:', err);
+      setDocError(err?.message || 'Có lỗi xảy ra khi cập nhật tài liệu.');
+    } finally {
+      setDocSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F9F9F9]">
@@ -849,6 +944,62 @@ export default function HostHotelDetailPage() {
                   </span>
                 </div>
               </div>
+
+              {/* Rejection Alert Banner */}
+              {hotel.approvedStatus === "REJECTED" && (
+                <div className="rounded-xl bg-[#FFE8E6] border border-[#9C1F23]/20 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-9 h-9 rounded-full bg-[#9C1F23]/10 flex items-center justify-center text-[#9C1F23] mt-0.5">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-[#9C1F23]">Hồ sơ khách sạn đã bị từ chối</h4>
+                      <p className="mt-0.5 text-xs text-[#9C1F23]/90 leading-relaxed">
+                        <span className="font-semibold">Lý do: </span>
+                        {verificationDocs?.rejectionReason || "Vui lòng kiểm tra lại tính chính xác và tải lại ảnh/scan rõ nét."}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowDocModal(true)}
+                    className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-[#9C1F23] bg-white px-3 py-1.5 text-xs font-semibold text-[#9C1F23] transition hover:bg-[#9C1F23] hover:text-white"
+                  >
+                    Tải lại giấy tờ
+                  </button>
+                </div>
+              )}
+
+              {/* Pending Notice Banner */}
+              {hotel.approvedStatus === "PENDING" && (
+                <div className="rounded-xl bg-[#FFF3D5] border border-[#A65628]/20 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-9 h-9 rounded-full bg-[#A65628]/10 flex items-center justify-center text-[#A65628] mt-0.5">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-[#A65628]">Hồ sơ đang trong quá trình xét duyệt</h4>
+                      <p className="mt-0.5 text-xs text-[#A65628]/90 leading-relaxed">
+                        CheckInn đang thẩm định hồ sơ của bạn. Bạn vẫn có thể cập nhật hoặc bổ sung tài liệu trước khi phê duyệt.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowDocModal(true)}
+                    className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-[#A65628] bg-white px-3 py-1.5 text-xs font-semibold text-[#A65628] transition hover:bg-[#A65628] hover:text-white"
+                  >
+                    Bổ sung giấy tờ
+                  </button>
+                </div>
+              )}
 
               {/* Stats */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -964,6 +1115,227 @@ export default function HostHotelDetailPage() {
                   >
                     ← Quay lại
                   </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Documents Section */}
+          <section id="documents" className="mx-auto max-w-5xl px-4 md:px-8 lg:px-12 pb-10">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-[#0F172A]">Giấy tờ pháp lý</h2>
+              <button
+                type="button"
+                onClick={() => setShowDocModal(true)}
+                className="inline-flex items-center gap-2 rounded-lg border border-[#0057FF] px-3 py-1.5 text-xs font-semibold text-[#0057FF] transition hover:bg-[#0057FF] hover:text-white"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M11 4H4C3.44772 4 3 4.44772 3 5V20C3 20.5523 3.44772 21 4 21H19C19.5523 21 20 20.5523 20 20V13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M17.378 2.61799C17.7231 2.27287 18.2769 2.27287 18.622 2.61799L21.382 5.378C21.7271 5.72312 21.7271 6.27688 21.382 6.622L11 17H8V14L17.378 2.61799Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Chỉnh sửa
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Thông tin đăng ký */}
+              <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
+                <h3 className="text-base font-semibold text-[#0F172A] mb-4">Thông tin đăng ký</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div>
+                    <p className="text-xs text-[#6B7280] mb-1">Số đăng ký kinh doanh</p>
+                    <p className="text-sm font-semibold text-[#0F172A]">{verificationDocs?.businessLicenseNumber || 'Chưa cập nhật'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[#6B7280] mb-1">Mã số thuế</p>
+                    <p className="text-sm font-semibold text-[#0F172A]">{verificationDocs?.taxId || 'Chưa cập nhật'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[#6B7280] mb-1">Giấy phép con (PCCC/ANTT)</p>
+                    <p className="text-sm font-semibold text-[#0F172A]">{verificationDocs?.operationLicenseNumber || 'Không có'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[#6B7280] mb-1">CCCD/Hộ chiếu chủ khách sạn</p>
+                    <p className="text-sm font-semibold text-[#0F172A]">{verificationDocs?.ownerIdentityNumber || 'Chưa cập nhật'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tài liệu xác thực */}
+              <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
+                <h3 className="text-base font-semibold text-[#0F172A] mb-4">Hình ảnh tài liệu đính kèm</h3>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {/* Card 1: GPKD */}
+                  <div className="rounded-xl border border-[#E5E7EB] bg-white overflow-hidden shadow-xs hover:border-[#CBD5E1] transition">
+                    <div className="p-3 border-b border-[#E5E7EB] bg-[#F8FAFC] flex items-center justify-between">
+                      <span className="text-xs font-semibold text-[#0F172A] truncate">Giấy phép kinh doanh</span>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${verificationDocs?.businessLicenseUrl ? "bg-[#D1F2E9] text-[#0B6E4F]" : "bg-[#FFE8E6] text-[#9C1F23]"}`}>
+                        {verificationDocs?.businessLicenseUrl ? "Đã tải lên" : "Chưa có"}
+                      </span>
+                    </div>
+                    <div className="aspect-[4/3] bg-[#F8FAFC] relative flex items-center justify-center overflow-hidden">
+                      {verificationDocs?.businessLicenseUrl ? (
+                        <button
+                          type="button"
+                          onClick={() => setPreviewDoc({ title: "Giấy phép kinh doanh", url: verificationDocs.businessLicenseUrl! })}
+                          className="w-full h-full cursor-pointer group relative block"
+                        >
+                          <img
+                            src={verificationDocs.businessLicenseUrl}
+                            alt="Giấy phép kinh doanh"
+                            className="w-full h-full object-cover transition group-hover:scale-105"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-semibold gap-1">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <circle cx="11" cy="11" r="8" />
+                              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                              <line x1="11" y1="8" x2="11" y2="14" />
+                              <line x1="8" y1="11" x2="14" y2="11" />
+                            </svg>
+                            Phóng to
+                          </div>
+                        </button>
+                      ) : (
+                        <div className="text-center p-4">
+                          <svg className="mx-auto w-8 h-8 text-[#9CA3AF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                            <circle cx="8.5" cy="8.5" r="1.5" />
+                            <polyline points="21 15 16 10 5 21" />
+                          </svg>
+                          <p className="mt-1 text-xs text-[#9CA3AF]">Chưa tải ảnh</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Card 2: GP PCCC */}
+                  <div className="rounded-xl border border-[#E5E7EB] bg-white overflow-hidden shadow-xs hover:border-[#CBD5E1] transition">
+                    <div className="p-3 border-b border-[#E5E7EB] bg-[#F8FAFC] flex items-center justify-between">
+                      <span className="text-xs font-semibold text-[#0F172A] truncate">GP PCCC / ANTT</span>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${verificationDocs?.operationLicenseUrl ? "bg-[#D1F2E9] text-[#0B6E4F]" : "bg-[#E8E9F1] text-[#6B7280]"}`}>
+                        {verificationDocs?.operationLicenseUrl ? "Đã tải lên" : "Tùy chọn"}
+                      </span>
+                    </div>
+                    <div className="aspect-[4/3] bg-[#F8FAFC] relative flex items-center justify-center overflow-hidden">
+                      {verificationDocs?.operationLicenseUrl ? (
+                        <button
+                          type="button"
+                          onClick={() => setPreviewDoc({ title: "Giấy phép hoạt động / PCCC", url: verificationDocs.operationLicenseUrl! })}
+                          className="w-full h-full cursor-pointer group relative block"
+                        >
+                          <img
+                            src={verificationDocs.operationLicenseUrl}
+                            alt="Giấy phép con"
+                            className="w-full h-full object-cover transition group-hover:scale-105"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-semibold gap-1">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <circle cx="11" cy="11" r="8" />
+                              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                              <line x1="11" y1="8" x2="11" y2="14" />
+                              <line x1="8" y1="11" x2="14" y2="11" />
+                            </svg>
+                            Phóng to
+                          </div>
+                        </button>
+                      ) : (
+                        <div className="text-center p-4">
+                          <svg className="mx-auto w-8 h-8 text-[#9CA3AF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                            <circle cx="8.5" cy="8.5" r="1.5" />
+                            <polyline points="21 15 16 10 5 21" />
+                          </svg>
+                          <p className="mt-1 text-xs text-[#9CA3AF]">Chưa tải ảnh</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Card 3: CCCD Mặt trước */}
+                  <div className="rounded-xl border border-[#E5E7EB] bg-white overflow-hidden shadow-xs hover:border-[#CBD5E1] transition">
+                    <div className="p-3 border-b border-[#E5E7EB] bg-[#F8FAFC] flex items-center justify-between">
+                      <span className="text-xs font-semibold text-[#0F172A] truncate">CCCD mặt trước</span>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${verificationDocs?.ownerIdentityFrontUrl ? "bg-[#D1F2E9] text-[#0B6E4F]" : "bg-[#FFE8E6] text-[#9C1F23]"}`}>
+                        {verificationDocs?.ownerIdentityFrontUrl ? "Đã tải lên" : "Chưa có"}
+                      </span>
+                    </div>
+                    <div className="aspect-[4/3] bg-[#F8FAFC] relative flex items-center justify-center overflow-hidden">
+                      {verificationDocs?.ownerIdentityFrontUrl ? (
+                        <button
+                          type="button"
+                          onClick={() => setPreviewDoc({ title: "CCCD Mặt trước", url: verificationDocs.ownerIdentityFrontUrl! })}
+                          className="w-full h-full cursor-pointer group relative block"
+                        >
+                          <img
+                            src={verificationDocs.ownerIdentityFrontUrl}
+                            alt="CCCD Mặt trước"
+                            className="w-full h-full object-cover transition group-hover:scale-105"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-semibold gap-1">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <circle cx="11" cy="11" r="8" />
+                              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                              <line x1="11" y1="8" x2="11" y2="14" />
+                              <line x1="8" y1="11" x2="14" y2="11" />
+                            </svg>
+                            Phóng to
+                          </div>
+                        </button>
+                      ) : (
+                        <div className="text-center p-4">
+                          <svg className="mx-auto w-8 h-8 text-[#9CA3AF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                            <circle cx="8.5" cy="8.5" r="1.5" />
+                            <polyline points="21 15 16 10 5 21" />
+                          </svg>
+                          <p className="mt-1 text-xs text-[#9CA3AF]">Chưa tải ảnh</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Card 4: CCCD Mặt sau */}
+                  <div className="rounded-xl border border-[#E5E7EB] bg-white overflow-hidden shadow-xs hover:border-[#CBD5E1] transition">
+                    <div className="p-3 border-b border-[#E5E7EB] bg-[#F8FAFC] flex items-center justify-between">
+                      <span className="text-xs font-semibold text-[#0F172A] truncate">CCCD mặt sau</span>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${verificationDocs?.ownerIdentityBackUrl ? "bg-[#D1F2E9] text-[#0B6E4F]" : "bg-[#FFE8E6] text-[#9C1F23]"}`}>
+                        {verificationDocs?.ownerIdentityBackUrl ? "Đã tải lên" : "Chưa có"}
+                      </span>
+                    </div>
+                    <div className="aspect-[4/3] bg-[#F8FAFC] relative flex items-center justify-center overflow-hidden">
+                      {verificationDocs?.ownerIdentityBackUrl ? (
+                        <button
+                          type="button"
+                          onClick={() => setPreviewDoc({ title: "CCCD Mặt sau", url: verificationDocs.ownerIdentityBackUrl! })}
+                          className="w-full h-full cursor-pointer group relative block"
+                        >
+                          <img
+                            src={verificationDocs.ownerIdentityBackUrl}
+                            alt="CCCD Mặt sau"
+                            className="w-full h-full object-cover transition group-hover:scale-105"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-semibold gap-1">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <circle cx="11" cy="11" r="8" />
+                              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                              <line x1="11" y1="8" x2="11" y2="14" />
+                              <line x1="8" y1="11" x2="14" y2="11" />
+                            </svg>
+                            Phóng to
+                          </div>
+                        </button>
+                      ) : (
+                        <div className="text-center p-4">
+                          <svg className="mx-auto w-8 h-8 text-[#9CA3AF]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                            <circle cx="8.5" cy="8.5" r="1.5" />
+                            <polyline points="21 15 16 10 5 21" />
+                          </svg>
+                          <p className="mt-1 text-xs text-[#9CA3AF]">Chưa tải ảnh</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2032,6 +2404,247 @@ export default function HostHotelDetailPage() {
                   'Lưu FAQ'
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Verification Documents Modal */}
+      {showDocModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <form onSubmit={handleSaveDocuments}>
+              {/* Modal Header */}
+              <div className="sticky top-0 bg-white border-b border-[#E5E7EB] px-6 py-4 flex items-center justify-between z-10">
+                <h2 className="text-xl font-bold text-[#0F172A]">Chỉnh sửa giấy tờ pháp lý</h2>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDocModal(false);
+                    setDocError(null);
+                  }}
+                  className="rounded-full p-2 hover:bg-[#F3F4F6] transition"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="px-6 py-6 space-y-6">
+                {docError && (
+                  <div className="rounded-xl bg-[#FFE8E6] border border-[#9C1F23]/20 p-4 text-sm text-[#9C1F23] flex items-start gap-2">
+                    <svg className="w-5 h-5 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <span>{docError}</span>
+                  </div>
+                )}
+
+                <div className="rounded-xl bg-[#FFF3D5] border border-[#A65628]/20 p-4 text-xs text-[#A65628] leading-relaxed">
+                  Lưu ý: Sau khi bạn cập nhật thông tin hoặc tải lên giấy tờ mới, hồ sơ khách sạn sẽ được chuyển sang trạng thái <strong>Chờ duyệt (PENDING)</strong> để Quản trị viên tiến hành thẩm định và kích hoạt lại.
+                </div>
+
+                {/* 1. Thông tin đăng ký */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-[#0F172A]">Thông tin đăng ký kinh doanh & Thuế</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-[#374151] mb-2">
+                        Số đăng ký kinh doanh <span className="text-red-600">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={docForm.businessLicenseNumber}
+                        onChange={(e) => setDocForm(prev => ({ ...prev, businessLicenseNumber: e.target.value }))}
+                        required
+                        placeholder="VD: 0101234567"
+                        className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-[#374151] mb-2">
+                        Mã số thuế <span className="text-red-600">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={docForm.taxId}
+                        onChange={(e) => setDocForm(prev => ({ ...prev, taxId: e.target.value }))}
+                        required
+                        placeholder="VD: 0101234567-001"
+                        className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-dashed border-[#CCD0DC] p-3.5 bg-[#F8FAFC]">
+                    <label className="block text-sm font-semibold text-[#1F2226] mb-1">
+                      Ảnh/Scan Giấy phép kinh doanh {verificationDocs?.businessLicenseUrl ? '(Đã có, chọn để thay)' : <span className="text-red-600">*</span>}
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={(e) => setNewBusinessLicenseFile(e.target.files?.[0] || null)}
+                      className="text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#0057FF] file:text-white hover:file:bg-[#0046CC] cursor-pointer"
+                    />
+                    {newBusinessLicenseFile ? (
+                      <p className="text-xs text-[#0B6E4F] font-semibold mt-1.5">✓ Đã chọn file mới: {newBusinessLicenseFile.name}</p>
+                    ) : verificationDocs?.businessLicenseUrl ? (
+                      <p className="text-xs text-[#6B7280] mt-1.5">Đã có file tải lên trước đó. Chọn file mới nếu muốn thay thế.</p>
+                    ) : null}
+                  </div>
+                </div>
+
+                {/* 2. Giấy phép con */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-[#0F172A]">Giấy phép hoạt động / PCCC / ANTT</h3>
+                  
+                  <div>
+                    <label className="block text-sm font-semibold text-[#374151] mb-2">
+                      Số Giấy phép con (Tùy chọn)
+                    </label>
+                    <input
+                      type="text"
+                      value={docForm.operationLicenseNumber}
+                      onChange={(e) => setDocForm(prev => ({ ...prev, operationLicenseNumber: e.target.value }))}
+                      placeholder="VD: PCCC-HN-12345"
+                      className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
+                    />
+                  </div>
+
+                  <div className="rounded-xl border border-dashed border-[#CCD0DC] p-3.5 bg-[#F8FAFC]">
+                    <label className="block text-sm font-semibold text-[#1F2226] mb-1">
+                      Ảnh/Scan Giấy phép hoạt động / PCCC
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={(e) => setNewOperationLicenseFile(e.target.files?.[0] || null)}
+                      className="text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#0057FF] file:text-white hover:file:bg-[#0046CC] cursor-pointer"
+                    />
+                    {newOperationLicenseFile ? (
+                      <p className="text-xs text-[#0B6E4F] font-semibold mt-1.5">✓ Đã chọn file mới: {newOperationLicenseFile.name}</p>
+                    ) : verificationDocs?.operationLicenseUrl ? (
+                      <p className="text-xs text-[#6B7280] mt-1.5">Đã có file tải lên trước đó. Chọn file mới nếu muốn thay thế.</p>
+                    ) : null}
+                  </div>
+                </div>
+
+                {/* 3. CCCD chủ khách sạn */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-[#0F172A]">Định danh chủ khách sạn (CCCD / Hộ chiếu)</h3>
+                  
+                  <div>
+                    <label className="block text-sm font-semibold text-[#374151] mb-2">
+                      Số CCCD / Hộ chiếu <span className="text-red-600">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={docForm.ownerIdentityNumber}
+                      onChange={(e) => setDocForm(prev => ({ ...prev, ownerIdentityNumber: e.target.value }))}
+                      required
+                      placeholder="VD: 001201012345"
+                      className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="rounded-xl border border-dashed border-[#CCD0DC] p-3.5 bg-[#F8FAFC]">
+                      <label className="block text-sm font-semibold text-[#1F2226] mb-1">
+                        CCCD mặt trước {verificationDocs?.ownerIdentityFrontUrl ? '(Đã có, chọn để thay)' : <span className="text-red-600">*</span>}
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setNewOwnerIdentityFrontFile(e.target.files?.[0] || null)}
+                        className="text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#0057FF] file:text-white hover:file:bg-[#0046CC] cursor-pointer"
+                      />
+                      {newOwnerIdentityFrontFile && (
+                        <p className="text-xs text-[#0B6E4F] font-semibold mt-1.5">✓ Đã chọn file mới: {newOwnerIdentityFrontFile.name}</p>
+                      )}
+                    </div>
+
+                    <div className="rounded-xl border border-dashed border-[#CCD0DC] p-3.5 bg-[#F8FAFC]">
+                      <label className="block text-sm font-semibold text-[#1F2226] mb-1">
+                        CCCD mặt sau {verificationDocs?.ownerIdentityBackUrl ? '(Đã có, chọn để thay)' : <span className="text-red-600">*</span>}
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setNewOwnerIdentityBackFile(e.target.files?.[0] || null)}
+                        className="text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#0057FF] file:text-white hover:file:bg-[#0046CC] cursor-pointer"
+                      />
+                      {newOwnerIdentityBackFile && (
+                        <p className="text-xs text-[#0B6E4F] font-semibold mt-1.5">✓ Đã chọn file mới: {newOwnerIdentityBackFile.name}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="sticky bottom-0 bg-white border-t border-[#E5E7EB] px-6 py-4 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowDocModal(false)}
+                  disabled={docSaving}
+                  className="px-4 py-2 rounded-lg border border-[#E5E7EB] text-[#374151] font-semibold hover:bg-[#F3F4F6] transition disabled:opacity-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={docSaving}
+                  className="px-4 py-2 rounded-lg bg-[#0057FF] text-white font-semibold hover:bg-[#0046CC] transition disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                >
+                  {docSaving ? (
+                    <>
+                      <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Đang lưu...
+                    </>
+                  ) : (
+                    'Lưu giấy tờ'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox Document Modal */}
+      {previewDoc && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setPreviewDoc(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB] bg-white">
+              <h3 className="text-lg font-semibold text-[#0F172A]">{previewDoc.title}</h3>
+              <button
+                type="button"
+                onClick={() => setPreviewDoc(null)}
+                className="rounded-full p-2 hover:bg-[#F3F4F6] text-[#6B7280] transition"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-4 flex items-center justify-center overflow-auto max-h-[calc(90vh-70px)] bg-[#F8FAFC]">
+              <img
+                src={previewDoc.url}
+                alt={previewDoc.title}
+                className="max-h-[75vh] w-auto object-contain rounded-lg shadow-sm"
+              />
             </div>
           </div>
         </div>

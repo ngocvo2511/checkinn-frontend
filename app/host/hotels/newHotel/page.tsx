@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import HostMenu from '@/components/host/menu/HostMenu';
 import { cityApi, type City } from '@/lib/api/cities';
+import { hotelApi } from '@/lib/api/hotels';
 
 type Policy = {
   category: string;
@@ -92,6 +93,11 @@ export default function HostCreateHotelPage() {
 
   const [thumbnail, setThumbnail] = useState<PreviewFile | null>(null);
   const [gallery, setGallery] = useState<PreviewFile[]>([]);
+
+  const [businessLicenseFile, setBusinessLicenseFile] = useState<File | null>(null);
+  const [operationLicenseFile, setOperationLicenseFile] = useState<File | null>(null);
+  const [ownerIdentityFrontFile, setOwnerIdentityFrontFile] = useState<File | null>(null);
+  const [ownerIdentityBackFile, setOwnerIdentityBackFile] = useState<File | null>(null);
 
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
@@ -249,13 +255,16 @@ export default function HostCreateHotelPage() {
 
   const validateForm = (): string[] => {
     const missing: string[] = [];
-    if (!form.name.trim()) missing.push('Ten khach san');
-    if (!form.cityId && !form.addressCity.trim()) missing.push('Thanh pho');
-    if (!form.addressStreet.trim()) missing.push('Dia chi duong');
-    if (!form.addressCountry.trim()) missing.push('Quoc gia');
-    if (!form.businessLicenseNumber.trim()) missing.push('So dang ky kinh doanh');
-    if (!form.taxId.trim()) missing.push('Ma so thue');
-    if (!form.ownerIdentityNumber.trim()) missing.push('So CCCD/ho chieu chu khach san');
+    if (!form.name.trim()) missing.push('Tên khách sạn');
+    if (!form.cityId && !form.addressCity.trim()) missing.push('Thành phố');
+    if (!form.addressStreet.trim()) missing.push('Địa chỉ đường');
+    if (!form.addressCountry.trim()) missing.push('Quốc gia');
+    if (!form.businessLicenseNumber.trim()) missing.push('Số đăng ký kinh doanh');
+    if (!businessLicenseFile) missing.push('Ảnh/Scan Giấy phép kinh doanh');
+    if (!form.taxId.trim()) missing.push('Mã số thuế');
+    if (!form.ownerIdentityNumber.trim()) missing.push('Số CCCD/hộ chiếu chủ khách sạn');
+    if (!ownerIdentityFrontFile) missing.push('Ảnh CCCD mặt trước');
+    if (!ownerIdentityBackFile) missing.push('Ảnh CCCD mặt sau');
     return missing;
   };
 
@@ -353,6 +362,19 @@ export default function HostCreateHotelPage() {
       }
 
       const data = await response.json();
+
+      // Upload private verification documents if selected
+      if (businessLicenseFile || operationLicenseFile || ownerIdentityFrontFile || ownerIdentityBackFile) {
+        setStatusMessage('Đang tải tài liệu xác thực kinh doanh (bảo mật)...');
+        const docFormData = new FormData();
+        if (businessLicenseFile) docFormData.append('businessLicense', businessLicenseFile);
+        if (operationLicenseFile) docFormData.append('operationLicense', operationLicenseFile);
+        if (ownerIdentityFrontFile) docFormData.append('ownerIdentityFront', ownerIdentityFrontFile);
+        if (ownerIdentityBackFile) docFormData.append('ownerIdentityBack', ownerIdentityBackFile);
+
+        await hotelApi.uploadHotelDocuments(data.id, docFormData);
+      }
+
       if (thumbnail || gallery.length) {
         await uploadMediaAssets(data.id, token);
       }
@@ -536,7 +558,7 @@ export default function HostCreateHotelPage() {
                               className="flex w-full items-center justify-between px-4 py-2 text-left text-base hover:bg-[#F7F8FA] transition"
                             >
                               <span className="font-semibold">{city.name}</span>
-                              <span className="text-sm text-[#656F81]">{city.parentName || city.parentCode || 'Vietnam'}</span>
+                              <span className="text-sm text-[#656F81]">{city.parentName || (city as any).parentCode || 'Vietnam'}</span>
                             </button>
                           ))}
                         </div>
@@ -596,6 +618,77 @@ export default function HostCreateHotelPage() {
                       className="w-full rounded-xl border border-[#E8E9F1] px-4 py-3 text-base text-[#1F2226] placeholder:text-[#A3A8B4] focus:border-[#0057FF] focus:outline-none"
                       placeholder="012345678901"
                     />
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-[#E8E9F1]">
+                  <p className="text-base font-semibold text-[#1F2226] mb-1">Tải lên hình ảnh / bản scan giấy tờ xác thực</p>
+                  <p className="text-xs text-[#8B94A4] mb-4">Các tài liệu này được lưu trữ bảo mật trong hệ thống riêng và chỉ dùng để Quản trị viên đối chiếu khi duyệt khách sạn.</p>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {/* Giấy phép kinh doanh */}
+                    <div className="rounded-xl border border-dashed border-[#CCD0DC] p-4 bg-[#F8FAFC]">
+                      <label className="block text-sm font-semibold text-[#1F2226] mb-1">
+                        Ảnh/Scan Giấy phép kinh doanh <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        onChange={(e) => setBusinessLicenseFile(e.target.files?.[0] || null)}
+                        className="text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#0057FF] file:text-white hover:file:bg-[#0046CC] cursor-pointer"
+                      />
+                      {businessLicenseFile && (
+                        <p className="mt-1 text-xs text-green-600 font-medium">Đã chọn: {businessLicenseFile.name}</p>
+                      )}
+                    </div>
+
+                    {/* Giấy phép hoạt động / PCCC */}
+                    <div className="rounded-xl border border-dashed border-[#CCD0DC] p-4 bg-[#F8FAFC]">
+                      <label className="block text-sm font-semibold text-[#1F2226] mb-1">
+                        Giấy chứng nhận ANTT / PCCC <span className="text-gray-400 font-normal">(Tùy chọn)</span>
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        onChange={(e) => setOperationLicenseFile(e.target.files?.[0] || null)}
+                        className="text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#0057FF] file:text-white hover:file:bg-[#0046CC] cursor-pointer"
+                      />
+                      {operationLicenseFile && (
+                        <p className="mt-1 text-xs text-green-600 font-medium">Đã chọn: {operationLicenseFile.name}</p>
+                      )}
+                    </div>
+
+                    {/* CCCD mặt trước */}
+                    <div className="rounded-xl border border-dashed border-[#CCD0DC] p-4 bg-[#F8FAFC]">
+                      <label className="block text-sm font-semibold text-[#1F2226] mb-1">
+                        Ảnh CCCD mặt trước <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setOwnerIdentityFrontFile(e.target.files?.[0] || null)}
+                        className="text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#0057FF] file:text-white hover:file:bg-[#0046CC] cursor-pointer"
+                      />
+                      {ownerIdentityFrontFile && (
+                        <p className="mt-1 text-xs text-green-600 font-medium">Đã chọn: {ownerIdentityFrontFile.name}</p>
+                      )}
+                    </div>
+
+                    {/* CCCD mặt sau */}
+                    <div className="rounded-xl border border-dashed border-[#CCD0DC] p-4 bg-[#F8FAFC]">
+                      <label className="block text-sm font-semibold text-[#1F2226] mb-1">
+                        Ảnh CCCD mặt sau <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setOwnerIdentityBackFile(e.target.files?.[0] || null)}
+                        className="text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#0057FF] file:text-white hover:file:bg-[#0046CC] cursor-pointer"
+                      />
+                      {ownerIdentityBackFile && (
+                        <p className="mt-1 text-xs text-green-600 font-medium">Đã chọn: {ownerIdentityBackFile.name}</p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

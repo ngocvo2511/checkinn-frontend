@@ -57,6 +57,7 @@ export default function AdminPendingHotelDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [rejectNote, setRejectNote] = useState('');
+  const [previewDoc, setPreviewDoc] = useState<{ url: string; title: string } | null>(null);
 
   useEffect(() => {
     if (hotelId) {
@@ -216,25 +217,168 @@ export default function AdminPendingHotelDetailPage() {
                   </div>
                 </div>
 
-                <div>
-                  <h2 className="text-lg font-semibold mb-4">Thông tin pháp lý</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-5 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-blue-200 pb-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-500 uppercase">Giấy phép kinh doanh</label>
-                      <p className="mt-1">{hotel.businessLicenseNumber || 'Chưa có'}</p>
+                      <h2 className="text-lg font-bold text-gray-900">Xác thực Pháp lý & Giấy tờ (KYB / KYC)</h2>
+                      <p className="text-xs text-gray-600 mt-0.5">
+                        Tài liệu nhạy cảm được bảo mật qua Private Storage. Liên kết xem có hiệu lực trong 5 phút.
+                      </p>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500 uppercase">Mã số thuế</label>
-                      <p className="mt-1">{hotel.taxId || 'Chưa có'}</p>
+                    <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800">
+                      Private & Encrypted
+                    </span>
+                  </div>
+
+                  {/* 1. Giấy phép kinh doanh */}
+                  <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                          <h3 className="font-semibold text-gray-900">Giấy phép đăng ký kinh doanh</h3>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm pl-4">
+                          <div>
+                            <span className="text-gray-500">Số ĐKKD: </span>
+                            <span className="font-mono font-medium text-gray-900">{hotel.businessLicenseNumber || 'Chưa cung cấp'}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Mã số thuế: </span>
+                            <span className="font-mono font-medium text-gray-900">{hotel.taxId || 'Chưa cung cấp'}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex-shrink-0">
+                        {hotel.businessLicenseUrl ? (
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={hotel.businessLicenseUrl}
+                              alt="GPKD"
+                              className="w-20 h-20 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-80 transition shadow-sm"
+                              onClick={() => setPreviewDoc({ url: hotel.businessLicenseUrl!, title: 'Giấy phép đăng ký kinh doanh' })}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setPreviewDoc({ url: hotel.businessLicenseUrl!, title: 'Giấy phép đăng ký kinh doanh' })}
+                              className="text-xs font-semibold text-blue-600 hover:text-blue-800 underline"
+                            >
+                              Phóng to đối chiếu
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="inline-flex items-center rounded bg-gray-100 px-2.5 py-1.5 text-xs text-gray-500">
+                            Chưa tải lên ảnh
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500 uppercase">Giấy phép hoạt động</label>
-                      <p className="mt-1">{hotel.operationLicenseNumber || 'Chưa có'}</p>
+                  </div>
+
+                  {/* 2. Giấy phép hoạt động / PCCC */}
+                  <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-block w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
+                          <h3 className="font-semibold text-gray-900">Giấy chứng nhận ANTT / PCCC</h3>
+                        </div>
+                        <div className="text-sm pl-4">
+                          <span className="text-gray-500">Số giấy phép: </span>
+                          <span className="font-mono font-medium text-gray-900">{hotel.operationLicenseNumber || 'Chưa cung cấp'}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex-shrink-0">
+                        {hotel.operationLicenseUrl ? (
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={hotel.operationLicenseUrl}
+                              alt="Giấy phép con"
+                              className="w-20 h-20 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-80 transition shadow-sm"
+                              onClick={() => setPreviewDoc({ url: hotel.operationLicenseUrl!, title: 'Giấy chứng nhận ANTT / PCCC' })}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setPreviewDoc({ url: hotel.operationLicenseUrl!, title: 'Giấy chứng nhận ANTT / PCCC' })}
+                              className="text-xs font-semibold text-blue-600 hover:text-blue-800 underline"
+                            >
+                              Phóng to đối chiếu
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="inline-flex items-center rounded bg-gray-100 px-2.5 py-1.5 text-xs text-gray-500">
+                            Chưa tải lên ảnh
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500 uppercase">CMND/CCCD chủ</label>
-                      <p className="mt-1">{hotel.ownerIdentityNumber || 'Chưa có'}</p>
+                  </div>
+
+                  {/* 3. Định danh chủ sở hữu (CCCD) */}
+                  <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
+                          <h3 className="font-semibold text-gray-900">Căn cước công dân (Chủ khách sạn)</h3>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm pl-4">
+                          <div>
+                            <span className="text-gray-500">Họ và tên chủ: </span>
+                            <span className="font-semibold text-gray-900">{hotel.owner?.fullName || 'Chưa có'}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Số CCCD đã nhập: </span>
+                            <span className="font-mono font-medium text-gray-900">{hotel.ownerIdentityNumber || 'Chưa cung cấp'}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        {hotel.ownerIdentityFrontUrl ? (
+                          <div className="text-center">
+                            <img
+                              src={hotel.ownerIdentityFrontUrl}
+                              alt="CCCD Mặt trước"
+                              className="w-20 h-14 object-cover rounded-md border border-gray-200 cursor-pointer hover:opacity-80 transition shadow-sm"
+                              onClick={() => setPreviewDoc({ url: hotel.ownerIdentityFrontUrl!, title: 'CCCD Mặt trước' })}
+                            />
+                            <span className="text-[10px] text-gray-500 block mt-0.5">Mặt trước</span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400">Thiếu mặt trước</span>
+                        )}
+
+                        {hotel.ownerIdentityBackUrl ? (
+                          <div className="text-center">
+                            <img
+                              src={hotel.ownerIdentityBackUrl}
+                              alt="CCCD Mặt sau"
+                              className="w-20 h-14 object-cover rounded-md border border-gray-200 cursor-pointer hover:opacity-80 transition shadow-sm"
+                              onClick={() => setPreviewDoc({ url: hotel.ownerIdentityBackUrl!, title: 'CCCD Mặt sau' })}
+                            />
+                            <span className="text-[10px] text-gray-500 block mt-0.5">Mặt sau</span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400">Thiếu mặt sau</span>
+                        )}
+                      </div>
                     </div>
+                  </div>
+
+                  {/* Checklist hướng dẫn Admin */}
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900 space-y-1">
+                    <p className="font-semibold flex items-center gap-1.5 text-amber-950">
+                      <span>⚠️</span> Lưu ý kiểm tra trước khi bấm duyệt:
+                    </p>
+                    <ul className="list-disc list-inside space-y-0.5 text-amber-800 pl-1">
+                      <li>Họ tên trên CCCD phải trùng với Người đại diện pháp luật / Chủ hộ kinh doanh trên GPKD.</li>
+                      <li>Địa chỉ đăng ký kinh doanh trên GPKD phải khớp với địa chỉ khách sạn thực tế.</li>
+                      <li>Số CCCD trên ảnh phải khớp từng chữ số với số khai báo trên hệ thống.</li>
+                      <li>Giấy phép có mộc đỏ rõ ràng, không có dấu hiệu tẩy xóa, chắp vá.</li>
+                    </ul>
                   </div>
                 </div>
 
@@ -380,6 +524,49 @@ export default function AdminPendingHotelDetailPage() {
             </div>
           </div>
         </main>
+
+        {/* Document Lightbox Modal for Admin Verification */}
+        {previewDoc && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+            <div className="relative max-h-[92vh] max-w-4xl w-full bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+              <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">{previewDoc.title}</h3>
+                  <p className="text-xs text-gray-500">Bản phóng to để kiểm tra dấu mộc, chữ ký và thông tin định danh</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={previewDoc.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                  >
+                    Mở tab mới
+                  </a>
+                  <button
+                    onClick={() => setPreviewDoc(null)}
+                    className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-200 hover:text-gray-700"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-gray-100 min-h-[400px]">
+                {previewDoc.url.toLowerCase().endsWith('.pdf') ? (
+                  <iframe src={previewDoc.url} className="w-full h-[600px] rounded-lg" title={previewDoc.title} />
+                ) : (
+                  <img
+                    src={previewDoc.url}
+                    alt={previewDoc.title}
+                    className="max-h-[75vh] w-auto object-contain rounded-lg shadow-md"
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
 }

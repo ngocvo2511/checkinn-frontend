@@ -168,8 +168,6 @@ export interface Hotel {
   roomTypes?: RoomType[];
   mediaAssets?: MediaAsset[];
   lowestPrice?: number;
-  starRating?: number;
-  description?: string;
   policies?: PolicyResponse[];
   faqs?: QuestionResponse[];
   amenityCategories?: AmenityResponse[];
@@ -323,7 +321,7 @@ export const hotelApi = {
           console.log('[DEBUG] locationResponse status:', locationsResponse.status);
 
           if (locationsResponse.ok) {
-            const locations: Array<{ id: string; type: string; parentName?: string }> = await locationsResponse.json();
+            const locations: Array<{ id: string; type: string; name?: string; parentName?: string }> = await locationsResponse.json();
             console.log('[DEBUG] locations returned:', locations);
             
             if (locations.length > 0) {
@@ -552,6 +550,10 @@ export const hotelApi = {
     address: HotelAddress;
     contactEmail?: string;
     contactPhone?: string;
+    businessLicenseNumber?: string;
+    taxId?: string;
+    operationLicenseNumber?: string;
+    ownerIdentityNumber?: string;
   }): Promise<Hotel> => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}`, {
@@ -625,7 +627,7 @@ export const hotelApi = {
   },
 
   // Update hotel policies
-  updatePolicies: async (hotelId: string, policies: { title: string; content: string }[]): Promise<Hotel> => {
+  updatePolicies: async (hotelId: string, policies: { title?: string; category?: string; content: string }[]): Promise<Hotel> => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/policies`, {
         method: 'PUT',
@@ -716,9 +718,74 @@ export const hotelApi = {
       }
 
       const result = await response.json();
-      return cleanRoomTypeData(result);
+      return result;
     } catch (error) {
       console.error('Error uploading media:', error);
+      throw error;
+    }
+  },
+
+  // Upload private hotel verification documents
+  uploadHotelDocuments: async (hotelId: string, formData: FormData): Promise<any> => {
+    try {
+      let response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/documents`, {
+        method: 'POST',
+        headers: {
+          ...authHeaders(),
+        },
+        body: formData,
+      });
+
+      if (!response.ok && response.status === 404) {
+        response = await fetch(`${API_BASE_URL}/hotels/${hotelId}/documents`, {
+          method: 'POST',
+          headers: {
+            ...authHeaders(),
+          },
+          body: formData,
+        });
+      }
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Failed to upload documents: ${response.status}`);
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error('Error uploading hotel documents:', error);
+      throw error;
+    }
+  },
+
+  // Get private verification documents & signed URLs (for Owner & Admin)
+  getHotelDocuments: async (hotelId: string): Promise<HotelVerificationDocuments> => {
+    try {
+      let response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/documents`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders(),
+        },
+      });
+
+      if (!response.ok && response.status === 404) {
+        response = await fetch(`${API_BASE_URL}/hotels/${hotelId}/documents`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            ...authHeaders(),
+          },
+        });
+      }
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch hotel documents: ${response.status} ${response.statusText}`);
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error('Error fetching hotel documents:', error);
       throw error;
     }
   },
@@ -842,8 +909,8 @@ export const hotelApi = {
         throw new Error(`Failed to update room type: ${response.status} ${response.statusText}`);
       }
 
-      const data = await response.json();
-      return cleanRoomTypeData(data);
+      const result = await response.json();
+      return cleanRoomTypeData(result);
     } catch (error) {
       console.error('Error updating room type:', error);
       throw error;
@@ -943,7 +1010,26 @@ export interface PendingHotelDetail {
   taxId?: string;
   operationLicenseNumber?: string;
   ownerIdentityNumber?: string;
+  businessLicenseUrl?: string;
+  operationLicenseUrl?: string;
+  ownerIdentityFrontUrl?: string;
+  ownerIdentityBackUrl?: string;
   policies?: any[]; // Define properly if needed
   amenityCategories?: any[];
+  faqs?: any[];
   mediaAssets?: any[];
+}
+
+export interface HotelVerificationDocuments {
+  hotelId: string;
+  approvedStatus: string;
+  rejectionReason?: string;
+  businessLicenseNumber?: string;
+  taxId?: string;
+  operationLicenseNumber?: string;
+  ownerIdentityNumber?: string;
+  businessLicenseUrl?: string;
+  operationLicenseUrl?: string;
+  ownerIdentityFrontUrl?: string;
+  ownerIdentityBackUrl?: string;
 }
