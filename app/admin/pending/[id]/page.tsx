@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import AdminMenu from '@/components/admin/menu/AdminMenu';
 import { hotelApi, PendingHotelDetail } from '@/lib/api/hotels';
+import HotelLocationMap from '@/components/map/HotelLocationMap';
 
 const policyCategoryIcons: Record<string, string> = {
   'Thời gian nhận phòng/trả phòng': 'https://via.placeholder.com/24?text=T',
@@ -197,6 +198,37 @@ export default function AdminPendingHotelDetailPage() {
                       <p className="mt-1">{hotel.approvedStatus}</p>
                     </div>
                   </div>
+                </div>
+
+                <div className="rounded-xl border border-gray-200 bg-[#FBFBFC] p-4 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h3 className="text-sm font-bold uppercase tracking-wide text-gray-700 flex items-center gap-1.5">
+                        <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Vị trí ghim trên bản đồ (Xác thực tọa độ)
+                      </h3>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Đối chiếu vị trí ghim thực tế với địa chỉ đã khai báo trước khi phê duyệt.
+                      </p>
+                    </div>
+                    {hotel.address.latitude != null && hotel.address.longitude != null && (
+                      <span className="font-mono text-xs px-2.5 py-1 rounded bg-blue-50 border border-blue-200 text-blue-700 font-semibold">
+                        {hotel.address.latitude.toFixed(6)}, {hotel.address.longitude.toFixed(6)}
+                      </span>
+                    )}
+                  </div>
+                  <HotelLocationMap
+                    latitude={hotel.address.latitude}
+                    longitude={hotel.address.longitude}
+                    hotelName={hotel.name}
+                    street={hotel.address.street}
+                    city={hotel.address.city}
+                    country={hotel.address.country}
+                    height="320px"
+                  />
                 </div>
 
                 <div>

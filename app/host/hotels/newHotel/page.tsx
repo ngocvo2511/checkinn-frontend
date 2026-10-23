@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import HostMenu from '@/components/host/menu/HostMenu';
 import { cityApi, type City } from '@/lib/api/cities';
 import { hotelApi } from '@/lib/api/hotels';
+import LocationPickerMap from '@/components/map/LocationPickerMap';
+import { geocodeAddress, parseGoogleMapsCoordinates } from '@/lib/mapUtils';
 
 type Policy = {
   category: string;
@@ -38,6 +40,8 @@ type FormState = {
   addressStreet: string;
   addressCity: string;
   addressCountry: string;
+  latitude: number | null;
+  longitude: number | null;
   contactEmail: string;
   contactPhone: string;
   businessLicenseNumber: string;
@@ -66,6 +70,8 @@ const initialForm: FormState = {
   addressStreet: '',
   addressCity: '',
   addressCountry: 'Vietnam',
+  latitude: null,
+  longitude: null,
   contactEmail: '',
   contactPhone: '',
   businessLicenseNumber: '',
@@ -98,6 +104,13 @@ export default function HostCreateHotelPage() {
   const [operationLicenseFile, setOperationLicenseFile] = useState<File | null>(null);
   const [ownerIdentityFrontFile, setOwnerIdentityFrontFile] = useState<File | null>(null);
   const [ownerIdentityBackFile, setOwnerIdentityBackFile] = useState<File | null>(null);
+
+  const [mapHelperText, setMapHelperText] = useState<string | null>(null);
+  const [gmapsInput, setGmapsInput] = useState('');
+  const [gmapsError, setGmapsError] = useState<string | null>(null);
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const geocodeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
@@ -144,9 +157,109 @@ export default function HostCreateHotelPage() {
       ...prev,
       addressCity: selected.name,
       addressCountry: prev.addressCountry || 'Vietnam',
+      latitude: prev.latitude ?? (selected.latitude || null),
+      longitude: prev.longitude ?? (selected.longitude || null),
     }));
     setCityInput(selected.name);
   }, [form.cityId, cities]);
+
+  // Debounced forward geocoding with OpenStreetMap Nominatim and City center fallback
+  useEffect(() => {
+    if (geocodeTimerRef.current) {
+      clearTimeout(geocodeTimerRef.current);
+    }
+
+    const street = form.addressStreet.trim();
+    const city = form.addressCity.trim();
+
+    if (!street || street.length < 3 || !city) {
+      return;
+    }
+
+    geocodeTimerRef.current = setTimeout(async () => {
+      setIsGeocoding(true);
+      const coords = await geocodeAddress(street, city, form.addressCountry || 'Vietnam');
+      setIsGeocoding(false);
+
+      if (coords) {
+        setForm((prev) => ({
+          ...prev,
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+        }));
+        setMapHelperText(null);
+      } else {
+        // Fallback to City center if available
+        const selected = cities.find(
+          (c) => c.id === form.cityId || c.name.toLowerCase() === city.toLowerCase()
+        );
+        if (selected && selected.latitude && selected.longitude) {
+          setForm((prev) => ({
+            ...prev,
+            latitude: selected.latitude,
+            longitude: selected.longitude,
+          }));
+          setMapHelperText(
+            'Chưa tìm thấy số nhà chính xác. Vui lòng kéo ghim trên bản đồ đến vị trí khách sạn của bạn.'
+          );
+        } else {
+          setMapHelperText(
+            'Chưa tìm thấy địa chỉ. Vui lòng kéo ghim hoặc nhấp vào bản đồ để chọn vị trí khách sạn.'
+          );
+        }
+      }
+    }, 800);
+
+    return () => {
+      if (geocodeTimerRef.current) {
+        clearTimeout(geocodeTimerRef.current);
+      }
+    };
+  }, [form.addressStreet, form.addressCity, form.addressCountry, form.cityId, cities]);
+
+  const handleGetCurrentLocation = () => {
+    if (typeof window === 'undefined' || !navigator.geolocation) {
+      alert('Trình duyệt của bạn không hỗ trợ định vị GPS.');
+      return;
+    }
+    setGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setGpsLoading(false);
+        setForm((prev) => ({
+          ...prev,
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        }));
+        setMapHelperText('Đã cập nhật vị trí từ GPS của bạn.');
+      },
+      (err) => {
+        setGpsLoading(false);
+        alert('Không thể lấy vị trí hiện tại: ' + err.message);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const handleApplyGmapsLink = () => {
+    setGmapsError(null);
+    if (!gmapsInput.trim()) return;
+
+    const coords = parseGoogleMapsCoordinates(gmapsInput);
+    if (coords) {
+      setForm((prev) => ({
+        ...prev,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+      }));
+      setMapHelperText('Đã cập nhật vị trí từ liên kết Google Maps.');
+      setGmapsInput('');
+    } else {
+      setGmapsError(
+        'Không tìm thấy tọa độ hợp lệ. Thử nhập định dạng "16.0544, 108.2022" hoặc dán liên kết Google Maps.'
+      );
+    }
+  };
 
   const filteredCities = useMemo(() => {
     if (!showCitySuggestions) return [];
@@ -328,6 +441,8 @@ export default function HostCreateHotelPage() {
         street: form.addressStreet.trim(),
         city: form.addressCity.trim(),
         country: form.addressCountry.trim(),
+        latitude: form.latitude,
+        longitude: form.longitude,
       },
       contactEmail: form.contactEmail.trim() || null,
       contactPhone: form.contactPhone.trim() || null,
@@ -490,8 +605,14 @@ export default function HostCreateHotelPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-semibold uppercase tracking-[0.08em] text-[#8B94A4]">Địa chỉ</p>
-                    <h2 className="text-xl font-semibold text-[#1F2226]">Thông tin vị trí</h2>
+                    <h2 className="text-xl font-semibold text-[#1F2226]">Thông tin vị trí & Ghim bản đồ</h2>
                   </div>
+                  {form.latitude != null && form.longitude != null && (
+                    <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-xs font-medium text-emerald-800">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>Tọa độ: {form.latitude.toFixed(6)}, {form.longitude.toFixed(6)}</span>
+                    </div>
+                  )}
                 </div>
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="space-y-2">
@@ -572,6 +693,77 @@ export default function HostCreateHotelPage() {
                       onChange={handleInputChange('addressCountry')}
                       className="w-full rounded-xl border border-[#E8E9F1] px-4 py-3 text-base text-[#1F2226] placeholder:text-[#A3A8B4] focus:border-[#0057FF] focus:outline-none"
                       placeholder="Vietnam"
+                    />
+                  </div>
+                </div>
+
+                {/* Location Helper Tools (GPS & Google Maps URL) */}
+                <div className="pt-2 border-t border-[#F0F2F6] space-y-3">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={handleGetCurrentLocation}
+                      disabled={gpsLoading}
+                      className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-[#0057FF] bg-blue-50/50 text-[#0057FF] hover:bg-blue-100/50 font-medium text-sm transition disabled:opacity-50"
+                    >
+                      <svg className={`w-4 h-4 ${gpsLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2v2m0 16v2m10-10h-2M4 12H2m15.071-7.071l-1.414 1.414M8.343 17.657l-1.414 1.414m12.728 0l-1.414-1.414M8.343 6.343L6.929 4.929M12 8a4 4 0 100 8 4 4 0 000-8z" />
+                      </svg>
+                      {gpsLoading ? 'Đang xác định GPS...' : 'Lấy vị trí hiện tại'}
+                    </button>
+
+                    <div className="flex flex-1 items-center gap-2 max-w-md">
+                      <input
+                        value={gmapsInput}
+                        onChange={(e) => {
+                          setGmapsInput(e.target.value);
+                          if (gmapsError) setGmapsError(null);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleApplyGmapsLink();
+                          }
+                        }}
+                        placeholder="Dán link Google Maps hoặc tọa độ..."
+                        className="flex-1 rounded-xl border border-[#E8E9F1] px-3.5 py-2 text-sm text-[#1F2226] placeholder:text-[#A3A8B4] focus:border-[#0057FF] focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleApplyGmapsLink}
+                        className="px-3.5 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium transition"
+                      >
+                        Áp dụng
+                      </button>
+                    </div>
+                  </div>
+
+                  {gmapsError && (
+                    <p className="text-xs text-red-600 font-medium">{gmapsError}</p>
+                  )}
+
+                  {isGeocoding && (
+                    <div className="flex items-center gap-2 text-xs text-blue-600 font-medium">
+                      <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      Đang tự động tìm tọa độ theo địa chỉ...
+                    </div>
+                  )}
+
+                  <div className="space-y-1">
+                    <p className="text-xs text-gray-500">
+                      Nhấp vào bản đồ hoặc kéo thả ghim để tinh chỉnh vị trí khách sạn của bạn.
+                    </p>
+                    <LocationPickerMap
+                      latitude={form.latitude}
+                      longitude={form.longitude}
+                      helperText={mapHelperText ?? undefined}
+                      onChange={({ latitude, longitude }) => {
+                        setForm((prev) => ({ ...prev, latitude, longitude }));
+                        setMapHelperText(null);
+                      }}
                     />
                   </div>
                 </div>
