@@ -102,6 +102,7 @@ export interface CustomerAnalytics {
   returningCustomers: number;
   totalCustomers: number;
   returningRate: number;
+  totalHotelOwners?: number;
 }
 
 export interface AdminSummaryResponse {

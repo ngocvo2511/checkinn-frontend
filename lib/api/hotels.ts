@@ -152,6 +152,8 @@ export interface RoomType {
   mediaAssets?: MediaAsset[];
 }
 
+export type HotelApprovalStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED';
+
 export interface Hotel {
   id: string;
   ownerId: string;
@@ -161,7 +163,7 @@ export interface Hotel {
   starRating?: number;
   address: HotelAddress;
   isActive: boolean;
-  approvedStatus: string;
+  approvedStatus: HotelApprovalStatus | string;
   city?: City;
   createdAt: string;
   updatedAt: string;
@@ -187,6 +189,16 @@ export interface SearchHotelsParams {
   minPrice?: number;
   maxPrice?: number;
 }
+
+const extractErrorMessage = (text: string, fallback: string): string => {
+  if (!text) return fallback;
+  try {
+    const parsed = JSON.parse(text);
+    return parsed.message || parsed.error || text;
+  } catch (_) {
+    return text;
+  }
+};
 
 export const hotelApi = {
   /**
@@ -748,7 +760,7 @@ export const hotelApi = {
 
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Failed to upload documents: ${response.status}`);
+        throw new Error(extractErrorMessage(text, `Lỗi khi tải tài liệu xác thực: ${response.status}`));
       }
 
       return response.json();
@@ -786,6 +798,70 @@ export const hotelApi = {
       return response.json();
     } catch (error) {
       console.error('Error fetching hotel documents:', error);
+      throw error;
+    }
+  },
+
+  // Submit hotel for approval (DRAFT -> PENDING)
+  submitHotelApproval: async (hotelId: string): Promise<Hotel> => {
+    try {
+      let response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/submit-approval`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders(),
+        },
+      });
+
+      if (!response.ok && response.status === 404) {
+        response = await fetch(`${API_BASE_URL}/hotels/${hotelId}/submit-approval`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...authHeaders(),
+          },
+        });
+      }
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(extractErrorMessage(text, `Lỗi khi gửi duyệt: ${response.status}`));
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error('Error submitting hotel for approval:', error);
+      throw error;
+    }
+  },
+
+  // Delete draft hotel (DRAFT only)
+  deleteDraftHotel: async (hotelId: string): Promise<void> => {
+    try {
+      let response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/draft`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders(),
+        },
+      });
+
+      if (!response.ok && response.status === 404) {
+        response = await fetch(`${API_BASE_URL}/hotels/${hotelId}/draft`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            ...authHeaders(),
+          },
+        });
+      }
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(extractErrorMessage(text, `Lỗi khi xóa bản nháp: ${response.status}`));
+      }
+    } catch (error) {
+      console.error('Error deleting draft hotel:', error);
       throw error;
     }
   },
@@ -981,7 +1057,7 @@ export interface PendingHotel {
   contactEmail: string;
   contactPhone: string;
   createdAt: string;
-  approvedStatus: string;
+  approvedStatus: HotelApprovalStatus | string;
   owner: {
     id: string;
     fullName: string;
@@ -999,7 +1075,7 @@ export interface PendingHotelDetail {
   contactEmail: string;
   contactPhone: string;
   createdAt: string;
-  approvedStatus: string;
+  approvedStatus: HotelApprovalStatus | string;
   owner: {
     id: string;
     fullName: string;
@@ -1022,7 +1098,7 @@ export interface PendingHotelDetail {
 
 export interface HotelVerificationDocuments {
   hotelId: string;
-  approvedStatus: string;
+  approvedStatus: HotelApprovalStatus | string;
   rejectionReason?: string;
   businessLicenseNumber?: string;
   taxId?: string;
@@ -1033,3 +1109,5 @@ export interface HotelVerificationDocuments {
   ownerIdentityFrontUrl?: string;
   ownerIdentityBackUrl?: string;
 }
+
+export type { ReviewStats } from './reviews';

@@ -4,12 +4,65 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import HostMenu from '@/components/host/menu/HostMenu';
 import { Hotel as ApiHotel, hotelApi } from '@/lib/api/hotels';
+import NotificationModal, { useNotificationModal } from '@/components/NotificationModal';
 
 export default function HostHotelsPage() {
   const router = useRouter();
   const [hotels, setHotels] = useState<ApiHotel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { modalState, closeModal, showSuccess, showError, showConfirm } = useNotificationModal();
+
+  const handleSubmitApproval = (hotel: ApiHotel) => {
+    showConfirm({
+      title: 'Gửi duyệt khách sạn?',
+      message: `Bạn có chắc chắn muốn gửi hồ sơ "${hotel.name}" để Ban quản trị phê duyệt?`,
+      confirmText: 'Gửi duyệt ngay',
+      cancelText: 'Hủy',
+      onConfirm: async () => {
+        try {
+          await hotelApi.submitHotelApproval(hotel.id);
+          setHotels((prev) =>
+            prev.map((h) => (h.id === hotel.id ? { ...h, approvedStatus: 'PENDING' } : h))
+          );
+          showSuccess(
+            'Gửi duyệt thành công!',
+            `Khách sạn "${hotel.name}" đã được chuyển sang trạng thái Chờ duyệt. Ban quản trị sẽ thẩm định hồ sơ.`
+          );
+        } catch (err: any) {
+          showError(
+            'Chưa thể gửi duyệt',
+            err?.message || 'Vui lòng kiểm tra lại giấy tờ pháp lý và ảnh đại diện của khách sạn.'
+          );
+        }
+      },
+    });
+  };
+
+  const handleDeleteDraft = (hotel: ApiHotel) => {
+    showConfirm({
+      title: 'Xóa bản nháp khách sạn?',
+      message: `Bạn có chắc chắn muốn xóa bản nháp "${hotel.name}"? Dữ liệu và hình ảnh liên quan sẽ bị xóa vĩnh viễn và không thể khôi phục.`,
+      confirmVariant: 'danger',
+      confirmText: 'Xóa bản nháp',
+      cancelText: 'Hủy',
+      onConfirm: async () => {
+        try {
+          await hotelApi.deleteDraftHotel(hotel.id);
+          setHotels((prev) => prev.filter((h) => h.id !== hotel.id));
+          showSuccess(
+            'Đã xóa bản nháp',
+            `Bản nháp "${hotel.name}" đã được xóa thành công.`
+          );
+        } catch (err: any) {
+          showError(
+            'Không thể xóa bản nháp',
+            err?.message || 'Có lỗi xảy ra khi xóa bản nháp.'
+          );
+        }
+      },
+    });
+  };
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -46,6 +99,8 @@ export default function HostHotelsPage() {
 
   const formatStatus = (status?: string) => {
     switch (status) {
+      case 'DRAFT':
+        return 'Bản nháp';
       case 'APPROVED':
         return 'Đã duyệt';
       case 'PENDING':
@@ -59,6 +114,8 @@ export default function HostHotelsPage() {
 
   const statusBadgeClass = (status?: string) => {
     switch (status) {
+      case 'DRAFT':
+        return 'bg-[#EBF3FF] text-[#0B4DB7]';
       case 'APPROVED':
         return 'bg-[#E8FFF3] text-[#0F5132]';
       case 'PENDING':
@@ -148,11 +205,33 @@ export default function HostHotelsPage() {
                         >
                           {hotel.isActive ? 'Đang hoạt động' : 'Tạm dừng'}
                         </span>
+                        {hotel.approvedStatus === 'DRAFT' && (
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteDraft(hotel);
+                              }}
+                              className="inline-flex items-center text-xs font-semibold text-red-600 hover:text-red-800 transition px-2.5 py-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100"
+                            >
+                              Xóa nháp
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSubmitApproval(hotel);
+                              }}
+                              className="inline-flex items-center text-xs font-semibold text-white bg-[#0057FF] hover:bg-[#0046CC] transition px-3 py-1.5 rounded-lg shadow-xs"
+                            >
+                              Gửi duyệt
+                            </button>
+                          </div>
+                        )}
                         <button
                           onClick={() => router.push(`/host/hotels/${hotel.id}`)}
                           className="inline-flex items-center gap-2 text-sm font-semibold text-[#0057FF] hover:gap-3 transition"
                         >
-                          Xem chi tiết
+                          {hotel.approvedStatus === 'DRAFT' ? 'Hoàn thiện hồ sơ' : 'Xem chi tiết'}
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M9 18L15 12L9 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
@@ -166,6 +245,9 @@ export default function HostHotelsPage() {
           </div>
         </div>
       </main>
+
+      {/* Unified Notification & Confirmation Popup Modal */}
+      <NotificationModal {...modalState} onClose={closeModal} />
     </div>
   );
 }

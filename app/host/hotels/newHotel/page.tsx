@@ -8,6 +8,8 @@ import { cityApi, type City } from '@/lib/api/cities';
 import { hotelApi } from '@/lib/api/hotels';
 import LocationPickerMap from '@/components/map/LocationPickerMap';
 import { geocodeAddress, parseGoogleMapsCoordinates } from '@/lib/mapUtils';
+import NotificationModal, { useNotificationModal } from '@/components/NotificationModal';
+import { Loader2 } from 'lucide-react';
 
 type Policy = {
   category: string;
@@ -117,6 +119,10 @@ export default function HostCreateHotelPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [createdHotelId, setCreatedHotelId] = useState<string | null>(null);
+  const [docsUploaded, setDocsUploaded] = useState(false);
+  const [mediaUploaded, setMediaUploaded] = useState(false);
+  const { modalState, closeModal, showSuccess, showError, showWarning } = useNotificationModal();
 
   useEffect(() => {
     const fetchCities = async () => {
@@ -219,7 +225,7 @@ export default function HostCreateHotelPage() {
 
   const handleGetCurrentLocation = () => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
-      alert('Trình duyệt của bạn không hỗ trợ định vị GPS.');
+      showWarning('Không hỗ trợ GPS', 'Trình duyệt của bạn không hỗ trợ định vị GPS.');
       return;
     }
     setGpsLoading(true);
@@ -235,7 +241,7 @@ export default function HostCreateHotelPage() {
       },
       (err) => {
         setGpsLoading(false);
-        alert('Không thể lấy vị trí hiện tại: ' + err.message);
+        showError('Lỗi định vị', 'Không thể lấy vị trí hiện tại: ' + err.message);
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -378,6 +384,7 @@ export default function HostCreateHotelPage() {
     if (!form.ownerIdentityNumber.trim()) missing.push('Số CCCD/hộ chiếu chủ khách sạn');
     if (!ownerIdentityFrontFile) missing.push('Ảnh CCCD mặt trước');
     if (!ownerIdentityBackFile) missing.push('Ảnh CCCD mặt sau');
+    if (!thumbnail) missing.push('Ảnh thumbnail');
     return missing;
   };
 
@@ -398,7 +405,12 @@ export default function HostCreateHotelPage() {
 
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || 'Khong tai duoc anh len server');
+        let msg = text;
+        try {
+          const parsed = JSON.parse(text);
+          msg = parsed.message || parsed.error || text;
+        } catch (_) {}
+        throw new Error(msg || 'Không tải được ảnh lên server');
       }
     };
 
@@ -422,13 +434,16 @@ export default function HostCreateHotelPage() {
 
     const missing = validateForm();
     if (missing.length) {
-      setSubmitError(`Vui long dien: ${missing.join(', ')}`);
+      showWarning(
+        'Thiếu thông tin bắt buộc',
+        'Vui lòng bổ sung các thông tin sau trước khi tiếp tục:\n• ' + missing.join('\n• ')
+      );
       return;
     }
 
     const token = localStorage.getItem('token');
     if (!token) {
-      setSubmitError('Vui long dang nhap de tao khach san.');
+      showError('Yêu cầu đăng nhập', 'Vui lòng đăng nhập lại tài khoản chủ khách sạn để tiếp tục.');
       return;
     }
 
@@ -460,26 +475,31 @@ export default function HostCreateHotelPage() {
 
     try {
       setSubmitting(true);
-      setStatusMessage('Dang tao khach san...');
+      let hotelId = createdHotelId;
 
-      const response = await fetch(`${API_BASE_URL}/hotels`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
+      if (!hotelId) {
+        setStatusMessage('Đang tạo bản nháp khách sạn...');
+        const response = await fetch(`${API_BASE_URL}/hotels`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        });
 
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || 'Khong tao duoc khach san.');
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(text || 'Không tạo được khách sạn.');
+        }
+
+        const data = await response.json();
+        hotelId = data.id;
+        setCreatedHotelId(data.id);
       }
 
-      const data = await response.json();
-
-      // Upload private verification documents if selected
-      if (businessLicenseFile || operationLicenseFile || ownerIdentityFrontFile || ownerIdentityBackFile) {
+      // Upload private verification documents if selected and not yet uploaded
+      if (!docsUploaded && (businessLicenseFile || operationLicenseFile || ownerIdentityFrontFile || ownerIdentityBackFile)) {
         setStatusMessage('Đang tải tài liệu xác thực kinh doanh (bảo mật)...');
         const docFormData = new FormData();
         if (businessLicenseFile) docFormData.append('businessLicense', businessLicenseFile);
@@ -487,19 +507,42 @@ export default function HostCreateHotelPage() {
         if (ownerIdentityFrontFile) docFormData.append('ownerIdentityFront', ownerIdentityFrontFile);
         if (ownerIdentityBackFile) docFormData.append('ownerIdentityBack', ownerIdentityBackFile);
 
-        await hotelApi.uploadHotelDocuments(data.id, docFormData);
+        await hotelApi.uploadHotelDocuments(hotelId!, docFormData);
+        setDocsUploaded(true);
       }
 
-      if (thumbnail || gallery.length) {
-        await uploadMediaAssets(data.id, token);
+      if (!mediaUploaded && (thumbnail || gallery.length)) {
+        await uploadMediaAssets(hotelId!, token);
+        setMediaUploaded(true);
       }
 
-      setStatusMessage('Tao khach san thanh cong. Dang chuyen toi danh sach...');
-      setTimeout(() => router.push('/host/hotels'), 800);
+      setStatusMessage('Đang gửi hồ sơ để quản trị viên phê duyệt...');
+      await hotelApi.submitHotelApproval(hotelId!);
+
+      showSuccess(
+        'Gửi duyệt khách sạn thành công!',
+        'Hồ sơ khách sạn đã được gửi tới Ban quản trị kiểm duyệt. Bạn có thể theo dõi tiến độ duyệt tại danh sách khách sạn.',
+        () => router.push('/host/hotels')
+      );
     } catch (err: any) {
-      setSubmitError(err?.message || 'Co loi xay ra, vui long thu lai.');
+      let rawMsg = err?.message || 'Có lỗi xảy ra, vui lòng thử lại.';
+      try {
+        const parsed = JSON.parse(rawMsg);
+        rawMsg = parsed.message || parsed.error || rawMsg;
+      } catch (_) {}
+      if (createdHotelId) {
+        showWarning(
+          'Lưu bản nháp thành công - Chưa gửi duyệt',
+          `${rawMsg}
+
+Khách sạn đã được lưu tạm dạng Bản nháp (DRAFT). Bạn có thể tiếp tục bổ sung các thông tin còn thiếu và bấm "Tiếp tục gửi duyệt".`
+        );
+      } else {
+        showError('Không thể tạo khách sạn', rawMsg);
+      }
     } finally {
       setSubmitting(false);
+      setStatusMessage(null);
     }
   };
 
@@ -516,6 +559,33 @@ export default function HostCreateHotelPage() {
               </div>
               <h1 className="mt-2 text-2xl font-semibold">Thông tin khách sạn</h1>
             </div>
+
+            {/* Synchronized Draft Status Banner */}
+            {createdHotelId && (
+              <div className="rounded-2xl bg-[#EBF3FF] border border-[#0057FF]/20 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+                <div className="flex items-start gap-3.5">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#0057FF]/10 flex items-center justify-center text-[#0057FF] mt-0.5">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-[#0057FF]">Khách sạn đang ở trạng thái Bản nháp (DRAFT)</h4>
+                    <p className="mt-1 text-xs text-[#4E6180] leading-relaxed">
+                      Hồ sơ đã được lưu tạm trong hệ thống. Vui lòng đảm bảo bạn đã tải lên đầy đủ ảnh đại diện, bộ ảnh khách sạn và giấy tờ pháp lý trước khi gửi duyệt.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => router.push(`/host/hotels/${createdHotelId}`)}
+                  className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-[#0057FF] bg-white px-4 py-2 text-xs font-semibold text-[#0057FF] transition hover:bg-[#EBF3FF]"
+                >
+                  Xem chi tiết bản nháp
+                </button>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="rounded-2xl border border-[#E8E9F1] bg-white p-6 shadow-[0_14px_30px_rgba(0,0,0,0.08)] space-y-6">
@@ -1088,7 +1158,7 @@ export default function HostCreateHotelPage() {
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-3">
-                    <label className="text-base font-semibold text-[#1F2226]">Ảnh thumbnail</label>
+                    <label className="text-base font-semibold text-[#1F2226]">Ảnh thumbnail <span className="text-red-500">*</span></label>
                     <input
                       type="file"
                       accept="image/*"
@@ -1152,22 +1222,29 @@ export default function HostCreateHotelPage() {
                 </div>
               </div>
 
-              {submitError && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-base text-red-700">{submitError}</div>}
-              {statusMessage && <div className="rounded-xl border border-[#CCE0FF] bg-[#E8EFFC] px-4 py-3 text-base text-[#0B2E68]">{statusMessage}</div>}
-
               <div className="flex items-center gap-3">
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#0057FF] px-5 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-[#0046CC] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#0057FF] px-6 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-[#0046CC] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {submitting ? 'Đang xử lý...' : 'Tạo khách sạn'}
+                  {submitting ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      {statusMessage || 'Đang xử lý...'}
+                    </>
+                  ) : (
+                    createdHotelId ? 'Tiếp tục gửi duyệt' : 'Tạo khách sạn'
+                  )}
                 </button>
               </div>
             </form>
           </div>
         </div>
       </main>
+
+      {/* Unified Notification & Confirmation Popup Modal */}
+      <NotificationModal {...modalState} onClose={closeModal} />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import HostMenu from "@/components/host/menu/HostMenu";
 import { hotelApi, Hotel as ApiHotel, RoomType, MediaAsset, HotelVerificationDocuments } from "@/lib/api/hotels";
+import NotificationModal, { useNotificationModal } from "@/components/NotificationModal";
 
 type AmenityFormCategory = {
   title: string;
@@ -36,6 +37,8 @@ const formatAddress = (address?: ApiHotel['address']) => {
 
 const formatStatus = (status?: string) => {
   switch (status) {
+    case "DRAFT":
+      return "Bản nháp";
     case "APPROVED":
       return "Đã duyệt";
     case "PENDING":
@@ -49,6 +52,8 @@ const formatStatus = (status?: string) => {
 
 const statusBadgeClass = (status?: string) => {
   switch (status) {
+    case "DRAFT":
+      return "bg-[#EBF3FF] text-[#0B4DB7]";
     case "APPROVED":
       return "bg-[#D1F2E9] text-[#0B6E4F]";
     case "PENDING":
@@ -167,6 +172,58 @@ export default function HostHotelDetailPage() {
   const [newOperationLicenseFile, setNewOperationLicenseFile] = useState<File | null>(null);
   const [newOwnerIdentityFrontFile, setNewOwnerIdentityFrontFile] = useState<File | null>(null);
   const [newOwnerIdentityBackFile, setNewOwnerIdentityBackFile] = useState<File | null>(null);
+  const { modalState, closeModal, showSuccess, showError, showWarning, showConfirm } = useNotificationModal();
+
+  const handleSubmitApprovalClick = () => {
+    if (!hotel) return;
+    showConfirm({
+      title: 'Gửi hồ sơ xét duyệt?',
+      message: 'Hồ sơ khách sạn sẽ được chuyển tới Ban quản trị để phê duyệt (trạng thái Chờ duyệt). Hãy chắc chắn bạn đã tải lên đầy đủ ảnh đại diện và giấy tờ pháp lý.',
+      confirmText: 'Gửi duyệt ngay',
+      cancelText: 'Kiểm tra lại',
+      onConfirm: async () => {
+        try {
+          await hotelApi.submitHotelApproval(hotel.id);
+          showSuccess(
+            'Gửi duyệt thành công!',
+            'Hồ sơ khách sạn đã được gửi tới Ban quản trị kiểm duyệt thành công. Ban quản trị sẽ thẩm định hồ sơ trong vòng 24-48 giờ.',
+            () => window.location.reload()
+          );
+        } catch (err: any) {
+          showError(
+            'Chưa thể gửi duyệt',
+            err?.message || 'Vui lòng kiểm tra lại giấy tờ pháp lý và ảnh đại diện của khách sạn.'
+          );
+        }
+      },
+    });
+  };
+
+  const handleDeleteDraftClick = () => {
+    if (!hotel) return;
+    showConfirm({
+      title: 'Xóa bản nháp khách sạn?',
+      message: `Bạn có chắc chắn muốn xóa bản nháp "${hotel.name}"? Mọi thông tin và giấy tờ liên quan sẽ bị xóa vĩnh viễn và không thể khôi phục.`,
+      confirmVariant: 'danger',
+      confirmText: 'Xóa bản nháp',
+      cancelText: 'Hủy',
+      onConfirm: async () => {
+        try {
+          await hotelApi.deleteDraftHotel(hotel.id);
+          showSuccess(
+            'Đã xóa bản nháp!',
+            `Bản nháp "${hotel.name}" đã được xóa thành công.`,
+            () => router.push('/host/hotels')
+          );
+        } catch (err: any) {
+          showError(
+            'Không thể xóa bản nháp',
+            err?.message || 'Có lỗi xảy ra khi xóa bản nháp.'
+          );
+        }
+      },
+    });
+  };
 
   const sectionList = useMemo(
     () => [
@@ -440,13 +497,13 @@ export default function HostHotelDetailPage() {
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      alert('Vui lòng chọn tập tin hình ảnh');
+      showWarning('Định dạng không hợp lệ', 'Vui lòng chọn tập tin hình ảnh (JPG, PNG, WebP).');
       return;
     }
 
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      alert('Kích thước file không được vượt quá 5MB');
+      showWarning('Tệp quá lớn', 'Kích thước file không được vượt quá 5MB.');
       return;
     }
 
@@ -945,11 +1002,47 @@ export default function HostHotelDetailPage() {
                 </div>
               </div>
 
+              {/* Draft Alert Banner */}
+              {hotel.approvedStatus === "DRAFT" && (
+                <div className="rounded-2xl bg-[#EBF3FF] border border-[#0057FF]/20 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+                  <div className="flex items-start gap-3.5">
+                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#0057FF]/10 flex items-center justify-center text-[#0057FF] mt-0.5">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-[#0057FF]">Khách sạn đang ở trạng thái Bản nháp (DRAFT)</h4>
+                      <p className="mt-1 text-xs text-[#4E6180] leading-relaxed">
+                        Khách sạn chưa được gửi để quản trị viên duyệt. Vui lòng đảm bảo bạn đã tải lên đầy đủ giấy tờ pháp lý và ảnh đại diện trước khi gửi duyệt.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 self-end sm:self-center flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleDeleteDraftClick}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 hover:border-red-300"
+                    >
+                      Xóa nháp
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSubmitApprovalClick}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#0057FF] px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#0046CC]"
+                    >
+                      Gửi duyệt ngay
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Rejection Alert Banner */}
               {hotel.approvedStatus === "REJECTED" && (
-                <div className="rounded-xl bg-[#FFE8E6] border border-[#9C1F23]/20 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-9 h-9 rounded-full bg-[#9C1F23]/10 flex items-center justify-center text-[#9C1F23] mt-0.5">
+                <div className="rounded-2xl bg-[#FFE8E6] border border-[#9C1F23]/20 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+                  <div className="flex items-start gap-3.5">
+                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#9C1F23]/10 flex items-center justify-center text-[#9C1F23] mt-0.5">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="12" cy="12" r="10" />
                         <line x1="12" y1="8" x2="12" y2="12" />
@@ -958,19 +1051,28 @@ export default function HostHotelDetailPage() {
                     </div>
                     <div>
                       <h4 className="text-sm font-semibold text-[#9C1F23]">Hồ sơ khách sạn đã bị từ chối</h4>
-                      <p className="mt-0.5 text-xs text-[#9C1F23]/90 leading-relaxed">
+                      <p className="mt-1 text-xs text-[#9C1F23]/90 leading-relaxed">
                         <span className="font-semibold">Lý do: </span>
                         {verificationDocs?.rejectionReason || "Vui lòng kiểm tra lại tính chính xác và tải lại ảnh/scan rõ nét."}
                       </p>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowDocModal(true)}
-                    className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-[#9C1F23] bg-white px-3 py-1.5 text-xs font-semibold text-[#9C1F23] transition hover:bg-[#9C1F23] hover:text-white"
-                  >
-                    Tải lại giấy tờ
-                  </button>
+                  <div className="flex items-center gap-2 self-end sm:self-center flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setShowDocModal(true)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#9C1F23] bg-white px-3 py-2 text-xs font-semibold text-[#9C1F23] transition hover:bg-[#9C1F23] hover:text-white"
+                    >
+                      Tải lại giấy tờ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSubmitApprovalClick}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#0057FF] px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#0046CC]"
+                    >
+                      Gửi duyệt lại
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -2649,6 +2751,9 @@ export default function HostHotelDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Unified Notification & Confirmation Popup Modal */}
+      <NotificationModal {...modalState} onClose={closeModal} />
     </div>
   );
 }
