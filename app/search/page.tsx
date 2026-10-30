@@ -10,6 +10,7 @@ import { HotelSearchBar } from "@/components/HotelSearchBar";
 import { hotelApi, Hotel as ApiHotel } from "@/lib/api/hotels";
 import { reviewApi } from "@/lib/api/reviews";
 import { availabilityApi } from "@/lib/api/availability";
+import { getConfiguredRoomCount } from "@/lib/search/inventory";
 import { CustomerOnlyRoute } from "@/components/CustomerOnlyRoute";
 
 interface Hotel {
@@ -100,10 +101,6 @@ export default function SearchPage() {
         return roomType.capacity?.children ?? 0;
       };
 
-      const getConfiguredRoomCount = (roomType: NonNullable<ApiHotel["roomTypes"]>[number]) => {
-        return roomType.totalRooms ?? roomType.roomAmount ?? roomType.availableRooms ?? 10;
-      };
-
       const evaluateHotelAvailability = async (hotel: ApiHotel): Promise<{ eligible: boolean; availableRooms?: number }> => {
         const activeRoomTypes = (hotel.roomTypes || []).filter((roomType) => {
           const adultCapacity = getRoomAdults(roomType);
@@ -135,7 +132,7 @@ export default function SearchPage() {
             }
           }
 
-          if (availableRooms <= 0) {
+          if (availableRooms === null || availableRooms <= 0) {
             continue;
           }
 

@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:inventory": "node --experimental-strip-types --test tests/search-inventory.test.mjs",
+    "test:payments": "node --experimental-strip-types --test tests/payment-state.test.mjs"
   },
   "dependencies": {
     "@types/leaflet": "^1.9.22",
