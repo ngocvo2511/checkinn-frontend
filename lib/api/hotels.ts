@@ -97,6 +97,7 @@ export interface MediaAsset {
   type: string;
   isThumbnail?: boolean;
   sortOrder?: number;
+  displayOrder?: number;
 }
 
 export interface CapacityDto {

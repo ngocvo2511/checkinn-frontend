@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { Ban, BedDouble } from "lucide-react";
+import { Ban, BedDouble, MapPin, Phone, Mail, Star, Globe, Clock, ShieldCheck, HelpCircle, Info, ExternalLink } from "lucide-react";
 import HotelDetailHeader from "@/components/HotelDetailHeader";
+import NearbyPlacesSection from "@/components/NearbyPlacesSection";
+import HotelLocationMap from "@/components/map/HotelLocationMap";
 import Footer from "@/components/Footer";
 import { hotelApi, Hotel as ApiHotel, RoomType, MediaAsset } from "@/lib/api/hotels";
 import { reviewApi } from "@/lib/api/reviews";
@@ -115,8 +117,10 @@ export default function HotelDetailPage() {
       { id: "photos", label: "Hình ảnh" },
       { id: "overview", label: "Tổng quan" },
       { id: "rooms", label: "Phòng" },
+      { id: "location", label: "Vị trí & Bản đồ" },
       { id: "amenities", label: "Tiện ích" },
       { id: "policies", label: "Chính sách" },
+      { id: "nearby-places", label: "Địa điểm lân cận" },
       { id: "reviews", label: "Đánh giá" },
     ],
     []
@@ -329,6 +333,45 @@ export default function HotelDetailPage() {
     // Fallback with category structure
     return fallbackPolicies.map(p => ({ category: 'Chính sách chung', content: p }));
   }, [hotel]);
+
+  const formattedAddress = useMemo(() => {
+    if (!hotel?.address) return hotel?.city?.name || "";
+    const parts = [
+      hotel.address.street,
+      hotel.address.city || hotel.city?.name,
+      hotel.address.country || "Việt Nam"
+    ].filter(Boolean);
+    return parts.join(", ");
+  }, [hotel]);
+
+  const hotelLat = hotel?.address?.latitude ?? hotel?.city?.latitude;
+  const hotelLng = hotel?.address?.longitude ?? hotel?.city?.longitude;
+
+  const faqList = useMemo(() => {
+    if (hotel?.faqs && hotel.faqs.length > 0) {
+      return hotel.faqs;
+    }
+    return [
+      {
+        question: "Giá phòng đã bao gồm bữa sáng chưa?",
+        answer: "Tùy thuộc vào từng hạng phòng bạn chọn. Vui lòng kiểm tra thông tin bữa sáng chi tiết của từng hạng phòng."
+      },
+      {
+        question: "Khách sạn có chỗ đậu xe không?",
+        answer: "Khách sạn có hỗ trợ bố trí chỗ đậu xe hoặc bãi đỗ xe liên kết an ninh. Quý khách vui lòng liên hệ hotline để được hướng dẫn."
+      },
+      {
+        question: "Giờ nhận và trả phòng tại khách sạn?",
+        answer: "Thời gian nhận phòng tiêu chuẩn từ 14:00 và trả phòng trước 12:00 trưa hôm sau."
+      },
+      {
+        question: "Tôi có thể liên hệ trực tiếp với khách sạn qua kênh nào?",
+        answer: hotel?.contactPhone 
+          ? `Quý khách có thể liên hệ hotline: ${hotel.contactPhone}${hotel.contactEmail ? ` hoặc email: ${hotel.contactEmail}` : ""}.`
+          : "Quý khách có thể liên hệ đội ngũ hỗ trợ Checkinn 24/7 để được kết nối trực tiếp với khách sạn."
+      }
+    ];
+  }, [hotel?.faqs, hotel?.contactPhone, hotel?.contactEmail]);
 
   // Policy category icons - paste your icon URLs here
   const policyCategoryIcons: Record<string, string> = {
@@ -683,10 +726,19 @@ export default function HotelDetailPage() {
         )}
 
         {/* Hotel Info Bar */}
-        <section className="mx-auto max-w-screen-xl px-4 md:px-8 lg:px-12 py-6 flex items-center justify-between bg-white border-b border-[#E5E7EB]">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-2xl font-bold text-[#0F172A]">{hotel?.name}</h1>
-            <div className="flex items-center gap-2">
+        <section className="mx-auto max-w-screen-xl px-4 md:px-8 lg:px-12 py-6 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white border-b border-[#E5E7EB]">
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl md:text-3xl font-bold text-[#0F172A]">{hotel?.name}</h1>
+              {hotel?.starRating && hotel.starRating > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
+                  <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                  Khách sạn {hotel.starRating} sao
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-[#4B5563]">
               <div className="flex items-center gap-1">
                 {[...Array(5)].map((_, i) => (
                   <img
@@ -697,11 +749,53 @@ export default function HotelDetailPage() {
                   />
                 ))}
               </div>
+
+              {formattedAddress && (
+                <div 
+                  onClick={() => handleScrollTo("location")}
+                  className="flex items-center gap-1.5 text-[#4B5563] hover:text-[#0057FF] transition cursor-pointer"
+                  title="Nhấn để xem trên bản đồ"
+                >
+                  <MapPin className="w-4 h-4 text-[#0057FF] shrink-0" />
+                  <span className="line-clamp-1">{formattedAddress}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Badges for City, Phone, Email */}
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              {hotel?.city?.name && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
+                  <Globe className="w-3 h-3 text-gray-500" />
+                  {hotel.city.name}
+                </span>
+              )}
+              {hotel?.contactPhone && (
+                <a
+                  href={`tel:${hotel.contactPhone}`}
+                  className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-100 px-2.5 py-1 text-xs font-semibold text-[#0057FF] hover:bg-blue-100 transition"
+                  title="Hotline liên hệ"
+                >
+                  <Phone className="w-3 h-3 text-[#0057FF]" />
+                  <span>{hotel.contactPhone}</span>
+                </a>
+              )}
+              {hotel?.contactEmail && (
+                <a
+                  href={`mailto:${hotel.contactEmail}`}
+                  className="inline-flex items-center gap-1 rounded-full bg-gray-50 border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 transition"
+                  title="Email khách sạn"
+                >
+                  <Mail className="w-3 h-3 text-gray-500" />
+                  <span>{hotel.contactEmail}</span>
+                </a>
+              )}
             </div>
           </div>
+
           <button
             onClick={() => handleScrollTo("rooms")}
-            className="flex items-center gap-2 px-6 py-3 bg-[#0057FF] text-white font-semibold rounded-lg hover:bg-[#0046CC] transition shadow-md"
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-[#0057FF] text-white font-semibold rounded-lg hover:bg-[#0046CC] transition shadow-md shrink-0"
           >
             <span>Chọn phòng</span>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -730,8 +824,21 @@ export default function HotelDetailPage() {
                 </div>
               </div>
 
+              {/* Giới thiệu khách sạn */}
+              {hotel?.description && (
+                <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-4 text-sm text-[#4B5563]">
+                  <p className="font-semibold text-[#111827] mb-1.5 flex items-center gap-1.5">
+                    <Info className="w-4 h-4 text-[#0057FF]" />
+                    Giới thiệu khách sạn
+                  </p>
+                  <p className="leading-relaxed whitespace-pre-line text-[#374151]">
+                    {hotel.description}
+                  </p>
+                </div>
+              )}
+
               {/* Hiển thị một vài đánh giá nổi bật */}
-              {reviews.length > 0 ? (
+              {reviews.length > 0 && (
                 <div className="space-y-3">
                   <p className="font-semibold text-[#111827] text-sm">Khách nói gì</p>
                   <div className="space-y-3">
@@ -765,13 +872,6 @@ export default function HotelDetailPage() {
                       </div>
                     ))}
                   </div>
-                </div>
-              ) : (
-                <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-4 text-sm text-[#4B5563]">
-                  <p className="font-semibold text-[#111827] mb-1">Giới thiệu</p>
-                  <p>
-                    {hotel.description || "Phòng sạch, tiện nghi đầy đủ và dịch vụ thân thiện."}
-                  </p>
                 </div>
               )}
 
@@ -937,7 +1037,7 @@ export default function HotelDetailPage() {
                               setSelectedRoomType(room.id);
                               handleBookRoom(room);
                             }}
-                            disabled={Number(rooms) > 1 && selectedRoomType && selectedRoomType !== room.id}
+                            disabled={Boolean(Number(rooms) > 1 && selectedRoomType && selectedRoomType !== room.id)}
                             className={`rounded-lg px-4 py-2 text-white text-sm font-semibold shadow transition ${
                               Number(rooms) > 1 && selectedRoomType && selectedRoomType !== room.id
                                 ? "bg-[#9CA3AF] cursor-not-allowed"
@@ -954,6 +1054,51 @@ export default function HotelDetailPage() {
               })}
             </div>
           )}
+        </section>
+
+        {/* Location & Map Section */}
+        <section id="location" className="mx-auto max-w-screen-xl px-4 md:px-8 lg:px-12 pt-10">
+          <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div>
+                <h2 className="text-xl font-bold text-[#0F172A] flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-[#0057FF]" />
+                  Vị trí & Bản đồ
+                </h2>
+                <p className="text-sm text-[#4B5563] mt-1">{formattedAddress}</p>
+              </div>
+              {hotelLat && hotelLng && (
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${hotelLat},${hotelLng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0057FF] hover:underline bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-200 transition shrink-0"
+                >
+                  <span>Mở Google Maps</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              )}
+            </div>
+
+            {hotelLat && hotelLng ? (
+              <div className="rounded-xl overflow-hidden border border-[#E5E7EB]">
+                <HotelLocationMap
+                  latitude={hotelLat}
+                  longitude={hotelLng}
+                  hotelName={hotel?.name}
+                  street={hotel?.address?.street}
+                  city={hotel?.address?.city || hotel?.city?.name}
+                  country={hotel?.address?.country}
+                  height="340px"
+                />
+              </div>
+            ) : (
+              <div className="flex h-36 w-full flex-col items-center justify-center rounded-xl bg-gray-50 text-gray-400">
+                <MapPin className="w-8 h-8 mb-1 opacity-40 text-gray-400" />
+                <p className="text-sm">Tọa độ bản đồ đang được cập nhật</p>
+              </div>
+            )}
+          </div>
         </section>
 
         {/* Amenities */}
@@ -995,10 +1140,10 @@ export default function HotelDetailPage() {
               </div>
             ) : (
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                {(hotel?.amenities || []).map((a) => (
-                  <div key={a} className="flex items-center gap-2 text-sm text-[#374151]">
+                {(hotel?.amenities || []).map((a: any, idx: number) => (
+                  <div key={a?.id || a?.title || idx} className="flex items-center gap-2 text-sm text-[#374151]">
                     <span className="h-2 w-2 rounded-full bg-[#2563EB]"></span>
-                    {a}
+                    {typeof a === "object" ? a.title : a}
                   </div>
                 ))}
               </div>
@@ -1051,29 +1196,59 @@ export default function HotelDetailPage() {
                   </button>
                 </div>
 
-                {/* General information table - placeholder */}
+                {/* General information table - dynamic */}
                 <div>
                   <h3 className="text-lg font-semibold text-[#0F172A] mb-4">Thông tin chung</h3>
                   <div className="space-y-3 text-sm">
                     <div className="flex justify-between py-2 border-b border-[#F3F4F6]">
-                      <span className="text-[#6B7280]">Tiện ích chung</span>
-                      <span className="text-[#0F172A] text-right">Máy lạnh, Nhà hàng, Hồ bơi, Lễ tân 24h, Chỗ đậu xe, Thang máy, WiFi</span>
+                      <span className="text-[#6B7280]">Địa chỉ</span>
+                      <span className="text-[#0F172A] text-right font-medium max-w-md">{formattedAddress || "Đang cập nhật"}</span>
                     </div>
+                    {hotel?.city?.name && (
+                      <div className="flex justify-between py-2 border-b border-[#F3F4F6]">
+                        <span className="text-[#6B7280]">Khu vực / Tỉnh thành</span>
+                        <span className="text-[#0F172A] font-medium">{hotel.city.name}</span>
+                      </div>
+                    )}
+                    {hotel?.contactPhone && (
+                      <div className="flex justify-between py-2 border-b border-[#F3F4F6]">
+                        <span className="text-[#6B7280]">Hotline lễ tân</span>
+                        <a href={`tel:${hotel.contactPhone}`} className="text-[#0057FF] font-medium hover:underline">
+                          {hotel.contactPhone}
+                        </a>
+                      </div>
+                    )}
+                    {hotel?.contactEmail && (
+                      <div className="flex justify-between py-2 border-b border-[#F3F4F6]">
+                        <span className="text-[#6B7280]">Email liên hệ</span>
+                        <a href={`mailto:${hotel.contactEmail}`} className="text-[#0057FF] font-medium hover:underline">
+                          {hotel.contactEmail}
+                        </a>
+                      </div>
+                    )}
                     <div className="flex justify-between py-2 border-b border-[#F3F4F6]">
                       <span className="text-[#6B7280]">Thời gian nhận/trả phòng</span>
-                      <span className="text-[#0F172A]">Từ 14:00 - đến 12:00</span>
+                      <span className="text-[#0F172A] font-medium">Nhận phòng từ 14:00 · Trả phòng trước 12:00</span>
                     </div>
                     <div className="flex justify-between py-2 border-b border-[#F3F4F6]">
-                      <span className="text-[#6B7280]">Khoảng cách đến trung tâm thành phố</span>
-                      <span className="text-[#0F172A]">2.12 km</span>
+                      <span className="text-[#6B7280]">Hạng sao</span>
+                      <span className="text-[#0F172A] font-medium">
+                        {hotel?.starRating ? `${hotel.starRating} sao tiêu chuẩn` : "Chưa xếp hạng"}
+                      </span>
                     </div>
                     <div className="flex justify-between py-2 border-b border-[#F3F4F6]">
-                      <span className="text-[#6B7280]">Điểm đến phổ biến</span>
-                      <span className="text-[#0F172A] text-right">Biển Mỹ Khê, Sơ 294 Trưng Nữ Vương, Bệnh viện Hoàn Mỹ Đà Nẵng</span>
+                      <span className="text-[#6B7280]">Tiện ích nổi bật</span>
+                      <span className="text-[#0F172A] text-right font-medium max-w-md">
+                        {amenityList.slice(0, 6).join(", ")}
+                      </span>
                     </div>
                     <div className="flex justify-between py-2">
-                      <span className="text-[#6B7280]">Có ăn sáng</span>
-                      <span className="text-[#0F172A]">Có, khách sạn có phòng cung cấp bữa sáng</span>
+                      <span className="text-[#6B7280]">Bữa sáng</span>
+                      <span className="text-[#0F172A] font-medium">
+                        {hotel?.roomTypes?.some((rt: any) => rt.capacity?.breakfastIncluded)
+                          ? "Có, một số hạng phòng có bao gồm bữa sáng"
+                          : "Tùy theo điều kiện của từng hạng phòng"}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1085,20 +1260,17 @@ export default function HotelDetailPage() {
         {/* FAQs */}
         <section id="faqs" className="mx-auto max-w-screen-xl px-4 md:px-8 lg:px-12 pt-10 pb-10">
           <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-[#0F172A] mb-3">Câu hỏi thường gặp</h3>
-            <div className="space-y-3 text-sm text-[#4B5563]">
-              <div>
-                <p className="font-semibold text-[#111827]">Giá phòng đã bao gồm bữa sáng chưa?</p>
-                <p>Phụ thuộc từng hạng phòng, vui lòng xem trong phần mô tả chi tiết.</p>
-              </div>
-              <div>
-                <p className="font-semibold text-[#111827]">Khách sạn có chỗ đậu xe không?</p>
-                <p>Có, vui lòng liên hệ lễ tân để được hỗ trợ.</p>
-              </div>
-              <div>
-                <p className="font-semibold text-[#111827]">Giờ nhận và trả phòng?</p>
-                <p>Nhận phòng từ 14:00, trả phòng trước 12:00.</p>
-              </div>
+            <h3 className="text-xl font-bold text-[#0F172A] mb-4 flex items-center gap-2">
+              <HelpCircle className="w-5 h-5 text-[#0057FF]" />
+              Câu hỏi thường gặp
+            </h3>
+            <div className="space-y-4 divide-y divide-[#F3F4F6]">
+              {faqList.map((faq: any, idx: number) => (
+                <div key={idx} className="pt-3 first:pt-0">
+                  <p className="font-semibold text-base text-[#111827] mb-1">{faq.question}</p>
+                  <p className="text-sm text-[#4B5563] leading-relaxed">{faq.answer}</p>
+                </div>
+              ))}
             </div>
           </div>
         </section>
@@ -1227,7 +1399,7 @@ export default function HotelDetailPage() {
                 <div>
                   <h4 className="text-base font-semibold text-[#0F172A] mb-3">Tiện nghi</h4>
                   <div className="flex flex-wrap gap-2 text-xs text-[#374151]">
-                    {(roomModal.room.amenities && roomModal.room.amenities.length > 0 ? roomModal.room.amenities : amenityList).map((a, idx) => (
+                    {(roomModal.room.amenities && roomModal.room.amenities.length > 0 ? roomModal.room.amenities : amenityList).map((a: any, idx: number) => (
                       <span key={typeof a === 'object' ? (a.id || a.title || idx) : (a || idx)} className="inline-flex items-center gap-1 rounded-full bg-[#F3F4F6] px-3 py-1">
                         {typeof a === 'object' ? a.title : a}
                       </span>
@@ -1238,6 +1410,18 @@ export default function HotelDetailPage() {
             </div>
           </div>
           </div>
+        )}
+
+        {/* Nearby Places Section */}
+        {hotelId && (
+          <NearbyPlacesSection
+            hotelId={hotelId}
+            hotelName={hotel?.name}
+            latitude={hotel?.address?.latitude}
+            longitude={hotel?.address?.longitude}
+            cityId={hotel?.city?.id}
+            cityName={hotel?.city?.name}
+          />
         )}
 
         {/* Reviews */}
@@ -1648,7 +1832,6 @@ function SignupModal({ onClose, onSwitchToLogin }: { onClose: () => void; onSwit
       setAuthResponse(response);
       setRegisteredEmail(email);
       setStep('verify');
-      setOtpCode("");
       setOtpDigits(["", "", "", "", "", ""]);
       setOtpError("");
     } catch (err: any) {
