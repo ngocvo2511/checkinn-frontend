@@ -1,0 +1,10 @@
+.git
+.next
+node_modules
+.env*
+*.log
+*.tsbuildinfo
+coverage
+.idea
+.vscode
+Dockerfile

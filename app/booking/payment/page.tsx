@@ -1,4 +1,5 @@
 "use client";
+import { canStartPayment } from "@/lib/booking/payment-state";
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -59,8 +60,7 @@ export default function PaymentPage() {
   const [timeRemaining, setTimeRemaining] = useState(15 * 60); // default 15 minutes
   const expiresAtRef = useRef<number | null>(null);
   const HOLD_TTL_SECONDS = 15 * 60;
-  const payableStatuses = useMemo(() => new Set(["PENDING", "PENDING_PAYMENT"]), []);
-  const isPayableStatus = booking ? payableStatuses.has(booking.status) : true;
+  const isPayableStatus = canStartPayment(booking);
 
   const taxAndFees = 0;
   const derivedItem = booking?.items?.[0];
@@ -135,7 +135,9 @@ export default function PaymentPage() {
   useEffect(() => {
     if (!booking) return;
     if (!isPayableStatus) {
-      const statusMsg = ["CONFIRMED", "CHECKED_IN", "CHECKED_OUT"].includes(booking.status)
+      const statusMsg = Number(booking.paidAmount) > 0 && ["PENDING", "PENDING_PAYMENT"].includes(booking.status)
+        ? "Đã ghi nhận thanh toán, đặt phòng đang chờ đối soát. Vui lòng không thanh toán lại."
+        : ["CONFIRMED", "CHECKED_IN", "CHECKED_OUT"].includes(booking.status)
         ? "Đơn đã được xác nhận/thanh toán, trang thanh toán này không còn hiệu lực."
         : ["CANCELLED", "NO_SHOW"].includes(booking.status)
         ? "Đơn đã bị hủy hoặc hết hiệu lực. Vui lòng đặt lại."

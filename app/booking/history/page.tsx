@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import UserSidebar from "@/components/UserSidebar";
 import { bookingApi, type BookingResponse } from "@/lib/api/booking";
+import { canStartPayment } from "@/lib/booking/payment-state";
 import { type AuthResponse } from "@/lib/api/auth";
 import { reviewApi } from "@/lib/api/reviews";
 import hotelApi from "@/lib/api/hotels";
@@ -262,7 +263,7 @@ export default function BookingHistoryPage() {
                             <div className="text-sm text-[#6B7280]">Đã thanh toán: {formatCurrency(Number(booking.paidAmount))}</div>
                           </div>
                           <div className="flex gap-2 flex-wrap lg:flex-nowrap mt-9">
-                            {booking.status === "PENDING" || booking.status === "PENDING_PAYMENT" ? (
+                            {canStartPayment(booking) ? (
                               <button
                                 onClick={() => router.push(`/booking/payment?bookingId=${booking.id}`)}
                                 className="rounded-lg bg-[#2563EB] px-3 py-2 text-sm font-semibold text-white hover:bg-[#1D4ED8] flex-1 lg:flex-none lg:w-28 whitespace-nowrap"

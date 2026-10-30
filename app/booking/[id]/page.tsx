@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { bookingApi, type BookingResponse } from "@/lib/api/booking";
+import { canStartPayment } from "@/lib/booking/payment-state";
 
 const statusColor: Record<string, string> = {
   PENDING: "bg-amber-100 text-amber-800",
@@ -132,7 +133,10 @@ export default function BookingDetailsPage() {
                     <span>Mã giảm giá: {booking.voucherCode}</span>
                   )}
                 </div>
-                {(booking.status === "PENDING" || booking.status === "PENDING_PAYMENT") && (
+                {Number(booking.paidAmount) > 0 && ["PENDING", "PENDING_PAYMENT"].includes(booking.status) && (
+                  <p className="mt-3 text-sm text-amber-700">Đã ghi nhận thanh toán. Đặt phòng đang chờ đối soát; vui lòng không thanh toán lại.</p>
+                )}
+                {canStartPayment(booking) && (
                   <button
                     onClick={() => router.push(`/booking/payment?bookingId=${booking.id}`)}
                     className="mt-3 rounded-lg bg-[#2563EB] px-4 py-2 text-white text-sm font-semibold hover:bg-[#1D4ED8]"
