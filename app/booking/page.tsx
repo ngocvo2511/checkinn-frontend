@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Ban, CheckCircle2, Info, MinusCircle } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { bookingApi, loyaltyApi, type CreateBookingPayload } from "@/lib/api/booking";
+import { bookingApi, loyaltyApi, type CreateBookingPayload, type CancellationPolicyDetails } from "@/lib/api/booking";
 import { type AuthResponse } from "@/lib/api/auth";
 import { useAuth } from "@/hooks/useAuth";
 import { CustomerOnlyRoute } from "@/components/CustomerOnlyRoute";
@@ -50,6 +50,17 @@ export default function BookingPage() {
   } | null>(null);
   const [loadingPoints, setLoadingPoints] = useState(false);
   const [pointsToUse, setPointsToUse] = useState(0);
+  const [cancellationPolicy, setCancellationPolicy] = useState<CancellationPolicyDetails | null>(null);
+  const [policyAccepted, setPolicyAccepted] = useState(false);
+  const [policyError, setPolicyError] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    bookingApi.getCancellationPolicy().then((policy) => {
+      if (active) setCancellationPolicy(policy);
+    }).catch(() => { if (active) setPolicyError(true); });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     // Wait for auth to finish loading
@@ -185,6 +196,10 @@ export default function BookingPage() {
   };
 
   const handleProceed = async () => {
+    if (!cancellationPolicy || !policyAccepted) {
+      setSubmitError("Vui lòng đọc và đồng ý chính sách hủy/hoàn tiền trước khi đặt phòng.");
+      return;
+    }
     const isValid = runValidation();
     if (!isValid) return;
 
@@ -205,6 +220,7 @@ export default function BookingPage() {
         contactPhone: guestPhone,
         specialRequests,
         pointsToUse: pointsToUse > 0 ? pointsToUse : undefined,
+        acceptedCancellationPolicyVersion: cancellationPolicy.version,
         items: [
           {
             roomTypeId: roomId,
@@ -622,7 +638,6 @@ Khi nhận phòng, bạn phải mang theo Chứng minh thư. Các tài liệu c�
                 <div className="flex items-center justify-between border-t border-[#E5E7EB] pt-4 mt-4">
                   <span className="text-base font-semibold text-[#0F172A]">Tổng cộng</span>
                   <div className="text-right">
-                    <p className="text-xs text-[#9CA3AF] line-through">{formatPrice(Math.round(totalPrice * 1.15))}</p>
                     <p className="text-xl font-bold text-[#DC2626]">
                       {formatPrice(Math.max(0, totalPrice - (pointsToUse * 1000)))}
                     </p>
@@ -631,9 +646,25 @@ Khi nhận phòng, bạn phải mang theo Chứng minh thư. Các tài liệu c�
 
                 <p className="text-xs text-[#6B7280] mt-2">{quantity} phòng, {nights} đêm</p>
 
+                <div className="mt-4 rounded-lg border border-[#E5E7EB] p-3 text-sm text-[#374151]">
+                  {cancellationPolicy ? (
+                    <>
+                      <p>Nếu đã trả qua VNPay, miễn phí hủy trước giờ nhận phòng ít nhất {cancellationPolicy.freeCancellationHours} giờ.
+                        Giờ nhận phòng: {cancellationPolicy.checkInTime} ({cancellationPolicy.timeZone}).</p>
+                      <p className="mt-2">Nếu đã thanh toán, khoản hoàn tiền cần quản trị viên duyệt và được xác nhận riêng.
+                        Trong hạn {cancellationPolicy.freeCancellationHours} giờ hoặc đã nhận phòng, vui lòng liên hệ hỗ trợ.
+                        Chưa thanh toán có thể hủy trước giờ nhận phòng và không có khoản tiền cần hoàn.</p>
+                      <label className="mt-3 flex items-start gap-2">
+                        <input type="checkbox" checked={policyAccepted} onChange={(event) => setPolicyAccepted(event.target.checked)} />
+                        <span>Tôi đã đọc và đồng ý chính sách hủy/hoàn tiền.</span>
+                      </label>
+                    </>
+                  ) : <p>{policyError ? "Không tải được chính sách hủy. Vui lòng tải lại trang để tiếp tục." : "Đang tải chính sách hủy…"}</p>}
+                </div>
+
                 <button
                   onClick={handleProceed}
-                  disabled={submitting}
+                  disabled={submitting || !cancellationPolicy || !policyAccepted}
                   className={`w-full mt-6 rounded-lg px-4 py-3 text-white font-semibold shadow transition ${
                     submitting ? "bg-[#93C5FD]" : "bg-[#2563EB] hover:bg-[#1D4ED8]"
                   }`}

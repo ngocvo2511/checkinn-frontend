@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { bookingApi, type PaymentResponse } from "@/lib/api/booking";
+import { paymentOutcome } from "@/lib/booking/payment-state";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
@@ -16,42 +17,30 @@ export default function VnPayReturnPage() {
   useEffect(() => {
     const qs = searchParams.toString();
     if (!qs) return;
+    let active = true;
 
     bookingApi
       .processVnPayReturn(qs)
-      .then((resp) => {
+      .then(async (resp) => {
+        const booking = resp.status === "COMPLETED" ? await bookingApi.getBooking(resp.bookingId).catch(() => null) : null;
+        if (!active) return;
         setPayment(resp);
-        // Check VNPay response code: 00 = success, others = failed/cancelled
-        if (resp.vnpayResponseCode === "00" || resp.status === "COMPLETED") {
-          setStatus("success");
-          setMessage("Thanh toán VNPay thành công. Đơn đặt phòng đã được xác nhận.");
-        } else {
-          setStatus("failed");
-          const code = resp.vnpayResponseCode;
-          if (code === "24") {
-            setMessage("Giao dịch bị hủy bởi người dùng.");
-          } else if (code === "11") {
-            setMessage("Đã hết hạn thanh toán. Vui lòng thử lại.");
-          } else {
-            setMessage(`Thanh toán thất bại (Mã lỗi: ${code}). Vui lòng thử lại.`);
-          }
-        }
+        const outcome = paymentOutcome(resp.status, booking?.status);
+        setStatus(outcome.status);
+        setMessage(outcome.message);
       })
-      .catch((err: any) => {
-        setStatus("failed");
-        setMessage(err?.message || "Thanh toán VNPay thất bại hoặc bị từ chối.");
+      .catch(() => {
+        if (!active) return;
+        setStatus("pending");
+        setMessage("Chưa xác minh được kết quả thanh toán. Vui lòng kiểm tra lịch sử đặt phòng hoặc liên hệ hỗ trợ trước khi thanh toán lại.");
       });
+    return () => { active = false; };
   }, [searchParams]);
 
-  const queryOrderId = searchParams.get("vnp_TxnRef") || "--";
-  const queryAmount = searchParams.get("vnp_Amount");
-  const queryResponseCode = searchParams.get("vnp_ResponseCode") || "--";
-  const queryTransactionNo = searchParams.get("vnp_TransactionNo") || "--";
-
-  const amount = payment?.amount ?? (queryAmount ? Number(queryAmount) / 100 : undefined);
-  const paymentId = payment?.id || queryOrderId;
+  const amount = payment?.amount;
+  const paymentId = payment?.id || "--";
   const bookingId = payment?.bookingId || "";
-  const responseCode = payment?.vnpayResponseCode || queryResponseCode;
+  const responseCode = payment?.vnpayResponseCode || "--";
   const paidAt = payment?.paidAt;
   const statusBadge = status === "success" ? "bg-blue-100 text-blue-700" : status === "failed" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600";
 
@@ -92,7 +81,7 @@ export default function VnPayReturnPage() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[#6B7280]">Mã giao dịch</span>
-                <span className="font-semibold text-[#0F172A]">{queryTransactionNo}</span>
+                <span className="font-semibold text-[#0F172A]">{payment?.vnpayTransactionNo || "--"}</span>
               </div>
               {paidAt && (
                 <div className="flex items-center justify-between">
@@ -121,7 +110,7 @@ export default function VnPayReturnPage() {
               >
                 Về trang chủ
               </button>
-              {bookingId && status === "success" && (
+              {bookingId && status !== "failed" && (
                 <button
                   onClick={() => router.push(`/booking/${bookingId}`)}
                   className="rounded-lg border border-[#2563EB] px-4 py-2 text-sm font-semibold text-[#1D4ED8] bg-[#EEF2FF] hover:bg-[#E0E7FF]"

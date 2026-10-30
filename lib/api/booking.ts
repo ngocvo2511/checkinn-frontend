@@ -32,6 +32,14 @@ export interface CreateBookingPayload {
   voucherCode?: string;
   pointsToUse?: number;
   items: BookingItemPayload[];
+  acceptedCancellationPolicyVersion?: string;
+}
+
+export interface CancellationPolicyDetails {
+  version: string;
+  checkInTime: string;
+  timeZone: string;
+  freeCancellationHours: number;
 }
 
 export interface BookingResponse {
@@ -54,6 +62,9 @@ export interface BookingResponse {
   specialRequests?: string;
   holdId?: string;
   holdExpiresAt?: string;
+  cancellationPolicyVersion?: string;
+  checkInAt?: string;
+  freeCancellationUntil?: string;
   items: Array<{
     id: string;
     roomTypeId: string;
@@ -87,6 +98,7 @@ export interface PaymentResponse {
   transactionId?: string;
   vnpayOrderId?: string;
   vnpayResponseCode?: string;
+  vnpayTransactionNo?: string;
   paidAt?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -114,6 +126,9 @@ function authHeaders(): HeadersInit {
 }
 
 export const bookingApi = {
+  async getCancellationPolicy(): Promise<CancellationPolicyDetails> {
+    return handleJsonResponse<CancellationPolicyDetails>(await fetch(`${BOOKING_API_BASE}/api/bookings/cancellation-policy`));
+  },
   async createBooking(payload: CreateBookingPayload): Promise<BookingResponse> {
     const res = await fetch(`${BOOKING_API_BASE}/api/bookings`, {
       method: 'POST',
