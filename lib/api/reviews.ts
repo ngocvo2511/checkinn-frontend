@@ -170,16 +170,8 @@ export const reviewApi = {
       'Content-Type': 'application/json',
     };
 
-    // Add userId if token is provided
     if (token) {
-      try {
-        const payloadBase64 = token.split('.')[1];
-        const decodedPayload = JSON.parse(atob(payloadBase64));
-        const userId = decodedPayload.userId || decodedPayload.sub;
-        headers['X-User-Id'] = userId;
-      } catch (e) {
-        // Ignore token decode errors
-      }
+      headers.Authorization = `Bearer ${token}`;
     }
 
     const response = await fetch(
@@ -347,16 +339,8 @@ export const reviewApi = {
       'Content-Type': 'application/json',
     };
 
-    // Add userId if token is provided
     if (token) {
-      try {
-        const payloadBase64 = token.split('.')[1];
-        const decodedPayload = JSON.parse(atob(payloadBase64));
-        const userId = decodedPayload.userId || decodedPayload.sub;
-        headers['X-User-Id'] = userId;
-      } catch (e) {
-        // Ignore token decode errors
-      }
+      headers.Authorization = `Bearer ${token}`;
     }
 
     const response = await fetch(
@@ -378,16 +362,8 @@ export const reviewApi = {
       'Content-Type': 'application/json',
     };
 
-    // Add userId if token is provided
     if (token) {
-      try {
-        const payloadBase64 = token.split('.')[1];
-        const decodedPayload = JSON.parse(atob(payloadBase64));
-        const userId = decodedPayload.userId || decodedPayload.sub;
-        headers['X-User-Id'] = userId;
-      } catch (e) {
-        // Ignore token decode errors
-      }
+      headers.Authorization = `Bearer ${token}`;
     }
 
     const response = await fetch(

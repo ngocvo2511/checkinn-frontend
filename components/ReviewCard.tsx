@@ -7,6 +7,7 @@ import { vi } from 'date-fns/locale';
 
 interface ReviewCardProps {
   review: Review;
+  token?: string;
   ownerResponse?: ReviewResponse | null;
   onHelpful?: () => void;
   onUnhelpful?: () => void;
@@ -47,6 +48,7 @@ const getRatingLabel = (value: number) => {
 
 export default function ReviewCard({
   review,
+  token,
   ownerResponse,
   onHelpful,
   onUnhelpful,
@@ -63,31 +65,44 @@ export default function ReviewCard({
   const [response, setResponse] = useState<ReviewResponse | null>(ownerResponse ?? null);
   const [helpfulCount, setHelpfulCount] = useState(review.helpfulCount);
   const [unhelpfulCount, setUnhelpfulCount] = useState(review.unhelpfulCount);
+  const [voteError, setVoteError] = useState<string | null>(null);
   const [voted, setVoted] = useState<'helpful' | 'unhelpful' | null>(null);
 
   const handleMarkHelpful = async () => {
     if (voted === 'helpful') return;
     try {
-      await reviewApi.markReviewHelpful(review.id);
+      const credential = token || localStorage.getItem('token');
+      if (!credential) {
+        setVoteError('Vui lòng đăng nhập để đánh giá hữu ích.');
+        return;
+      }
+      setVoteError(null);
+      await reviewApi.markReviewHelpful(review.id, credential);
       setHelpfulCount((prev) => prev + 1);
       if (voted === 'unhelpful') setUnhelpfulCount((prev) => prev - 1);
       setVoted('helpful');
       onHelpful?.();
     } catch (err) {
-      console.error('Error marking helpful:', err);
+      setVoteError(err instanceof Error ? err.message : 'Không thể gửi đánh giá hữu ích.');
     }
   };
 
   const handleMarkUnhelpful = async () => {
     if (voted === 'unhelpful') return;
     try {
-      await reviewApi.markReviewUnhelpful(review.id);
+      const credential = token || localStorage.getItem('token');
+      if (!credential) {
+        setVoteError('Vui lòng đăng nhập để đánh giá hữu ích.');
+        return;
+      }
+      setVoteError(null);
+      await reviewApi.markReviewUnhelpful(review.id, credential);
       setUnhelpfulCount((prev) => prev + 1);
       if (voted === 'helpful') setHelpfulCount((prev) => prev - 1);
       setVoted('unhelpful');
       onUnhelpful?.();
     } catch (err) {
-      console.error('Error marking unhelpful:', err);
+      setVoteError(err instanceof Error ? err.message : 'Không thể gửi đánh giá hữu ích.');
     }
   };
 
@@ -108,10 +123,12 @@ export default function ReviewCard({
     setReplyError(null);
 
     try {
+      const credential = token || localStorage.getItem('token');
+      if (!credential) throw new Error('Vui lòng đăng nhập để trả lời đánh giá.');
       const newResponse = await reviewApi.addReviewResponse(
         review.id,
         { content: replyContent.trim() },
-        '' // Token would be passed from parent
+        credential
       );
       setResponse(newResponse);
       setReplyContent('');
@@ -202,6 +219,7 @@ export default function ReviewCard({
         <p className="text-sm text-[#4B5563] leading-relaxed">{review.content}</p>
       </div>
 
+      {voteError && <p role="alert" className="text-sm text-red-600 mb-2">{voteError}</p>}
       {/* Review Actions */}
       <div className="flex flex-wrap items-center gap-4 mb-4 pb-4 border-b border-[#E5E7EB]">
         <button

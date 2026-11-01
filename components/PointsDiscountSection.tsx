@@ -44,7 +44,12 @@ export default function PointsDiscountSection({
   const fetchLoyaltyPoints = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/loyalty-points/${userId}`);
+      const token = localStorage.getItem("token") || localStorage.getItem("accessToken")
+        || sessionStorage.getItem("token") || sessionStorage.getItem("accessToken");
+      if (!token) throw new Error("Vui lòng đăng nhập để xem điểm tích lũy");
+      const response = await fetch(`/api/loyalty-points/${encodeURIComponent(userId)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!response.ok) {
         throw new Error("Không thể lấy điểm tích lũy");
       }

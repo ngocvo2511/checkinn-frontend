@@ -131,6 +131,15 @@ const api = axios.create({
   },
 });
 
+api.interceptors.request.use(config => {
+  if (typeof window !== "undefined") {
+    const token = window.localStorage.getItem("token") || window.localStorage.getItem("accessToken")
+      || window.sessionStorage.getItem("token") || window.sessionStorage.getItem("accessToken");
+    if (token) config.headers.set("Authorization", `Bearer ${token}`);
+  }
+  return config;
+});
+
 export const revenueApi = {
   // Get revenue report for a hotel or all hotels
   getRevenue: async (
