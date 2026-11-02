@@ -6,7 +6,7 @@ import { BadgeDollarSign, BedDouble, Brush, CheckCircle, MapPin, Sparkles, Users
 
 interface ReviewFormProps {
   hotelId: string;
-  bookingId?: string;
+  bookingId: string;
   onSuccess?: () => void;
   onCancel?: () => void;
   userToken?: string;
@@ -99,7 +99,7 @@ export default function ReviewForm({
           locationRating: ratings.location,
           title: title.trim(),
           content: content.trim(),
-          bookingId: bookingId || '',
+          bookingId,
         },
         userToken
       );

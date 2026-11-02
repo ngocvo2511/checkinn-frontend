@@ -103,7 +103,7 @@ export interface CreateReviewRequest {
   locationRating?: number;
   title: string;
   content: string;
-  bookingId?: string;
+  bookingId: string;
 }
 
 export interface UpdateReviewRequest {
@@ -269,10 +269,9 @@ export const reviewApi = {
 
   // Create a new review
   async createReview(request: CreateReviewRequest, token: string): Promise<Review> {
-    // Decode JWT to get userId
-    const payloadBase64 = token.split('.')[1];
-    const decodedPayload = JSON.parse(atob(payloadBase64));
-    const userId = decodedPayload.userId || decodedPayload.sub;
+    if (!request.bookingId?.trim()) {
+      throw new Error('Booking is required to create a review');
+    }
 
     const response = await fetch(
       `${API_BASE_URL}/api/v1/reviews`,
@@ -281,7 +280,6 @@ export const reviewApi = {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
-          'X-User-Id': userId,
         },
         body: JSON.stringify(request),
       }

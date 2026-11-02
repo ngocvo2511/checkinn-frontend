@@ -199,11 +199,14 @@ export default function HostCreateHotelPage() {
         const selected = cities.find(
           (c) => c.id === form.cityId || c.name.toLowerCase() === city.toLowerCase()
         );
-        if (selected && selected.latitude && selected.longitude) {
+        const latitude = selected?.latitude;
+        const longitude = selected?.longitude;
+        if (typeof latitude === 'number' && Number.isFinite(latitude)
+            && typeof longitude === 'number' && Number.isFinite(longitude)) {
           setForm((prev) => ({
             ...prev,
-            latitude: selected.latitude,
-            longitude: selected.longitude,
+            latitude,
+            longitude,
           }));
           setMapHelperText(
             'Chưa tìm thấy số nhà chính xác. Vui lòng kéo ghim trên bản đồ đến vị trí khách sạn của bạn.'

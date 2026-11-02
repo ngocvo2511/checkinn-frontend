@@ -9,6 +9,7 @@ import { bookingApi, loyaltyApi, type CreateBookingPayload, type CancellationPol
 import { type AuthResponse } from "@/lib/api/auth";
 import { useAuth } from "@/hooks/useAuth";
 import { CustomerOnlyRoute } from "@/components/CustomerOnlyRoute";
+import { usePointsQuote } from "@/hooks/usePointsQuote";
 
 const formatPrice = (value?: number) => {
   if (value === undefined || value === null) return "Liên hệ";
@@ -113,12 +114,16 @@ export default function BookingPage() {
   }, [checkIn, checkOut]);
   const totalPrice = subtotalPerRoom * quantity * nights;
   
-  // Calculate max points usable: min of (50% of total price / 1000, available points)
+  const pointsQuote = usePointsQuote(String(authUser?.userId || user?.userId || ''), totalPrice, pointsToUse);
+  const quotedPoints = pointsQuote.quote?.pointsToUse ?? 0;
+  const pointsDiscount = pointsQuote.quote?.discountAmount ?? 0;
+  const pointsBlocked = pointsToUse > 0 && pointsQuote.status !== 'ready';
+
+  // Request up to the balance; the server determines the rate and whole-point cap.
   const maxPointsUsable = useMemo(() => {
     if (!loyaltyPoints) return 0;
-    const halfPricePoints = Math.floor(totalPrice / 2000); // 50% of price, 1 point = 1000 VND
-    return Math.min(loyaltyPoints.availablePoints, halfPricePoints);
-  }, [loyaltyPoints, totalPrice]);
+    return Math.max(0, Math.min(Number.MAX_SAFE_INTEGER, Math.trunc(loyaltyPoints.availablePoints)));
+  }, [loyaltyPoints]);
 
   // Validation functions
   const validateName = (value: string) => {
@@ -196,6 +201,10 @@ export default function BookingPage() {
   };
 
   const handleProceed = async () => {
+    if (pointsBlocked) {
+      setSubmitError("Vui lòng chờ báo giá điểm hoặc xóa lựa chọn điểm trước khi tiếp tục.");
+      return;
+    }
     if (!cancellationPolicy || !policyAccepted) {
       setSubmitError("Vui lòng đọc và đồng ý chính sách hủy/hoàn tiền trước khi đặt phòng.");
       return;
@@ -219,7 +228,7 @@ export default function BookingPage() {
         contactEmail: guestEmail,
         contactPhone: guestPhone,
         specialRequests,
-        pointsToUse: pointsToUse > 0 ? pointsToUse : undefined,
+        pointsToUse: quotedPoints > 0 ? quotedPoints : undefined,
         acceptedCancellationPolicyVersion: cancellationPolicy.version,
         items: [
           {
@@ -469,7 +478,7 @@ export default function BookingPage() {
                             <div className="space-y-4">
                               <div>
                                 <label className="block text-sm font-semibold text-[#0F172A] mb-2">
-                                  Số điểm muốn sử dụng (tối đa {maxPointsUsable.toLocaleString()})
+                                  Số điểm muốn sử dụng (khả dụng {maxPointsUsable.toLocaleString()})
                                 </label>
                                 <p className="text-xs text-[#6B7280] mb-2">
                                   Giới hạn: 50% tổng tiền hoặc {loyaltyPoints.availablePoints.toLocaleString()} điểm có sẵn
@@ -481,7 +490,8 @@ export default function BookingPage() {
                                     max={maxPointsUsable}
                                     value={pointsToUse}
                                     onChange={(e) => {
-                                      const val = Math.min(Math.max(0, Number(e.target.value)), maxPointsUsable);
+                                      const requested = Number(e.target.value);
+                                      const val = Number.isFinite(requested) ? Math.min(Math.max(0, Math.trunc(requested)), maxPointsUsable) : 0;
                                       setPointsToUse(val);
                                     }}
                                     className="flex-1 rounded-lg border border-[#E5E7EB] px-4 py-2 text-sm focus:border-[#2563EB] focus:outline-none"
@@ -492,14 +502,20 @@ export default function BookingPage() {
                                     onClick={() => setPointsToUse(maxPointsUsable)}
                                     className="rounded-lg bg-[#F0F9FF] text-[#2563EB] px-4 py-2 text-sm font-semibold hover:bg-[#E0F2FE] transition"
                                   >
-                                    Dùng hết
+                                    Dùng tối đa
                                   </button>
                                 </div>
                                 {pointsToUse > 0 && (
                                   <p className="text-sm text-[#10B981] mt-2">
-                                    Ước tính giảm giá: {(pointsToUse * 1000).toLocaleString()} VND
+                                    {pointsQuote.status === 'ready'
+                                      ? `Báo giá: ${quotedPoints.toLocaleString()} điểm, giảm ${pointsDiscount.toLocaleString()} VND (1 điểm = ${pointsQuote.quote?.redemptionRate.toLocaleString()} VND)`
+                                      : pointsQuote.status === 'loading' ? 'Đang kiểm tra giảm giá điểm…' : pointsQuote.error}
                                   </p>
                                 )}
+                                {pointsQuote.status === 'error' && <button type="button" onClick={pointsQuote.retry}
+                                  className="mt-2 text-sm text-[#2563EB] underline">Thử lại báo giá điểm</button>}
+                                {pointsToUse > 0 && <button type="button" onClick={() => setPointsToUse(0)}
+                                  className="ml-3 mt-2 text-sm text-[#6B7280] underline">Không dùng điểm</button>}
                               </div>
                             </div>
                           )}
@@ -627,10 +643,10 @@ Khi nhận phòng, bạn phải mang theo Chứng minh thư. Các tài liệu c�
                   <div className="space-y-2 border-t border-[#E5E7EB] pt-4 mt-4 bg-[#F0FDF4] p-3 rounded-lg">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-[#6B7280] font-semibold">Giảm giá từ điểm</span>
-                      <span className="text-[#10B981] font-semibold">- {(pointsToUse * 1000).toLocaleString()} VND</span>
+                      <span className="text-[#10B981] font-semibold">{pointsQuote.status === 'ready' ? `- ${pointsDiscount.toLocaleString()} VND` : 'Chờ báo giá'}</span>
                     </div>
                     <p className="text-xs text-[#6B7280]">
-                      Sử dụng {pointsToUse.toLocaleString()} điểm
+                      {pointsQuote.status === 'ready' ? `Sử dụng ${quotedPoints.toLocaleString()} điểm theo báo giá` : 'Chưa xác nhận số điểm sử dụng'}
                     </p>
                   </div>
                 )}
@@ -639,7 +655,7 @@ Khi nhận phòng, bạn phải mang theo Chứng minh thư. Các tài liệu c�
                   <span className="text-base font-semibold text-[#0F172A]">Tổng cộng</span>
                   <div className="text-right">
                     <p className="text-xl font-bold text-[#DC2626]">
-                      {formatPrice(Math.max(0, totalPrice - (pointsToUse * 1000)))}
+                      {pointsBlocked ? 'Chờ báo giá điểm' : formatPrice(Math.max(0, totalPrice - pointsDiscount))}
                     </p>
                   </div>
                 </div>
@@ -664,7 +680,7 @@ Khi nhận phòng, bạn phải mang theo Chứng minh thư. Các tài liệu c�
 
                 <button
                   onClick={handleProceed}
-                  disabled={submitting || !cancellationPolicy || !policyAccepted}
+                  disabled={submitting || pointsBlocked || !cancellationPolicy || !policyAccepted}
                   className={`w-full mt-6 rounded-lg px-4 py-3 text-white font-semibold shadow transition ${
                     submitting ? "bg-[#93C5FD]" : "bg-[#2563EB] hover:bg-[#1D4ED8]"
                   }`}

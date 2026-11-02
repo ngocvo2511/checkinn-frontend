@@ -161,8 +161,8 @@ interface HotelSearchBarProps {
     hotelName?: string;
     cityId?: string;
     cityName?: string;
-    checkIn: Date | null;
-    checkOut: Date | null;
+    checkIn: Date;
+    checkOut: Date;
     adults: number;
     children: number;
     rooms: number;
@@ -242,7 +242,8 @@ export function HotelSearchBar({
     return `${adultText}${childText}${roomText}`;
   };
 
-  const handleDatePick = (date: Date) => {
+  const handleDatePick = (date: Date | null) => {
+    if (!date) return;
     // If both dates already exist and user clicks, start fresh selection
     if (checkInDate && checkOutDate && datePickerClick === 'first') {
       setCheckInDate(date);
@@ -251,7 +252,7 @@ export function HotelSearchBar({
       return;
     }
 
-    if (datePickerClick === 'first') {
+    if (datePickerClick === 'first' || !checkInDate) {
       // First click: set check-in date
       setCheckInDate(date);
       setDatePickerClick('second');
@@ -261,7 +262,7 @@ export function HotelSearchBar({
       let finalCheckOut = date;
 
       // If second click < first click, swap them
-      if (finalCheckOut < finalCheckIn!) {
+      if (finalCheckOut < finalCheckIn) {
         [finalCheckIn, finalCheckOut] = [finalCheckOut, finalCheckIn];
       }
 

@@ -21,9 +21,9 @@ export function HotelLocationPicker({ onCitySelect, onHotelSelect, initialHotelN
   const popularCityNames = ['Hà Nội', 'TP. Hồ Chí Minh', 'Đà Nẵng', 'Nha Trang', 'Đà Lạt', 'Vũng Tàu'];
 
   const buildSubtitle = (city: City): string => {
-    const parent = city.parentName || city.parentCode;
+    const parent = city.parentName;
     if (!parent) {
-      return `Tỉnh ${city.name}, Việt Nam`;
+      return `${city.name}, Việt Nam`;
     }
     return `${parent}, Việt Nam`;
   };

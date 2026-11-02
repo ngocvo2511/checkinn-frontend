@@ -1,3 +1,5 @@
+import type { City } from './cities';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
 
 // Helper function to parse double-stringified values from backend
@@ -81,15 +83,7 @@ export interface HotelAddress {
   longitude?: number;
 }
 
-export interface City {
-  id: string;
-  name: string;
-  latitude?: number;
-  longitude?: number;
-  hotelCount?: number;
-  createdAt?: string;
-  parentName?: string;
-}
+export type { City } from './cities';
 
 export interface MediaAsset {
   id: string;

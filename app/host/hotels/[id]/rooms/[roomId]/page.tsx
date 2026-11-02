@@ -88,7 +88,7 @@ export default function EditRoomPage() {
     }
   };
 
-  const handleDeleteImage = async (mediaId: string, isThumbnail: boolean) => {
+  const handleDeleteImage = async (mediaId: string, isThumbnail: boolean = false) => {
     if (!room) return;
     if (!confirm('Bạn có chắc chắn muốn xóa hình ảnh này?')) return;
 

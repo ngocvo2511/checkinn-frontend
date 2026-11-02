@@ -94,7 +94,7 @@ export function DateRangePicker({
           <div className="absolute top-full left-0 z-50 mt-2 rounded-lg border border-[#E4E6EB] bg-white shadow-lg">
             <DatePicker
               selected={checkInDate}
-              onChange={(date) => {
+              onChange={(date: Date | null) => {
                 setCheckInDate(date);
                 setShowCheckInPicker(false);
                 if (
@@ -149,7 +149,7 @@ export function DateRangePicker({
           <div className="absolute top-full left-0 z-50 mt-2 rounded-lg border border-[#E4E6EB] bg-white shadow-lg">
             <DatePicker
               selected={checkOutDate}
-              onChange={(date) => {
+              onChange={(date: Date | null) => {
                 setCheckOutDate(date);
                 setShowCheckOutPicker(false);
               }}
