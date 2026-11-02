@@ -61,8 +61,8 @@ type PreviewFile = {
 };
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080';
-// Media routes in hotel-service do not share the /hotels prefix, so we go through the service-id path.
-const MEDIA_UPLOAD_URL = `${API_BASE_URL}/hotel-service/medias`;
+// Media uses the hotel gateway prefix without the /hotels resource segment.
+const MEDIA_UPLOAD_URL = `${API_BASE_URL}/api/hotel/medias`;
 
 const initialForm: FormState = {
   name: '',

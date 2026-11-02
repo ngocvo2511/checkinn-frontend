@@ -16,18 +16,23 @@ export async function GET(
       );
     }
 
+    const authorization = request.headers.get("Authorization");
+    if (!authorization?.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Vui lòng đăng nhập" }, { status: 401 });
+    }
     const response = await fetch(
-      `${API_BASE_URL}/api/loyalty-points/${userId}`,
+      `${API_BASE_URL}/api/loyalty-points/${encodeURIComponent(userId)}`,
       {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
+          Authorization: authorization,
         },
       }
     );
 
     if (!response.ok) {
-      throw new Error(`Không thể lấy điểm tích lũy: ${response.status}`);
+      return NextResponse.json({ error: "Không thể lấy điểm tích lũy" }, { status: response.status });
     }
 
     const data = await response.json();
