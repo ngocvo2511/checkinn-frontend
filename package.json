@@ -10,6 +10,9 @@
     "test:inventory": "node --experimental-strip-types --test tests/search-inventory.test.mjs",
     "test:payments": "node --experimental-strip-types --test tests/payment-state.test.mjs",
     "test:reviews": "node --experimental-strip-types --test tests/review-auth.test.mjs",
+    "test:points": "node --experimental-strip-types --test tests/points-quote.test.mjs",
+    "test:regression": "node --experimental-strip-types --test tests/review-auth.test.mjs tests/revenue-auth.test.mjs tests/payment-state.test.mjs tests/search-inventory.test.mjs tests/points-quote.test.mjs",
+    "test:browser": "playwright test",
     "test:auth": "node --experimental-strip-types --test tests/review-auth.test.mjs tests/revenue-auth.test.mjs"
   },
   "dependencies": {
@@ -27,6 +30,7 @@
     "recharts": "^2.15.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

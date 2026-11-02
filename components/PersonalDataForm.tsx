@@ -432,7 +432,7 @@ export default function PersonalDataForm() {
               </svg>
               <DatePicker
                 selected={formData.birthday ? new Date(formData.birthday) : null}
-                onChange={(date) => {
+                onChange={(date: Date | null) => {
                   if (date) {
                     const year = date.getFullYear();
                     const month = String(date.getMonth() + 1).padStart(2, '0');

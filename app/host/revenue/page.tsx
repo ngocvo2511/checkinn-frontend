@@ -330,7 +330,7 @@ export default function HostRevenuePage() {
                           <td className="px-4 py-3 font-semibold">{roomType.roomTypeName}</td>
                           <td className="px-4 py-3 font-semibold text-[#0B2E68]">{roomType.totalRevenue.toLocaleString('vi-VN')} VND</td>
                           <td className="px-4 py-3 text-[#383E48]">{roomType.bookingCount}</td>
-                          <td className="px-4 py-3 text-[#383E48]">{roomType.averagePrice.toFixed(0).toLocaleString('vi-VN')} VND</td>
+                          <td className="px-4 py-3 text-[#383E48]">{roomType.averagePrice.toLocaleString('vi-VN', { maximumFractionDigits: 0 })} VND</td>
                         </tr>
                       ))}
                     </tbody>
