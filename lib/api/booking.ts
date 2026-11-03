@@ -44,6 +44,7 @@ export interface CancellationPolicyDetails {
 
 export interface BookingResponse {
   id: string;
+  loyaltyStatus?: 'PENDING' | 'SETTLED' | 'REVERSED' | 'REVIEW_REQUIRED' | null;
   hotelId: string;
   hotelName: string;
   checkInDate: string;
@@ -201,6 +202,7 @@ export interface LoyaltyPointsResponse {
   totalPoints: number;
   usedPoints: number;
   availablePoints: number;
+  reservedPoints?: number;
 }
 
 export const loyaltyApi = {

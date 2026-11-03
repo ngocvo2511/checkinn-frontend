@@ -37,6 +37,7 @@ export default function BookingDetailsPage() {
   const [booking, setBooking] = useState<BookingResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refresh, setRefresh] = useState(0);
 
   useEffect(() => {
     if (!id) { setLoading(false); return; }
@@ -47,7 +48,7 @@ export default function BookingDetailsPage() {
       .then((data) => setBooking(data))
       .catch((err: any) => setError(err?.message || "Không lấy được thông tin đặt phòng"))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, refresh]);
 
   const firstItem = useMemo(() => booking?.items?.[0], [booking]);
   const badge = statusColor[booking?.status || ""] || "bg-gray-100 text-gray-700";
@@ -82,6 +83,17 @@ export default function BookingDetailsPage() {
           {error && <p className="text-sm text-red-600">{error}</p>}
           {!loading && !error && booking && (
             <div className="space-y-6">
+              {booking.loyaltyStatus === 'PENDING' && (
+                <div role="status" className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
+                  Điểm thưởng đang được xử lý tự động. Kết quả đặt phòng và thanh toán được hiển thị riêng bên dưới.
+                  <button type="button" onClick={() => setRefresh(value => value + 1)} className="ml-2 underline">Cập nhật trạng thái điểm</button>
+                </div>
+              )}
+              {booking.loyaltyStatus === 'REVIEW_REQUIRED' && (
+                <p role="status" className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
+                  Điểm thưởng của đơn này cần được đối soát. Vui lòng liên hệ hỗ trợ kèm mã đặt phòng.
+                </p>
+              )}
               {/* Status + Hotel */}
               <div className="rounded-2xl border border-[#E5E7EB] bg-white shadow-sm p-6">
                 <div className="flex items-center gap-2 flex-wrap mb-2">

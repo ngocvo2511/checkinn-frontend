@@ -36,6 +36,7 @@ export async function fetchPointsQuote(input: PointsQuoteInput, signal?: AbortSi
       body: JSON.stringify({ pointsToUse: input.pointsToUse, totalAmount: input.totalAmount }), signal, cache: 'no-store',
     });
   } catch { throw new Error('Không tải được giảm giá điểm. Vui lòng thử lại hoặc đặt không dùng điểm.'); }
+  if (response.status === 409) throw new Error('Điểm thưởng cần được đối soát. Vui lòng liên hệ hỗ trợ hoặc đặt phòng không dùng điểm.');
   if (!response.ok) throw new Error('Không tải được giảm giá điểm. Vui lòng thử lại hoặc đặt không dùng điểm.');
   const quote: PointsQuote = await response.json().catch(() => { throw new Error('Báo giá điểm không hợp lệ. Vui lòng thử lại.'); });
   if (!quote || !Number.isSafeInteger(quote.pointsToUse) || quote.pointsToUse < 0 || quote.pointsToUse > input.pointsToUse

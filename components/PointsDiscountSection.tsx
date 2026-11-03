@@ -41,6 +41,9 @@ export default function PointsDiscountSection({ userId, totalAmount, onPointsCha
       🎁 Sử dụng điểm giảm giá — {available.toLocaleString("vi-VN")} điểm khả dụng
     </button>
     {expanded && <div className="mt-4 border-t pt-4 space-y-3">
+      {(account.data.reservedPoints ?? 0) > 0 && <p className="text-sm text-gray-500">
+        Đang giữ cho đặt phòng khác: {account.data.reservedPoints?.toLocaleString("vi-VN")} điểm
+      </p>}
       <label className="block text-sm font-medium" htmlFor="loyalty-points">Số điểm muốn sử dụng</label>
       <div className="flex gap-2">
         <input id="loyalty-points" type="number" min={0} max={available} step={1} value={pointsToUse}
