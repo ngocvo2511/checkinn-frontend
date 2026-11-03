@@ -48,6 +48,7 @@ export default function BookingPage() {
     totalPoints: number;
     usedPoints: number;
     availablePoints: number;
+    reservedPoints?: number;
   } | null>(null);
   const [loadingPoints, setLoadingPoints] = useState(false);
   const [pointsToUse, setPointsToUse] = useState(0);
@@ -474,6 +475,9 @@ export default function BookingPage() {
                             </div>
                           </div>
 
+                          {(loyaltyPoints.reservedPoints ?? 0) > 0 && <p className="mb-3 text-sm text-[#6B7280]">
+                            Đang giữ cho đặt phòng khác: {loyaltyPoints.reservedPoints?.toLocaleString()} điểm
+                          </p>}
                           {loyaltyPoints.availablePoints > 0 && (
                             <div className="space-y-4">
                               <div>

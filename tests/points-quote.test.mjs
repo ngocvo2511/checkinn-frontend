@@ -42,6 +42,14 @@ test('invalid or unavailable quotes cannot masquerade as a zero discount', async
   } finally { globalThis.fetch = previousFetch; globalThis.window = previousWindow; }
 });
 
+test('an account requiring reconciliation is explained without a fake discount', async () => {
+  const previousFetch = globalThis.fetch, previousWindow = globalThis.window;
+  globalThis.window = { localStorage: { getItem: () => 'token' } };
+  globalThis.fetch = async () => new Response(null, { status: 409 });
+  try { await assert.rejects(fetchPointsQuote(input), /cần được đối soát/); }
+  finally { globalThis.fetch = previousFetch; globalThis.window = previousWindow; }
+});
+
 test('a replaced quote cannot overwrite newer input, even if abort is ignored', async () => {
   const first = deferred(), second = deferred(); const states = []; let calls = 0;
   const loader = createPointsQuoteLoader(() => ++calls === 1 ? first.promise : second.promise);
