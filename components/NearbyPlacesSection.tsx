@@ -87,7 +87,9 @@ export default function NearbyPlacesSection({
             Địa điểm lân cận & Ẩm thực nổi bật
           </h2>
           <p className="text-sm text-gray-500 mt-1">
-            Gợi ý những điểm tham quan, ẩm thực và cafe hấp dẫn xung quanh {hotelName || "khách sạn"} kèm ước tính thời gian di chuyển.
+            {latitude != null && longitude != null
+              ? `Gợi ý địa điểm xung quanh ${hotelName || "khách sạn"} kèm ước tính thời gian di chuyển.`
+              : 'Gợi ý theo khu vực thành phố; chưa có tọa độ khách sạn để tính khoảng cách từ nơi lưu trú.'}
           </p>
         </div>
 
@@ -146,6 +148,7 @@ export default function NearbyPlacesSection({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {places.map((place, idx) => (
             <PlaceCard
+              showDistance={latitude != null && longitude != null}
               key={place.id || place.googlePlaceId || idx}
               place={place}
               onSelect={handleSelectPlace}

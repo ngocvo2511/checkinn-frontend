@@ -7,6 +7,7 @@ import { NearbyPlace } from "@/types/place";
 interface PlaceCardProps {
   place: NearbyPlace;
   onSelect: (place: NearbyPlace) => void;
+  showDistance?: boolean;
 }
 
 const CATEGORY_LABEL_MAP: Record<string, { label: string; color: string }> = {
@@ -17,7 +18,7 @@ const CATEGORY_LABEL_MAP: Record<string, { label: string; color: string }> = {
   ENTERTAINMENT: { label: "Vui chơi giải trí", color: "bg-purple-50 text-purple-700 border-purple-200" },
 };
 
-export default function PlaceCard({ place, onSelect }: PlaceCardProps) {
+export default function PlaceCard({ place, onSelect, showDistance = true }: PlaceCardProps) {
   const catInfo = CATEGORY_LABEL_MAP[place.category] || {
     label: place.category,
     color: "bg-blue-50 text-blue-700 border-blue-200"
@@ -55,12 +56,14 @@ export default function PlaceCard({ place, onSelect }: PlaceCardProps) {
         </div>
 
         {/* Distance Badge */}
+        {showDistance && (
         <div className="absolute right-3 top-3">
           <span className="inline-flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-0.5 text-xs font-medium text-white backdrop-blur-md">
             <Clock className="w-3 h-3 text-blue-300" />
             ~{place.estimatedTravelTimeMinutes} phút ({place.distanceKm} km)
           </span>
         </div>
+        )}
 
         {/* Media Counts */}
         <div className="absolute bottom-2 right-2 flex items-center gap-1.5">
