@@ -275,7 +275,7 @@ export default function HostHotelDetailPage() {
       setLoading(true);
       setError(null);
       try {
-        const data = await hotelApi.getHotelById(hotelId);
+        const data = await hotelApi.getHotelPreview(hotelId, token);
         console.log('Fetched hotel data:', data);
         setHotel(data);
 
@@ -858,6 +858,8 @@ export default function HostHotelDetailPage() {
     setDocError(null);
 
     try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('Vui lòng đăng nhập để xem khách sạn.');
       // 1. Update legal numbers
       await hotelApi.updateHotel(hotel.id, {
         name: hotel.name,
@@ -895,7 +897,7 @@ export default function HostHotelDetailPage() {
 
       // Refresh data
       const [updatedHotel, updatedDocs] = await Promise.all([
-        hotelApi.getHotelById(hotel.id),
+        hotelApi.getHotelPreview(hotel.id, token),
         hotelApi.getHotelDocuments(hotel.id),
       ]);
       setHotel(updatedHotel);

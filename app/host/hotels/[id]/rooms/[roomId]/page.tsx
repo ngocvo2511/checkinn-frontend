@@ -164,7 +164,7 @@ export default function EditRoomPage() {
       setLoading(true);
       setError(null);
       try {
-        const data = await hotelApi.getRoomTypeById(roomId);
+        const data = await hotelApi.getRoomTypePreview(roomId, token);
         setRoom(data);
         setSelectedAmenities(data.amenities || []);
         const currentRoomAmount = data.roomAmount ?? data.totalRooms ?? data.availableRooms ?? 0;

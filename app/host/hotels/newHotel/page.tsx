@@ -44,6 +44,7 @@ type FormState = {
   addressCountry: string;
   latitude: number | null;
   longitude: number | null;
+  coordinateSource: string;
   contactEmail: string;
   contactPhone: string;
   businessLicenseNumber: string;
@@ -74,6 +75,7 @@ const initialForm: FormState = {
   addressCountry: 'Vietnam',
   latitude: null,
   longitude: null,
+  coordinateSource: "UNKNOWN",
   contactEmail: '',
   contactPhone: '',
   businessLicenseNumber: '',
@@ -112,6 +114,7 @@ export default function HostCreateHotelPage() {
   const [gmapsError, setGmapsError] = useState<string | null>(null);
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
+  const coordinateEditVersion = useRef(0);
   const geocodeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -163,13 +166,14 @@ export default function HostCreateHotelPage() {
       ...prev,
       addressCity: selected.name,
       addressCountry: prev.addressCountry || 'Vietnam',
-      latitude: prev.latitude ?? (selected.latitude || null),
-      longitude: prev.longitude ?? (selected.longitude || null),
+      latitude: null,
+      longitude: null,
+      coordinateSource: "UNKNOWN",
     }));
     setCityInput(selected.name);
   }, [form.cityId, cities]);
 
-  // Debounced forward geocoding with OpenStreetMap Nominatim and City center fallback
+  // Debounced address lookup; unresolved locations stay unknown.
   useEffect(() => {
     if (geocodeTimerRef.current) {
       clearTimeout(geocodeTimerRef.current);
@@ -182,9 +186,12 @@ export default function HostCreateHotelPage() {
       return;
     }
 
+    let cancelled = false;
+    const version = coordinateEditVersion.current;
     geocodeTimerRef.current = setTimeout(async () => {
       setIsGeocoding(true);
       const coords = await geocodeAddress(street, city, form.addressCountry || 'Vietnam');
+      if (cancelled || coordinateEditVersion.current !== version) return;
       setIsGeocoding(false);
 
       if (coords) {
@@ -192,34 +199,18 @@ export default function HostCreateHotelPage() {
           ...prev,
           latitude: coords.latitude,
           longitude: coords.longitude,
+          coordinateSource: "GEOCODED",
         }));
         setMapHelperText(null);
       } else {
-        // Fallback to City center if available
-        const selected = cities.find(
-          (c) => c.id === form.cityId || c.name.toLowerCase() === city.toLowerCase()
-        );
-        const latitude = selected?.latitude;
-        const longitude = selected?.longitude;
-        if (typeof latitude === 'number' && Number.isFinite(latitude)
-            && typeof longitude === 'number' && Number.isFinite(longitude)) {
-          setForm((prev) => ({
-            ...prev,
-            latitude,
-            longitude,
-          }));
-          setMapHelperText(
-            'Chưa tìm thấy số nhà chính xác. Vui lòng kéo ghim trên bản đồ đến vị trí khách sạn của bạn.'
-          );
-        } else {
-          setMapHelperText(
-            'Chưa tìm thấy địa chỉ. Vui lòng kéo ghim hoặc nhấp vào bản đồ để chọn vị trí khách sạn.'
-          );
-        }
+        setForm(prev => ({ ...prev, latitude: null, longitude: null, coordinateSource: 'UNKNOWN' }));
+        setMapHelperText('Chưa xác định được vị trí khách sạn. Vui lòng chọn ghim trên bản đồ.');
       }
     }, 800);
 
     return () => {
+      cancelled = true;
+      setIsGeocoding(false);
       if (geocodeTimerRef.current) {
         clearTimeout(geocodeTimerRef.current);
       }
@@ -234,11 +225,14 @@ export default function HostCreateHotelPage() {
     setGpsLoading(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        coordinateEditVersion.current++;
+        setIsGeocoding(false);
         setGpsLoading(false);
         setForm((prev) => ({
           ...prev,
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude,
+          coordinateSource: "OWNER_PROVIDED",
         }));
         setMapHelperText('Đã cập nhật vị trí từ GPS của bạn.');
       },
@@ -256,10 +250,13 @@ export default function HostCreateHotelPage() {
 
     const coords = parseGoogleMapsCoordinates(gmapsInput);
     if (coords) {
+      coordinateEditVersion.current++;
+      setIsGeocoding(false);
       setForm((prev) => ({
         ...prev,
         latitude: coords.latitude,
         longitude: coords.longitude,
+        coordinateSource: "OWNER_PROVIDED",
       }));
       setMapHelperText('Đã cập nhật vị trí từ liên kết Google Maps.');
       setGmapsInput('');
@@ -277,7 +274,14 @@ export default function HostCreateHotelPage() {
   }, [cities, cityInput, showCitySuggestions]);
 
   const handleInputChange = (field: keyof FormState) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    setForm((prev) => ({ ...prev, [field]: e.target.value }));
+    const value = e.target.value;
+    if (field === 'addressStreet' || field === 'addressCity' || field === 'addressCountry') {
+      coordinateEditVersion.current++;
+      setIsGeocoding(false);
+      setForm(prev => ({ ...prev, [field]: value, latitude: null, longitude: null, coordinateSource: 'UNKNOWN' }));
+    } else {
+      setForm(prev => ({ ...prev, [field]: value }));
+    }
   };
 
   // Policies handlers
@@ -461,6 +465,7 @@ export default function HostCreateHotelPage() {
         country: form.addressCountry.trim(),
         latitude: form.latitude,
         longitude: form.longitude,
+        coordinateSource: form.coordinateSource,
       },
       contactEmail: form.contactEmail.trim() || null,
       contactPhone: form.contactPhone.trim() || null,
@@ -703,6 +708,9 @@ Khách sạn đã được lưu tạm dạng Bản nháp (DRAFT). Bạn có th�
                       <input
                         value={cityInput}
                         onChange={(e) => {
+                          coordinateEditVersion.current++;
+                          setIsGeocoding(false);
+                          setForm(prev => ({ ...prev, latitude: null, longitude: null, coordinateSource: 'UNKNOWN' }));
                           setCityInput(e.target.value);
                           setCitySelected(false);
                         }}
@@ -834,7 +842,9 @@ Khách sạn đã được lưu tạm dạng Bản nháp (DRAFT). Bạn có th�
                       longitude={form.longitude}
                       helperText={mapHelperText ?? undefined}
                       onChange={({ latitude, longitude }) => {
-                        setForm((prev) => ({ ...prev, latitude, longitude }));
+                        coordinateEditVersion.current++;
+                        setIsGeocoding(false);
+                        setForm((prev) => ({ ...prev, latitude, longitude, coordinateSource: "OWNER_PROVIDED" }));
                         setMapHelperText(null);
                       }}
                     />

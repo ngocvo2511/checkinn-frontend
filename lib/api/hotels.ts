@@ -81,6 +81,7 @@ export interface HotelAddress {
   country: string;
   latitude?: number;
   longitude?: number;
+  coordinateSource?: string;
 }
 
 export type { City } from './cities';
@@ -269,6 +270,18 @@ export const hotelApi = {
       console.error('Error getting hotel details:', error);
       throw error;
     }
+  },
+
+  /** Read unpublished details only through the authenticated preview endpoint. */
+  async getHotelPreview(hotelId: string, token: string): Promise<Hotel> {
+    if (!token?.trim()) throw new Error('Vui lòng đăng nhập để xem khách sạn.');
+    const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/preview`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    });
+    if (!response.ok) throw new Error(`Không thể xem khách sạn: ${response.status}`);
+    return cleanHotelData(await response.json());
   },
 
   /**
@@ -903,6 +916,15 @@ export const hotelApi = {
     }
   },
 
+  async getRoomTypePreview(roomTypeId: string, token: string): Promise<RoomType> {
+    if (!token?.trim()) throw new Error('Vui lòng đăng nhập để xem loại phòng.');
+    const response = await fetch(`${API_BASE_URL}/api/hotel/api/v1/${roomTypeId}/preview`, {
+      headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
+    });
+    if (!response.ok) throw new Error(`Không thể xem loại phòng: ${response.status}`);
+    return cleanRoomTypeData(await response.json());
+  },
+
   // Room Type APIs
   getRoomTypeById: async (roomTypeId: string): Promise<RoomType> => {
     try {
@@ -1106,3 +1128,11 @@ export interface HotelVerificationDocuments {
 }
 
 export type { ReviewStats } from './reviews';
+
+
+/** Only hotel-specific coordinates may be presented as a hotel pin or distance origin. */
+export function hotelCoordinates(address?: HotelAddress | null) {
+  const validSource = address?.coordinateSource === 'OWNER_PROVIDED' || address?.coordinateSource === 'GEOCODED';
+  if (!validSource || !Number.isFinite(address?.latitude) || !Number.isFinite(address?.longitude)) return {};
+  return { latitude: address!.latitude, longitude: address!.longitude };
+}

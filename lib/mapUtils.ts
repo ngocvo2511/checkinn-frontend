@@ -69,7 +69,7 @@ export async function geocodeAddress(
   if (!parts.length) return null;
 
   const q = parts.join(', ');
-  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`;
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=jsonv2&limit=1`;
 
   try {
     const res = await fetch(url, {
@@ -82,6 +82,10 @@ export async function geocodeAddress(
     if (!res.ok) return null;
     const data = await res.json();
     if (Array.isArray(data) && data.length > 0) {
+      // Nominatim ranks 28-30 are address/POI level; city/street results are not hotel pins.
+      // https://nominatim.org/release-docs/latest/customize/Ranking/
+      const rank = Number(data[0].place_rank);
+      if (!Number.isFinite(rank) || rank < 28 || rank > 30 || data[0].category === 'boundary') return null;
       const lat = parseFloat(data[0].lat);
       const lon = parseFloat(data[0].lon);
       if (isValidLatLng(lat, lon)) {
