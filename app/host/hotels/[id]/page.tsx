@@ -1,5 +1,7 @@
 "use client";
 
+import {HotelAccommodationEditor} from '@/components/HotelAccommodationEditor';
+
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import HostMenu from "@/components/host/menu/HostMenu";
@@ -988,6 +990,7 @@ export default function HostHotelDetailPage() {
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="space-y-2">
                   <h1 className="text-3xl font-bold text-[#0F172A]">{hotel.name}</h1>
+                  <HotelAccommodationEditor hotel={hotel} onUpdated={async()=>{setHotel(await hotelApi.getHotelPreview(hotelId, localStorage.getItem("token")||""));}}/>
                   <p className="text-[#4B5563]">{formatAddress(hotel.address)}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">

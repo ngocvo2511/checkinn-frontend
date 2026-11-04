@@ -1,6 +1,7 @@
 "use client";
 
 interface Hotel {
+  accommodationTypeLabel?: string | null;
   id: string;
   name: string;
   location: string;
@@ -61,6 +62,7 @@ export function HotelCard({ hotel, onSelect }: HotelCardProps) {
           <div className="flex-1">
             <h3 className="text-lg font-bold text-[#1F2226] mb-4">{hotel.name}</h3>
 
+            {hotel.accommodationTypeLabel && <p className="text-sm font-medium text-blue-700 mb-2">{hotel.accommodationTypeLabel}</p>}
             {/* Star Rating */}
             {hotel.starRating && hotel.starRating > 0 && (
               <div className="flex items-center gap-1 mb-3">

@@ -190,6 +190,7 @@ export default function HostHotelsPage() {
                     <div key={hotel.id} className="flex flex-wrap items-center justify-between gap-3 py-4">
                       <div className="space-y-1">
                         <p className="text-base font-semibold text-[#1F2226]">{hotel.name}</p>
+                        <p className="text-sm">{hotel.accommodationTypeLabel||'Chưa phân loại'}</p>
                         <p className="text-sm text-[#656F81]">
                           {formatAddress(hotel.address)}
                         </p>

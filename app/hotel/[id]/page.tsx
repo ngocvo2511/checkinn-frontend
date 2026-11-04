@@ -602,6 +602,7 @@ export default function HotelDetailPage() {
       />
 
       <main className="bg-[#F8FAFC] pb-12">
+        <p className="mx-auto max-w-screen-xl px-8 pt-5">Loại hình lưu trú: <strong>{hotel.accommodationTypeLabel || 'Chưa phân loại'}</strong></p>
 
         {/* Photos */}
         <section id="photos" className="mx-auto max-w-screen-xl px-4 md:px-8 lg:px-12 pt-8">

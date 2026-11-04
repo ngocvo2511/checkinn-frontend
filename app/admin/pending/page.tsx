@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import {AccommodationTypeReviews} from '@/components/admin/AccommodationTypeReviews';
 import AdminMenu from '@/components/admin/menu/AdminMenu';
 import AdminStatCard from '@/components/AdminStatCard';
 import { hotelApi, Hotel } from '@/lib/api/hotels';
@@ -57,6 +58,7 @@ export default function AdminPendingPage() {
 
       <main className="ml-[280px] px-8 py-6">
         <div className="max-w-7xl space-y-4">
+            <AccommodationTypeReviews/>
             <div className="rounded-xl bg-gradient-to-br from-[#0B1B3F] via-[#0E264F] to-[#0A3D8F] px-5 py-4 text-white">
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-white/70">
                 <span className="h-1.5 w-1.5 rounded-full bg-[#FFCC00]" />
@@ -82,6 +84,7 @@ export default function AdminPendingPage() {
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <h3 className="font-semibold text-lg text-[#0B1B3F]">{hotel.name}</h3>
+                          <p>{hotel.accommodationTypeLabel||'Chưa phân loại'}</p>
                           <p className="text-gray-600 mt-1">{hotel.description}</p>
                           <p className="text-gray-600 text-sm mt-2">{hotel.address.street}, {hotel.address.city}, {hotel.address.country}</p>
                           <p className="text-xs text-gray-500 mt-2">Đăng ký: {new Date(hotel.createdAt).toLocaleDateString('vi-VN')}</p>

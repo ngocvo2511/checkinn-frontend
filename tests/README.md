@@ -22,3 +22,6 @@ authorization and quote behavior on the verified database clone.
 Point previews do not reserve a balance or bind a durable rate version. The
 booking service rechecks points when creating a booking; reservation/recovery
 remains tracked in the workspace standardization plan.
+
+
+Accommodation classification: new owner/admin forms, explicit create selection, reviewed type proposals and revision-aware registration approval are covered by tests/accommodation-type.test.mjs and tests/browser/accommodation-type.spec.ts. Deploy the accommodation backend/schema first. The dependent search-fix PR adds offer filtering and URL round-trip coverage. All browser APIs are intercepted synthetic fixtures.
