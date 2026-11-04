@@ -1413,14 +1413,12 @@ export default function HotelDetailPage() {
         )}
 
         {/* Nearby Places Section */}
-        {hotelId && (
+        {hotel && hotel.address?.latitude != null && hotel.address?.longitude != null && (
           <NearbyPlacesSection
-            hotelId={hotelId}
-            hotelName={hotel?.name}
-            latitude={hotel?.address?.latitude}
-            longitude={hotel?.address?.longitude}
-            cityId={hotel?.city?.id}
-            cityName={hotel?.city?.name}
+            hotelId={hotel.id || hotelId}
+            hotelName={hotel.name}
+            latitude={hotel.address.latitude}
+            longitude={hotel.address.longitude}
           />
         )}
 
