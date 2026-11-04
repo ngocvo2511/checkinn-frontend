@@ -1,4 +1,4 @@
-import { ReadApiError } from './read-request.ts';
+import { readJson, readArray, ReadApiError } from './read-request.ts';
 import type { City } from './cities';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
@@ -177,9 +177,24 @@ export interface Hotel {
   contactPhone?: string;
 }
 
+export interface RoomOffer {
+  roomTypeId: string;
+  quantity: number;
+  unitPrice: number;
+  totalPerNight: number;
+  availableRooms: number | null;
+  checkIn: string | null;
+  checkOut: string | null;
+  checkedAt: string | null;
+}
+
 export interface SearchHotelsParams {
+  accommodationTypes?: string[];
   cityId?: string;
   cityName?: string;
+  provinceId?: string;
+  adults?: number;
+  children?: number;
   hotelName?: string;
   checkIn?: string;
   checkOut?: string;
@@ -199,56 +214,49 @@ const extractErrorMessage = (text: string, fallback: string): string => {
   }
 };
 
+const validSearchHotel = (h: Hotel): boolean =>
+  typeof h.id === 'string' && typeof h.name === 'string' &&
+  typeof h.isActive === 'boolean' && typeof h.approvedStatus === 'string' &&
+  (h.roomTypes == null || (Array.isArray(h.roomTypes) && h.roomTypes.every((r: RoomType) => r && typeof r.id === 'string')));
+
+const cleanSearchHotels = (data: unknown): Hotel[] => {
+  try { return readArray<Hotel>(data, validSearchHotel).map(cleanHotelData); }
+  catch { throw new ReadApiError('INVALID_RESPONSE'); }
+};
+
 export const hotelApi = {
+  /** Canonical same-room offers from hotel-service. No fallback to client inventory. */
+  async searchHotelOffers(params: SearchHotelsParams): Promise<Array<Hotel & { matchedOffer: RoomOffer }>> {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+      if (Array.isArray(value)) for (const code of value) query.append(key,code);
+      else if (value !== undefined && value !== '') query.set(key, String(value));
+    }
+    const data = await readJson(`${API_BASE_URL}/api/hotel/hotels/offers?${query}`);
+    return readArray<{hotel: Hotel; offer: RoomOffer}>(data, row => {
+      const o = row.offer;
+      return row.hotel && validSearchHotel(row.hotel) && o && typeof o.roomTypeId === 'string' &&
+        Number.isInteger(o.quantity) && o.quantity === (params.rooms ?? 1) && o.quantity > 0 && Number.isFinite(o.unitPrice) && o.unitPrice > 0 &&
+        Number.isFinite(o.totalPerNight) && Math.abs(o.totalPerNight - o.unitPrice * o.quantity) < 0.000001 &&
+        (o.availableRooms === null || (Number.isInteger(o.availableRooms) && o.availableRooms >= o.quantity)) &&
+        (params.checkIn ? o.checkIn === params.checkIn && o.checkOut === params.checkOut && typeof o.checkedAt === 'string' && o.availableRooms !== null : o.checkIn === null && o.checkOut === null && o.availableRooms === null);
+    }).map(row => ({...cleanSearchHotels([row.hotel])[0], matchedOffer: row.offer}));
+  },
+
   /**
    * Search hotels by name
    */
   async searchHotelsByName(query: string): Promise<Hotel[]> {
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/hotel/hotels/search?name=${encodeURIComponent(query)}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to search hotels by name: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      return data.map((hotel: any) => cleanHotelData(hotel));
-    } catch (error) {
-      console.error('Error searching hotels by name:', error);
-      return []; // Return empty array on error instead of throwing
-    }
+    const data = await readJson(`${API_BASE_URL}/api/hotel/hotels/search?name=${encodeURIComponent(query)}`);
+    return cleanSearchHotels(data);
   },
 
   /**
    * Search hotels by city
    */
   async searchHotelsByCity(cityId: string): Promise<Hotel[]> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/city/${cityId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to search hotels: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      return data.map((hotel: any) => cleanHotelData(hotel));
-    } catch (error) {
-      console.error('Error searching hotels by city:', error);
-      throw error;
-    }
+    const data = await readJson(`${API_BASE_URL}/api/hotel/hotels/city/${encodeURIComponent(cityId)}`);
+    return cleanSearchHotels(data);
   },
 
   /**
@@ -317,126 +325,7 @@ export const hotelApi = {
    * Supports both city and province search
    */
   async searchHotels(params: SearchHotelsParams): Promise<Hotel[]> {
-    try {
-      let allHotels: Hotel[] = [];
-      
-      // If hotelName is provided, search by hotel name instead of city
-      if (params.hotelName) {
-        allHotels = await this.searchHotelsByName(params.hotelName);
-      } else {
-        // Original city-based search
-        let cityIds: string[] = [];
-        
-        if (params.cityId) {
-          cityIds.push(params.cityId);
-        } else if (params.cityName) {
-          // First try to search as location (province or city)
-          const locationsResponse = await fetch(
-            `${API_BASE_URL}/api/hotel/cities/search/locations?query=${encodeURIComponent(params.cityName)}`,
-            {
-              method: 'GET',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-            }
-          );
-
-          console.log('[DEBUG] locationResponse status:', locationsResponse.status);
-
-          if (locationsResponse.ok) {
-            const locations: Array<{ id: string; type: string; name?: string; parentName?: string }> = await locationsResponse.json();
-            console.log('[DEBUG] locations returned:', locations);
-            
-            if (locations.length > 0) {
-              // If it's a PROVINCE, we need to get all its cities
-              const provinceResults = locations.filter(l => l.type === 'PROVINCE');
-              const cityResults = locations.filter(l => l.type === 'CITY');
-
-              // Get city IDs from direct city matches
-              cityResults.forEach(city => {
-                if (!cityIds.includes(city.id)) {
-                  cityIds.push(city.id);
-                }
-              });
-
-              // Get all cities for province matches
-              if (provinceResults.length > 0) {
-                const citiesResponse = await fetch(
-                  `${API_BASE_URL}/api/hotel/cities`,
-                  {
-                    method: 'GET',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                  }
-                );
-
-                if (citiesResponse.ok) {
-                  const allCities: City[] = await citiesResponse.json();
-                  // Add cities that belong to the matched province
-                  provinceResults.forEach(province => {
-                    const citiesInProvince = allCities.filter(c => c.parentName === province.name);
-                    citiesInProvince.forEach(city => {
-                      if (!cityIds.includes(city.id)) {
-                        cityIds.push(city.id);
-                      }
-                    });
-                  });
-                }
-              }
-            }
-          }
-        }
-
-        if (cityIds.length === 0) {
-          console.log('[DEBUG] No cityIds found, returning empty array');
-          return [];
-        }
-
-        console.log('[DEBUG] cityIds to search:', cityIds);
-
-        // Fetch hotels from all cities
-        for (const cityId of cityIds) {
-          const hotels = await this.searchHotelsByCity(cityId);
-          console.log(`[DEBUG] Hotels from city ${cityId}:`, hotels.length);
-          allHotels = allHotels.concat(hotels);
-        }
-      }
-
-      // Remove duplicates
-      allHotels = Array.from(new Map(allHotels.map(h => [h.id, h])).values());
-
-      // Apply client-side filters
-      let filteredHotels = allHotels.filter(
-        (hotel) => hotel.isActive && hotel.approvedStatus === 'APPROVED'
-      );
-
-      // Filter by price if provided
-      if (params.minPrice !== undefined || params.maxPrice !== undefined) {
-        filteredHotels = filteredHotels.filter((hotel) => {
-          // If hotel has no roomTypes, we can't filter by price, so include it
-          if (!hotel.roomTypes || hotel.roomTypes.length === 0) return true;
-          
-          const minRoomPrice = Math.min(
-            ...hotel.roomTypes.map((rt) => rt.basePrice ?? rt.pricePerNight ?? 0)
-          );
-
-          if (params.minPrice !== undefined && minRoomPrice < params.minPrice) {
-            return false;
-          }
-          if (params.maxPrice !== undefined && minRoomPrice > params.maxPrice) {
-            return false;
-          }
-
-          return true;
-        });
-      }
-
-      return filteredHotels;
-    } catch (error) {
-      console.error('Error searching hotels:', error);
-      throw error;
-    }
+    return this.searchHotelOffers(params);
   },
 
   // Get pending hotels for approval (admin, requires JWT)

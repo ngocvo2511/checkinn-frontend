@@ -1,3 +1,4 @@
+import { readJson, ReadApiError } from './read-request.ts';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
 
 export interface AvailabilityCheckResponse {
@@ -19,20 +20,10 @@ export const availabilityApi = {
       quantity: quantity.toString(),
     });
 
-    const response = await fetch(
-      `${API_BASE_URL}/api/v1/availability/check?${params.toString()}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Failed to check availability: ${response.statusText}`);
+    const data = await readJson(`${API_BASE_URL}/api/v1/availability/check?${params.toString()}`) as Partial<AvailabilityCheckResponse> | null;
+    if (!data || typeof data.available !== 'boolean' || !Number.isInteger(data.availableRooms) || data.availableRooms! < 0 || data.available !== (data.availableRooms! >= quantity)) {
+      throw new ReadApiError('INVALID_RESPONSE');
     }
-
-    return response.json();
+    return data as AvailabilityCheckResponse;
   },
 };

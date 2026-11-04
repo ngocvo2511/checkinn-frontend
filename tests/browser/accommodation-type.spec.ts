@@ -24,6 +24,32 @@ async function mock(page:Page,respond:(url:URL,method:string,body:Record<string,
   return route.continue();
  });
 }
+test('type filters reach offer API and survive reload, back, forward and clear without changing budget',async({page})=>{
+ let seen:string[]=[];
+ await mock(page,u=>{if(u.pathname.endsWith('/hotels/offers')){seen=u.searchParams.getAll('accommodationTypes');expect(u.searchParams.get('maxPrice')).toBe('800000');return{json:[{hotel,offer:{roomTypeId:id,quantity:1,unitPrice:200000,totalPerNight:200000,availableRooms:null,checkIn:null,checkOut:null,checkedAt:null}}]};}});
+ await page.goto('/search?cityId='+id+'&maxPrice=800000');
+ await expect(page.getByRole('checkbox',{name:'Villa',exact:true})).toBeVisible();
+ await page.getByRole('checkbox',{name:'Villa',exact:true}).click();
+ await expect(page.getByRole('checkbox',{name:'Villa',exact:true})).toBeChecked();
+ await expect.poll(()=>seen).toEqual(['VILLA']);
+ await page.getByRole('checkbox',{name:'Hotel',exact:true}).click();
+ await expect(page.getByRole('checkbox',{name:'Hotel',exact:true})).toBeChecked();
+ await expect.poll(()=>new Set(seen)).toEqual(new Set(['VILLA','HOTEL']));
+ await page.reload();await expect(page.getByRole('checkbox',{name:'Villa',exact:true})).toBeChecked();
+ await page.goBack();await expect(page.getByRole('checkbox',{name:'Hotel',exact:true})).not.toBeChecked();
+ await page.goForward();await expect(page.getByRole('checkbox',{name:'Hotel',exact:true})).toBeChecked();
+ await page.getByRole('button',{name:'Xóa bộ lọc loại hình'}).click();await expect.poll(()=>seen).toEqual([]);
+ expect(new URL(page.url()).searchParams.get('maxPrice')).toBe('800000');
+ await expect(page.getByText('Hotel',{exact:true}).last()).toBeVisible();
+});
+test('unknown type in URL is visible and can be removed while preserving other criteria',async({page})=>{
+ await mock(page,u=>u.pathname.endsWith('/hotels/offers')?{status:u.searchParams.has('accommodationTypes')?400:200,json:[]}:undefined);
+ await page.goto('/search?cityId='+id+'&maxPrice=800000&accommodationTypes=ALIEN');
+ await expect(page.getByText('Loại hình trong URL không hợp lệ: ALIEN.')).toBeVisible();
+ await expect(page.getByTestId('search-error')).toBeVisible();
+ await page.getByRole('button',{name:'Xóa bộ lọc loại hình'}).click();
+ await expect(page.getByTestId('search-error')).toHaveCount(0);expect(new URL(page.url()).searchParams.get('maxPrice')).toBe('800000');
+});
 test('create catalog error has retry and no default selection',async({page})=>{
  await login(page);let failing=true;
  await mock(page,u=>u.pathname.endsWith('/accommodation-types')?{status:failing?503:200,json:failing?{}:catalog}:undefined);

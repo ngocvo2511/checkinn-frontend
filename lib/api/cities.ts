@@ -1,3 +1,4 @@
+import { readJson, readArray } from './read-request.ts';
 const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080'}/cities`;
 
 export interface City {
@@ -15,65 +16,20 @@ export interface City {
 export const cityApi = {
   // Get all cities
   getAllCities: async (): Promise<City[]> => {
-    try {
-      const response = await fetch(API_BASE_URL, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch cities: ${response.status} ${response.statusText}`);
-      }
-
-      return response.json();
-    } catch (error) {
-      console.error('Error fetching cities:', error);
-      throw error;
-    }
+    return readArray<City>(await readJson(API_BASE_URL),
+      c => typeof c.id === 'string' && typeof c.name === 'string');
   },
 
   // Get all locations (provinces + cities)
   getAllLocations: async (): Promise<City[]> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/all-locations`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch locations: ${response.status} ${response.statusText}`);
-      }
-
-      return response.json();
-    } catch (error) {
-      console.error('Error fetching locations:', error);
-      throw error;
-    }
+    return readArray<City>(await readJson(`${API_BASE_URL}/all-locations`),
+      c => typeof c.id === 'string' && typeof c.name === 'string');
   },
 
   // Search locations (provinces + cities)
   searchLocations: async (query: string): Promise<City[]> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/search/locations?query=${encodeURIComponent(query)}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to search locations: ${response.status} ${response.statusText}`);
-      }
-
-      return response.json();
-    } catch (error) {
-      console.error('Error searching locations:', error);
-      throw error;
-    }
+    return readArray<City>(await readJson(`${API_BASE_URL}/search/locations?query=${encodeURIComponent(query)}`),
+      c => typeof c.id === 'string' && typeof c.name === 'string');
   },
 
   // Get city by ID

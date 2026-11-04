@@ -281,7 +281,7 @@ function Hero() {
     if (selectedHotel) {
       searchParams.set("hotelName", selectedHotel.name);
     } else if (selectedCity) {
-      searchParams.set("cityId", selectedCity.id);
+      searchParams.set(selectedCity.type === "PROVINCE" ? "provinceId" : "cityId", selectedCity.id);
       searchParams.set("cityName", selectedCity.name);
     }
 
