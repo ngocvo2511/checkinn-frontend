@@ -8,7 +8,7 @@ import HotelDetailHeader from "@/components/HotelDetailHeader";
 import NearbyPlacesSection from "@/components/NearbyPlacesSection";
 import HotelLocationMap from "@/components/map/HotelLocationMap";
 import Footer from "@/components/Footer";
-import { hotelCoordinates, hotelApi, Hotel as ApiHotel, RoomType, MediaAsset } from "@/lib/api/hotels";
+import { hotelApi, Hotel as ApiHotel, RoomType, MediaAsset } from "@/lib/api/hotels";
 import { reviewApi } from "@/lib/api/reviews";
 import { authApi } from "@/lib/api/auth";
 import { useAuth } from "@/hooks/useAuth";
@@ -344,7 +344,8 @@ export default function HotelDetailPage() {
     return parts.join(", ");
   }, [hotel]);
 
-  const { latitude: hotelLat, longitude: hotelLng } = hotelCoordinates(hotel?.address);
+  const hotelLat = hotel?.address?.latitude ?? hotel?.city?.latitude;
+  const hotelLng = hotel?.address?.longitude ?? hotel?.city?.longitude;
 
   const faqList = useMemo(() => {
     if (hotel?.faqs && hotel.faqs.length > 0) {
@@ -1412,14 +1413,12 @@ export default function HotelDetailPage() {
         )}
 
         {/* Nearby Places Section */}
-        {hotelId && (
+        {hotel && hotel.address?.latitude != null && hotel.address?.longitude != null && (
           <NearbyPlacesSection
-            hotelId={hotelId}
-            hotelName={hotel?.name}
-            latitude={hotelLat}
-            longitude={hotelLng}
-            cityId={hotel?.city?.id}
-            cityName={hotel?.city?.name}
+            hotelId={hotel.id || hotelId}
+            hotelName={hotel.name}
+            latitude={hotel.address.latitude}
+            longitude={hotel.address.longitude}
           />
         )}
 

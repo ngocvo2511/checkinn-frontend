@@ -29,6 +29,9 @@ export interface NearbyPlace {
   provinceName?: string | null;
   distanceKm: number;
   estimatedTravelTimeMinutes: number;
+  isRoadDistance?: boolean;
+  originLatitude?: number | null;
+  originLongitude?: number | null;
   photos: PlacePhoto[];
   reviews: PlaceReview[];
 }
