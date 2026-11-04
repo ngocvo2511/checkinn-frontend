@@ -1,13 +1,14 @@
 "use client";
 
 import React from "react";
-import { Star, MapPin, Clock, MessageSquare, Image as ImageIcon, ExternalLink } from "lucide-react";
+import { Star, MapPin, Clock, MessageSquare, Image as ImageIcon, ExternalLink, Car, Navigation } from "lucide-react";
 import { NearbyPlace } from "@/types/place";
 
 interface PlaceCardProps {
   place: NearbyPlace;
   onSelect: (place: NearbyPlace) => void;
-  showDistance?: boolean;
+  hotelLat?: number | null;
+  hotelLng?: number | null;
 }
 
 const CATEGORY_LABEL_MAP: Record<string, { label: string; color: string }> = {
@@ -18,7 +19,7 @@ const CATEGORY_LABEL_MAP: Record<string, { label: string; color: string }> = {
   ENTERTAINMENT: { label: "Vui chơi giải trí", color: "bg-purple-50 text-purple-700 border-purple-200" },
 };
 
-export default function PlaceCard({ place, onSelect, showDistance = true }: PlaceCardProps) {
+export default function PlaceCard({ place, onSelect, hotelLat, hotelLng }: PlaceCardProps) {
   const catInfo = CATEGORY_LABEL_MAP[place.category] || {
     label: place.category,
     color: "bg-blue-50 text-blue-700 border-blue-200"
@@ -27,6 +28,10 @@ export default function PlaceCard({ place, onSelect, showDistance = true }: Plac
   const coverUrl = place.coverImageUrl || (place.photos && place.photos.length > 0 ? place.photos[0].photoUrl : null);
   const reviewsCount = place.reviews?.length || 0;
   const photosCount = place.photos?.length || (coverUrl ? 1 : 0);
+
+  const googleMapsUrl = (hotelLat != null && hotelLng != null)
+    ? `https://www.google.com/maps/dir/?api=1&origin=${hotelLat},${hotelLng}&destination=${place.latitude},${place.longitude}&travelmode=driving`
+    : `https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}&travelmode=driving`;
 
   return (
     <div 
@@ -55,15 +60,13 @@ export default function PlaceCard({ place, onSelect, showDistance = true }: Plac
           </span>
         </div>
 
-        {/* Distance Badge */}
-        {showDistance && (
+        {/* Road Distance Badge */}
         <div className="absolute right-3 top-3">
-          <span className="inline-flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-0.5 text-xs font-medium text-white backdrop-blur-md">
-            <Clock className="w-3 h-3 text-blue-300" />
-            ~{place.estimatedTravelTimeMinutes} phút ({place.distanceKm} km)
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-black/70 px-2.5 py-0.5 text-xs font-medium text-white backdrop-blur-md shadow-xs">
+            <Car className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+            <span>~{place.estimatedTravelTimeMinutes} phút ({place.distanceKm} km đường bộ)</span>
           </span>
         </div>
-        )}
 
         {/* Media Counts */}
         <div className="absolute bottom-2 right-2 flex items-center gap-1.5">
@@ -113,7 +116,20 @@ export default function PlaceCard({ place, onSelect, showDistance = true }: Plac
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            {/* Google Maps Directions */}
+            <a
+              href={googleMapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 rounded-lg bg-sky-50 border border-sky-100 px-2 py-1 text-xs font-semibold text-sky-700 hover:bg-sky-100 hover:text-sky-800 transition"
+              title="Chỉ đường trên Google Maps"
+            >
+              <Navigation className="w-3 h-3 text-sky-600" />
+              <span>Chỉ đường</span>
+            </a>
+
             {place.detailUrl && (
               <a
                 href={place.detailUrl}

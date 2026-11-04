@@ -1,16 +1,18 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Star, ChevronLeft, ChevronRight, MapPin, Clock, MessageSquare, Image as ImageIcon, ExternalLink } from "lucide-react";
+import { X, Star, ChevronLeft, ChevronRight, MapPin, Clock, MessageSquare, Image as ImageIcon, ExternalLink, Car, Navigation } from "lucide-react";
 import { NearbyPlace } from "@/types/place";
 
 interface PlaceReviewsModalProps {
   place: NearbyPlace | null;
   isOpen: boolean;
   onClose: () => void;
+  hotelLat?: number | null;
+  hotelLng?: number | null;
 }
 
-export default function PlaceReviewsModal({ place, isOpen, onClose }: PlaceReviewsModalProps) {
+export default function PlaceReviewsModal({ place, isOpen, onClose, hotelLat, hotelLng }: PlaceReviewsModalProps) {
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
 
   useEffect(() => {
@@ -39,6 +41,10 @@ export default function PlaceReviewsModal({ place, isOpen, onClose }: PlaceRevie
 
   const reviews = place.reviews || [];
 
+  const googleMapsUrl = (hotelLat != null && hotelLng != null)
+    ? `https://www.google.com/maps/dir/?api=1&origin=${hotelLat},${hotelLng}&destination=${place.latitude},${place.longitude}&travelmode=driving`
+    : `https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}&travelmode=driving`;
+
   const handlePrevPhoto = (e: React.MouseEvent) => {
     e.stopPropagation();
     setActivePhotoIndex((prev) => (prev > 0 ? prev - 1 : photos.length - 1));
@@ -61,13 +67,13 @@ export default function PlaceReviewsModal({ place, isOpen, onClose }: PlaceRevie
         {/* Header */}
         <div className="flex items-start justify-between border-b border-gray-100 p-5 pb-4">
           <div className="pr-6">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex flex-wrap items-center gap-2 mb-1">
               <span className="inline-block rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-600">
                 {place.category}
               </span>
-              <span className="flex items-center gap-1 text-xs text-gray-500">
-                <Clock className="w-3.5 h-3.5 text-blue-500" />
-                ~{place.estimatedTravelTimeMinutes} phút ({place.distanceKm} km)
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 border border-sky-100 px-2.5 py-0.5 text-xs font-semibold text-sky-700">
+                <Car className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                ~{place.estimatedTravelTimeMinutes} phút ({place.distanceKm} km đường bộ)
               </span>
             </div>
             <h3 className="text-xl font-bold text-gray-900">{place.name}</h3>
@@ -77,8 +83,19 @@ export default function PlaceReviewsModal({ place, isOpen, onClose }: PlaceRevie
                 {place.address}
               </p>
             )}
-            {place.detailUrl && (
-              <div className="mt-2.5">
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+              <a
+                href={googleMapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-700 transition shadow-xs"
+              >
+                <Navigation className="w-3.5 h-3.5" />
+                <span>Chỉ đường trên Google Maps</span>
+                <ExternalLink className="w-3 h-3 opacity-80" />
+              </a>
+
+              {place.detailUrl && (
                 <a
                   href={place.detailUrl}
                   target="_blank"
@@ -93,11 +110,11 @@ export default function PlaceReviewsModal({ place, isOpen, onClose }: PlaceRevie
                       (e.target as HTMLElement).style.display = 'none';
                     }}
                   />
-                  <span>Xem trang đánh giá gốc trên TripAdvisor</span>
+                  <span>Xem trên TripAdvisor</span>
                   <ExternalLink className="w-3.5 h-3.5 text-emerald-600" />
                 </a>
-              </div>
-            )}
+              )}
+            </div>
           </div>
           <button
             onClick={onClose}
@@ -251,26 +268,38 @@ export default function PlaceReviewsModal({ place, isOpen, onClose }: PlaceRevie
         </div>
 
         {/* Footer */}
-        <div className="border-t border-gray-100 p-4 bg-gray-50 flex items-center justify-between gap-3">
-          {place.detailUrl ? (
+        <div className="border-t border-gray-100 p-4 bg-gray-50 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
             <a
-              href={place.detailUrl}
+              href={googleMapsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition shadow-xs"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-blue-50 border border-blue-200 px-4 py-2 text-xs sm:text-sm font-semibold text-blue-700 hover:bg-blue-100 transition shadow-xs"
             >
-              <img
-                src="https://static.tacdn.com/favicon.ico"
-                alt="TripAdvisor"
-                className="w-4 h-4 object-contain"
-                onError={(e) => {
-                  (e.target as HTMLElement).style.display = 'none';
-                }}
-              />
-              <span>Xem trên TripAdvisor</span>
-              <ExternalLink className="w-4 h-4 text-emerald-600" />
+              <Navigation className="w-4 h-4 text-blue-600" />
+              <span>Chỉ đường trên Google Maps</span>
             </a>
-          ) : <div />}
+
+            {place.detailUrl && (
+              <a
+                href={place.detailUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition shadow-xs"
+              >
+                <img
+                  src="https://static.tacdn.com/favicon.ico"
+                  alt="TripAdvisor"
+                  className="w-4 h-4 object-contain"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
+                <span>Xem trên TripAdvisor</span>
+                <ExternalLink className="w-4 h-4 text-emerald-600" />
+              </a>
+            )}
+          </div>
           <button
             onClick={onClose}
             className="rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition"

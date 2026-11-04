@@ -22,8 +22,25 @@ const parseStringValue = (value: any): any => {
 
 // Clean hotel data from backend
 const cleanHotelData = (hotel: any): Hotel => {
+  let cleanedAddress = hotel.address;
+  if (typeof cleanedAddress === 'string') {
+    try {
+      cleanedAddress = JSON.parse(cleanedAddress);
+    } catch {
+      // Keep as is
+    }
+  }
+  if (cleanedAddress && typeof cleanedAddress === 'object') {
+    cleanedAddress = {
+      ...cleanedAddress,
+      latitude: cleanedAddress.latitude != null ? Number(cleanedAddress.latitude) : undefined,
+      longitude: cleanedAddress.longitude != null ? Number(cleanedAddress.longitude) : undefined,
+    };
+  }
+
   return {
     ...hotel,
+    address: cleanedAddress,
     name: parseStringValue(hotel.name),
     description: parseStringValue(hotel.description),
     contactEmail: parseStringValue(hotel.contactEmail),

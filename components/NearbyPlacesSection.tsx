@@ -40,14 +40,24 @@ export default function NearbyPlacesSection({
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [radiusKm, setRadiusKm] = useState<number>(10);
 
+  const hasValidCoordinates =
+    latitude != null &&
+    longitude != null &&
+    !isNaN(Number(latitude)) &&
+    !isNaN(Number(longitude)) &&
+    (Number(latitude) !== 0 || Number(longitude) !== 0);
+
   const fetchPlaces = async (cat: PlaceCategoryFilter, radius: number) => {
+    if (!hasValidCoordinates) {
+      setPlaces([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const data = await placesApi.getNearbyPlaces({
-        latitude,
-        longitude,
-        cityId,
-        provinceName: cityName,
+        latitude: Number(latitude),
+        longitude: Number(longitude),
         category: cat,
         radiusKm: radius,
         limit: 12,
@@ -63,7 +73,7 @@ export default function NearbyPlacesSection({
 
   useEffect(() => {
     fetchPlaces(selectedCategory, radiusKm);
-  }, [latitude, longitude, cityId, cityName, selectedCategory, radiusKm]);
+  }, [latitude, longitude, selectedCategory, radiusKm]);
 
   const handleSelectPlace = (place: NearbyPlace) => {
     setSelectedPlace(place);
@@ -152,6 +162,8 @@ export default function NearbyPlacesSection({
               key={place.id || place.googlePlaceId || idx}
               place={place}
               onSelect={handleSelectPlace}
+              hotelLat={latitude}
+              hotelLng={longitude}
             />
           ))}
         </div>
@@ -192,6 +204,8 @@ export default function NearbyPlacesSection({
         place={selectedPlace}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
+        hotelLat={latitude}
+        hotelLng={longitude}
       />
     </section>
   );
