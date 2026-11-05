@@ -160,6 +160,7 @@ interface HotelSearchBarProps {
     hotelId?: string;
     hotelName?: string;
     cityId?: string;
+    provinceId?: string;
     cityName?: string;
     checkIn: Date;
     checkOut: Date;
@@ -300,7 +301,8 @@ export function HotelSearchBar({
     onSearch?.({
       hotelId: selectedHotel?.id || undefined,
       hotelName: selectedHotel?.name || initialHotelName || undefined,
-      cityId: selectedCity?.id || undefined,
+      cityId: selectedCity?.type !== 'PROVINCE' ? selectedCity?.id : undefined,
+      provinceId: selectedCity?.type === 'PROVINCE' ? selectedCity.id : undefined,
       cityName: selectedCity?.name || undefined,
       checkIn: checkInDate,
       checkOut: checkOutDate,

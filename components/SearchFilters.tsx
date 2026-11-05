@@ -1,27 +1,31 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { MIN_PRICE, MAX_PRICE, type SearchFilterValues } from "@/lib/search/criteria";
+
+import {useAccommodationCatalog} from "./AccommodationTypeSelect";
 
 interface SearchFiltersProps {
-  onFilterChange: (filters: any) => void;
-  totalResults: number;
+  onFilterChange: (filters: Partial<SearchFilterValues>) => void;
+  value: SearchFilterValues;
+  totalResults: number | null;
   hotels?: Array<{ amenities: string[] }>;
 }
 
-export function SearchFilters({ onFilterChange, totalResults, hotels = [] }: SearchFiltersProps) {
-  const MIN_PRICE = 0;
-  const MAX_PRICE = 24000000;
+export function SearchFilters({ onFilterChange, value, totalResults, hotels = [] }: SearchFiltersProps) {
+  const catalog = useAccommodationCatalog();
+  const invalidTypes = !catalog.loading && !catalog.error ? value.accommodationTypes.filter(code=>!catalog.options.some(o=>o.code===code)) : [];
   const STEP = 50000;
   const DISPLAY_AMENITIES_COUNT = 4;
 
-  const [priceRange, setPriceRange] = useState([MIN_PRICE, MAX_PRICE]);
+  const {priceRange, amenities, starRatings: selectedStarRatings, guestRatings: selectedGuestRatings} = value;
   const [minInput, setMinInput] = useState(MIN_PRICE.toString());
   const [maxInput, setMaxInput] = useState(MAX_PRICE.toString());
-  const [amenities, setAmenities] = useState<string[]>([]);
-  const [types, setTypes] = useState<string[]>([]);
   const [showAllAmenities, setShowAllAmenities] = useState(false);
-  const [selectedStarRatings, setSelectedStarRatings] = useState<number[]>([]);
-  const [selectedGuestRatings, setSelectedGuestRatings] = useState<number[]>([]);
+
+  useEffect(() => {
+    setMinInput(String(priceRange[0])); setMaxInput(String(priceRange[1]));
+  }, [priceRange]);
 
   // Extract unique amenities from hotels
   const allAmenities = useMemo(() => {
@@ -36,7 +40,6 @@ export function SearchFilters({ onFilterChange, totalResults, hotels = [] }: Sea
 
   const amenityOptions = allAmenities.length > 0 ? allAmenities : ["Tủ lạnh", "No cancellation", "Breakfast included", "Swimming pool"];
   const displayedAmenities = showAllAmenities ? amenityOptions : amenityOptions.slice(0, DISPLAY_AMENITIES_COUNT);
-  const typeOptions = ["Hotel", "Villa", "Apartment", "Guest House"];
 
   const clampedRange = useMemo(() => {
     const [min, max] = priceRange;
@@ -56,18 +59,16 @@ export function SearchFilters({ onFilterChange, totalResults, hotels = [] }: Sea
       nextRange[1] = nextRange[0];
     }
 
-    setPriceRange(nextRange);
     setMinInput(nextRange[0].toString());
     setMaxInput(nextRange[1].toString());
-    onFilterChange({ priceRange: nextRange, amenities, types, starRatings: selectedStarRatings, guestRatings: selectedGuestRatings });
+    onFilterChange({ priceRange: nextRange });
   };
 
   const handleResetPrice = () => {
     const defaultRange: [number, number] = [MIN_PRICE, MAX_PRICE];
-    setPriceRange(defaultRange);
     setMinInput(MIN_PRICE.toString());
     setMaxInput(MAX_PRICE.toString());
-    onFilterChange({ priceRange: defaultRange, amenities, types, starRatings: selectedStarRatings, guestRatings: selectedGuestRatings });
+    onFilterChange({ priceRange: defaultRange });
   };
 
   const lowerPercent = ((clampedRange[0] - MIN_PRICE) / (MAX_PRICE - MIN_PRICE)) * 100;
@@ -86,68 +87,35 @@ export function SearchFilters({ onFilterChange, totalResults, hotels = [] }: Sea
   };
 
   const handleMinPriceBlur = () => {
-    const numValue = Math.max(MIN_PRICE, Math.min(parseInt(minInput) || MIN_PRICE, MAX_PRICE));
-    let newMax = parseInt(maxInput) || clampedRange[1];
-    
-    // Nếu min >= max thì đặt max = min + 50k
-    if (numValue >= newMax) {
-      newMax = Math.min(numValue + 50000, MAX_PRICE);
-    }
-    
-    setPriceRange([numValue, newMax]);
-    setMinInput(numValue.toString());
-    setMaxInput(newMax.toString());
-    onFilterChange({ priceRange: [numValue, newMax], amenities, types, starRatings: selectedStarRatings, guestRatings: selectedGuestRatings });
+    const next = Math.max(MIN_PRICE, Math.min(Number(minInput || MIN_PRICE), clampedRange[1]));
+    setMinInput(String(next));
+    onFilterChange({priceRange:[next,clampedRange[1]]});
   };
-
   const handleMaxPriceBlur = () => {
-    const numValue = Math.max(MIN_PRICE, Math.min(parseInt(maxInput) || MAX_PRICE, MAX_PRICE));
-    let newMin = parseInt(minInput) || clampedRange[0];
-    
-    // Nếu max <= min thì đặt max = min + 50k
-    if (numValue <= newMin) {
-      const adjustedMax = Math.min(newMin + 50000, MAX_PRICE);
-      setPriceRange([newMin, adjustedMax]);
-      setMinInput(newMin.toString());
-      setMaxInput(adjustedMax.toString());
-      onFilterChange({ priceRange: [newMin, adjustedMax], amenities, types, starRatings: selectedStarRatings, guestRatings: selectedGuestRatings });
-    } else {
-      setPriceRange([newMin, numValue]);
-      setMaxInput(numValue.toString());
-      onFilterChange({ priceRange: [newMin, numValue], amenities, types, starRatings: selectedStarRatings, guestRatings: selectedGuestRatings });
-    }
+    const next = Math.max(MIN_PRICE, Math.min(Number(maxInput || MAX_PRICE), MAX_PRICE));
+    setMaxInput(String(next));
+    onFilterChange({priceRange:[Math.min(clampedRange[0],next),next]});
   };
 
   const handleAmenityChange = (amenity: string) => {
     const newAmenities = amenities.includes(amenity)
       ? amenities.filter((a) => a !== amenity)
       : [...amenities, amenity];
-    setAmenities(newAmenities);
-    onFilterChange({ priceRange, amenities: newAmenities, types, starRatings: selectedStarRatings, guestRatings: selectedGuestRatings });
-  };
-
-  const handleTypeChange = (type: string) => {
-    const newTypes = types.includes(type)
-      ? types.filter((t) => t !== type)
-      : [...types, type];
-    setTypes(newTypes);
-    onFilterChange({ priceRange, amenities, types: newTypes, starRatings: selectedStarRatings, guestRatings: selectedGuestRatings });
+    onFilterChange({ amenities: newAmenities });
   };
 
   const handleStarRatingChange = (star: number) => {
     const newStarRatings = selectedStarRatings.includes(star)
       ? selectedStarRatings.filter((s) => s !== star)
       : [...selectedStarRatings, star];
-    setSelectedStarRatings(newStarRatings);
-    onFilterChange({ priceRange, amenities, types, starRatings: newStarRatings, guestRatings: selectedGuestRatings });
+    onFilterChange({ starRatings: newStarRatings });
   };
 
   const handleGuestRatingChange = (rating: number) => {
     const newGuestRatings = selectedGuestRatings.includes(rating)
       ? selectedGuestRatings.filter((r) => r !== rating)
       : [...selectedGuestRatings, rating];
-    setSelectedGuestRatings(newGuestRatings);
-    onFilterChange({ priceRange, amenities, types, starRatings: selectedStarRatings, guestRatings: newGuestRatings });
+    onFilterChange({ guestRatings: newGuestRatings });
   };
 
   return (
@@ -207,6 +175,7 @@ export function SearchFilters({ onFilterChange, totalResults, hotels = [] }: Sea
               onChange={handleMinPriceInput}
               onBlur={handleMinPriceBlur}
               className="flex-1 bg-transparent outline-none min-w-0"
+              aria-label="Giá tối thiểu"
               placeholder="0"
             />
             <span className="whitespace-nowrap">VND</span>
@@ -218,6 +187,7 @@ export function SearchFilters({ onFilterChange, totalResults, hotels = [] }: Sea
               onChange={handleMaxPriceInput}
               onBlur={handleMaxPriceBlur}
               className="flex-1 bg-transparent outline-none min-w-0"
+              aria-label="Giá tối đa"
               placeholder="0"
             />
             <span className="whitespace-nowrap">VND</span>
@@ -304,28 +274,20 @@ export function SearchFilters({ onFilterChange, totalResults, hotels = [] }: Sea
         )}
       </div>
 
-      {/* Property Type */}
-      <div className="border-t border-[#E4E6EB] pt-6">
-        <h4 className="mb-4 font-semibold text-[#2B3037]">Loại chỗ ở</h4>
-        <div className="space-y-3">
-          {typeOptions.map((type) => (
-            <label key={type} className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={types.includes(type)}
-                onChange={() => handleTypeChange(type)}
-                className="h-5 w-5 rounded border-[#E4E6EB] text-[#0057FF]"
-              />
-              <span className="text-sm text-[#2B3037]">{type}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
+      <fieldset className="border-t pt-6 space-y-3">
+        <legend className="font-semibold pt-4">Loại hình lưu trú</legend>
+        {catalog.loading && <p>Đang tải loại hình…</p>}
+        {catalog.error && <p role="alert">Không tải được danh mục. <button type="button" className="underline" onClick={catalog.retry}>Thử lại danh mục</button></p>}
+        {!catalog.loading && !catalog.error && catalog.options.map(option=><label key={option.code} className="flex gap-3 items-center">
+          <input type="checkbox" checked={value.accommodationTypes.includes(option.code)} onChange={()=>onFilterChange({accommodationTypes:value.accommodationTypes.includes(option.code)?value.accommodationTypes.filter(c=>c!==option.code):[...value.accommodationTypes,option.code]})}/>{option.label}
+        </label>)}
+        {invalidTypes.length>0 && <p role="alert">Loại hình trong URL không hợp lệ: {invalidTypes.join(', ')}.</p>}
+        {value.accommodationTypes.length>0 && <button type="button" className="underline" onClick={()=>onFilterChange({accommodationTypes:[]})}>Xóa bộ lọc loại hình</button>}
+      </fieldset>
       {/* Results Count */}
-      <div className="mt-8 rounded-lg bg-[#E8EFFC] px-4 py-3 text-center text-sm font-semibold text-[#0057FF]">
+      {totalResults !== null && <div className="mt-8 rounded-lg bg-[#E8EFFC] px-4 py-3 text-center text-sm font-semibold text-[#0057FF]">
         {totalResults} kết quả
-      </div>
+      </div>}
       <style jsx global>{`
         input[type='range'].range-thumb::-webkit-slider-thumb {
           -webkit-appearance: none;

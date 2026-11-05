@@ -13,10 +13,13 @@ interface HotelLocationPickerProps {
 
 export function HotelLocationPicker({ onCitySelect, onHotelSelect, initialHotelName }: HotelLocationPickerProps) {
   const [cities, setCities] = useState<City[]>([]);
-  const [filteredCities, setFilteredCities] = useState<City[]>([]);
-  const [filteredHotels, setFilteredHotels] = useState<Hotel[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{ term: string; cities: City[]; hotels: Hotel[]; error: string }>({ term: '', cities: [], hotels: [], error: '' });
+  const loading = Boolean(searchTerm.trim()) && result.term !== searchTerm;
+  const error = result.term === searchTerm ? result.error : '';
+  const filteredCities = result.term === searchTerm ? result.cities : [];
+  const filteredHotels = result.term === searchTerm ? result.hotels : [];
+  const [locationsError, setLocationsError] = useState('');
 
   const popularCityNames = ['Hà Nội', 'TP. Hồ Chí Minh', 'Đà Nẵng', 'Nha Trang', 'Đà Lạt', 'Vũng Tàu'];
 
@@ -29,43 +32,24 @@ export function HotelLocationPicker({ onCitySelect, onHotelSelect, initialHotelN
   };
 
   useEffect(() => {
-    const loadAllCities = async () => {
-      try {
-        setLoading(true);
-        const allCities = await cityApi.getAllLocations();
-        setCities(allCities);
-      } catch (error) {
-        console.error('Failed to load cities:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadAllCities();
+    let current = true;
+    cityApi.getAllLocations().then(data => {
+      if (current) setCities(data);
+    }).catch(() => {
+      if (current) setLocationsError('Không thể tải điểm đến. Vui lòng thử lại.');
+    });
+    return () => { current = false; };
   }, []);
 
   useEffect(() => {
-    if (searchTerm.trim() === '') {
-      setFilteredCities([]);
-      setFilteredHotels([]);
-    } else {
-      const searchAll = async () => {
-        try {
-          setLoading(true);
-          // Search both cities and hotels in parallel
-          const [cityResults, hotelResults] = await Promise.all([
-            cityApi.searchLocations(searchTerm),
-            hotelApi.searchHotelsByName(searchTerm)
-          ]);
-          setFilteredCities(cityResults);
-          setFilteredHotels(hotelResults);
-        } catch (error) {
-          console.error('Failed to search:', error);
-        } finally {
-          setLoading(false);
-        }
-      };
-      searchAll();
-    }
+    let current = true;
+    if (!searchTerm.trim()) return;
+    Promise.all([cityApi.searchLocations(searchTerm), hotelApi.searchHotelsByName(searchTerm)])
+      .then(([cityResults, hotelResults]) => {
+        if (current) setResult({ term: searchTerm, cities: cityResults, hotels: hotelResults, error: '' });
+      })
+      .catch(() => { if (current) setResult({ term: searchTerm, cities: [], hotels: [], error: 'Không thể tìm kiếm lúc này. Vui lòng thử lại.' }); });
+    return () => { current = false; };
   }, [searchTerm]);
 
   return (
@@ -98,19 +82,22 @@ export function HotelLocationPicker({ onCitySelect, onHotelSelect, initialHotelN
 
       {/* Cities List */}
       <div className="max-h-72 overflow-y-auto">
+        {!loading && (searchTerm.trim() ? error : locationsError) && (
+          <p role="alert" className="px-6 py-8 text-sm text-red-600">{searchTerm.trim() ? error : locationsError}</p>
+        )}
         {loading && (
           <div className="px-6 py-8 text-center text-sm text-[#8B94A4]">
             Đang tải...
           </div>
         )}
 
-        {!loading && searchTerm && filteredCities.length === 0 && filteredHotels.length === 0 && (
+        {!loading && !error && searchTerm && filteredCities.length === 0 && filteredHotels.length === 0 && (
           <div className="px-6 py-8 text-center text-sm text-[#8B94A4]">
             Không tìm thấy kết quả
           </div>
         )}
 
-        {!loading && searchTerm && (filteredCities.length > 0 || filteredHotels.length > 0) && (
+        {!loading && !error && searchTerm && (filteredCities.length > 0 || filteredHotels.length > 0) && (
           <div className="px-6 py-4">
             {/* Hotels Section */}
             {filteredHotels.length > 0 && (
@@ -177,7 +164,7 @@ export function HotelLocationPicker({ onCitySelect, onHotelSelect, initialHotelN
           </div>
         )}
 
-        {!loading && !searchTerm && cities.length > 0 && (
+        {!loading && !locationsError && !searchTerm && cities.length > 0 && (
           <div className="px-6 py-4">
             <p className="text-sm font-semibold text-[#111827] mb-4">Điểm đến phổ biến</p>
             <div className="space-y-2">

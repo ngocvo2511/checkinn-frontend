@@ -1,5 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {parseSearchFilters,patchSearchFilters} from '../lib/search/criteria.ts';
+import {hotelApi} from '../lib/api/hotels.ts';
+test('classification round-trips repeated codes, preserves unknown codes and other filters',()=>{
+ const p=new URLSearchParams('cityId=c&minPrice=12&star=4&accommodationTypes=VILLA&accommodationTypes=HOTEL&accommodationTypes=ALIEN');
+ assert.deepEqual(parseSearchFilters(p).accommodationTypes,['ALIEN','HOTEL','VILLA']);
+ const q=patchSearchFilters(p,{accommodationTypes:[]});
+ assert.equal(q.get('minPrice'),'12'); assert.equal(q.get('star'),'4');assert.equal(q.get('cityId'),'c');assert.equal(q.has('accommodationTypes'),false);
+});
+test('offer adapter sends repeated type parameters to backend',async()=>{
+ const prior=global.fetch; let url;
+ global.fetch=async(input)=>{url=new URL(input);return new Response('[]')};
+ try {await hotelApi.searchHotelOffers({cityId:'c',accommodationTypes:['HOTEL','VILLA']}); assert.deepEqual(url.searchParams.getAll('accommodationTypes'),['HOTEL','VILLA']);} finally {global.fetch=prior;}
+});
+
 import {accommodationApi} from '../lib/api/accommodation-types.ts';
 test('catalog failure never supplies a fallback category and incomplete catalog is malformed',async()=>{
  const prior=global.fetch;

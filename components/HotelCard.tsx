@@ -12,7 +12,6 @@ interface Hotel {
   image: string;
   images?: string[];
   amenities: string[];
-  type: string;
   availableRooms?: number;
   starRating?: number;
   loyaltyPoints?: number;

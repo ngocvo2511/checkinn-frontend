@@ -30,47 +30,42 @@ export function LocationSearch({ onCitySelect, onHotelSelect }: LocationSearchPr
   };
 
   useEffect(() => {
+    let current = true;
     const fetchLocations = async () => {
       try {
         setLoading(true);
         const data = await cityApi.getAllLocations();
-        setCities(data);
+        if (current) setCities(data);
       } catch (err) {
-        setError("Failed to load locations");
+        if (current) setError("Không thể tải điểm đến. Vui lòng thử lại.");
         console.error(err);
       } finally {
-        setLoading(false);
+        if (current) setLoading(false);
       }
     };
 
-    if (isOpen && cities.length === 0) {
+    if (isOpen && cities.length === 0 && !searchQuery.trim()) {
       fetchLocations();
     }
-  }, [isOpen, cities.length]);
+    return () => { current = false; };
+  }, [isOpen, cities.length, searchQuery]);
 
   useEffect(() => {
-    const searchLocationsAndHotels = async () => {
-      if (searchQuery.trim() === "") {
-        setFilteredCities([]);
-        setFilteredHotels([]);
-        return;
-      }
-
-      try {
-        const [cityResults, hotelResults] = await Promise.all([
-          cityApi.searchLocations(searchQuery),
-          hotelApi.searchHotelsByName(searchQuery),
-        ]);
+    let current = true;
+    setError('');
+    setFilteredCities([]);
+    setFilteredHotels([]);
+    if (!searchQuery.trim()) { setLoading(false); return; }
+    setLoading(true);
+    Promise.all([cityApi.searchLocations(searchQuery), hotelApi.searchHotelsByName(searchQuery)])
+      .then(([cityResults, hotelResults]) => {
+        if (!current) return;
         setFilteredCities(cityResults);
         setFilteredHotels(hotelResults);
-      } catch (err) {
-        console.error("Search failed:", err);
-        setFilteredCities([]);
-        setFilteredHotels([]);
-      }
-    };
-
-    searchLocationsAndHotels();
+      })
+      .catch(() => { if (current) setError('Không thể tìm kiếm lúc này. Vui lòng thử lại.'); })
+      .finally(() => { if (current) setLoading(false); });
+    return () => { current = false; };
   }, [searchQuery]);
 
   useEffect(() => {
@@ -157,13 +152,11 @@ export function LocationSearch({ onCitySelect, onHotelSelect }: LocationSearchPr
 
             {error && (
               <div className="px-6 py-8">
-                <div className="rounded-lg bg-red-50 px-4 py-3 mb-3 text-sm text-red-600">
+                <div role="alert" className="rounded-lg bg-red-50 px-4 py-3 mb-3 text-sm text-red-600">
                   <p className="font-semibold">Không thể tải điểm đến</p>
                   <p className="text-xs mt-1">{error}</p>
                 </div>
-                <p className="text-xs text-[#8B94A4] text-center">
-                  Kiểm tra backend API Gateway đang chạy ở port 8080
-                </p>
+
               </div>
             )}
 
