@@ -55,6 +55,7 @@ export default function AdminPendingHotelDetailPage() {
 
   const [hotel, setHotel] = useState<PendingHotelDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reviewError,setReviewError]=useState('');
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [rejectNote, setRejectNote] = useState('');
@@ -71,6 +72,7 @@ export default function AdminPendingHotelDetailPage() {
       setLoading(true);
       const data = await hotelApi.getPendingHotelDetail(hotelId);
       setHotel(data);
+      setReviewError('');
     } catch (err) {
       setError('Failed to load hotel detail');
       console.error(err);
@@ -84,12 +86,12 @@ export default function AdminPendingHotelDetailPage() {
 
     try {
       setActionLoading(true);
-      await hotelApi.approveHotel(hotelId);
+      await hotelApi.approveHotel(hotelId, hotel!.revision);
       alert('Khách sạn đã được duyệt thành công!');
       router.push('/admin/pending');
     } catch (err) {
       console.error('Failed to approve hotel:', err);
-      alert('Có lỗi xảy ra khi duyệt khách sạn. Vui lòng thử lại.');
+      setReviewError('Không thể duyệt. Thông tin có thể đã thay đổi; hãy tải lại và xem xét phiên bản hiện tại.');
     } finally {
       setActionLoading(false);
     }
@@ -155,6 +157,8 @@ export default function AdminPendingHotelDetailPage() {
                 CheckInn Admin
               </div>
               <h1 className="mt-2 text-2xl font-semibold">{hotel.name}</h1>
+              {reviewError&&<p role="alert">{reviewError} <button type="button" className="underline" onClick={()=>void fetchHotelDetail()}>Tải lại để xét duyệt</button></p>}
+              <p>Loại hình lưu trú: {hotel.accommodationTypeLabel||'Chưa phân loại'}</p>
               <p className="mt-1 text-sm text-white/85">
                 Xem chi tiết và quyết định duyệt hoặc từ chối khách sạn.
               </p>
@@ -532,14 +536,14 @@ export default function AdminPendingHotelDetailPage() {
                     <div className="flex flex-wrap gap-3">
                       <button
                         onClick={handleApprove}
-                        disabled={actionLoading}
+                        disabled={actionLoading||!!reviewError}
                         className="inline-flex items-center justify-center rounded-xl bg-[#0057FF] px-5 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-[#0046CC] disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {actionLoading ? 'Đang xử lý...' : 'Duyệt khách sạn'}
                       </button>
                       <button
                         onClick={handleReject}
-                        disabled={actionLoading}
+                        disabled={actionLoading||!!reviewError}
                         className="inline-flex items-center justify-center rounded-xl border border-red-200 bg-red-50 px-5 py-3 text-base font-semibold text-red-600 shadow-sm transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {actionLoading ? 'Đang xử lý...' : 'Từ chối'}

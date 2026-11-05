@@ -34,7 +34,10 @@ type AmenityCategory = {
   amenities: AmenityItem[];
 };
 
+import {AccommodationTypeSelect} from '@/components/AccommodationTypeSelect';
+
 type FormState = {
+  accommodationType: string;
   name: string;
   description: string;
   starRating: string;
@@ -66,6 +69,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8
 const MEDIA_UPLOAD_URL = `${API_BASE_URL}/api/hotel/medias`;
 
 const initialForm: FormState = {
+  accommodationType: '',
   name: '',
   description: '',
   starRating: '4',
@@ -381,6 +385,7 @@ export default function HostCreateHotelPage() {
 
   const validateForm = (): string[] => {
     const missing: string[] = [];
+    if (!form.accommodationType) missing.push('Loại hình lưu trú');
     if (!form.name.trim()) missing.push('Tên khách sạn');
     if (!form.cityId && !form.addressCity.trim()) missing.push('Thành phố');
     if (!form.addressStreet.trim()) missing.push('Địa chỉ đường');
@@ -455,6 +460,7 @@ export default function HostCreateHotelPage() {
     }
 
     const payload = {
+      accommodationType: form.accommodationType,
       name: form.name.trim(),
       description: form.description.trim() || null,
       starRating: form.starRating ? Number(form.starRating) : null,
@@ -600,6 +606,7 @@ Khách sạn đã được lưu tạm dạng Bản nháp (DRAFT). Bạn có th�
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold uppercase tracking-[0.08em] text-[#8B94A4]">Thông tin cơ bản</p>
+                    <AccommodationTypeSelect value={form.accommodationType} required onChange={accommodationType=>setForm(prev=>({...prev,accommodationType}))}/>
                     <h2 className="text-xl font-semibold text-[#1F2226]">Mô tả khách sạn</h2>
                   </div>
                   <button

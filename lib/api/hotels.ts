@@ -1,3 +1,4 @@
+import { ReadApiError } from './read-request.ts';
 import type { City } from './cities';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
@@ -168,6 +169,8 @@ export interface RoomType {
 export type HotelApprovalStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export interface Hotel {
+  accommodationType?: import("./accommodation-types").AccommodationType | null;
+  accommodationTypeLabel?: string | null;
   id: string;
   ownerId: string;
   cityId: string;
@@ -498,9 +501,9 @@ export const hotelApi = {
   },
 
   // Approve a hotel
-  approveHotel: async (hotelId: string): Promise<void> => {
+  approveHotel: async (hotelId: string, revision: number): Promise<void> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/approve`, {
+      const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/approve?revision=${revision}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -509,7 +512,7 @@ export const hotelApi = {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to approve hotel: ${response.status} ${response.statusText}`);
+        throw new ReadApiError(response.status===409?'CONFLICT':response.status===403?'FORBIDDEN':'UPSTREAM',response.status);
       }
     } catch (error) {
       console.error('Error approving hotel:', error);
@@ -1101,6 +1104,9 @@ export interface PendingHotel {
 }
 
 export interface PendingHotelDetail {
+  accommodationTypeLabel?: string | null;
+  revision: number;
+  accommodationType?: import("./accommodation-types").AccommodationType | null;
   id: string;
   name: string;
   description: string;
