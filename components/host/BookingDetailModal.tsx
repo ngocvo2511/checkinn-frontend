@@ -1,5 +1,6 @@
 'use client';
 
+import { canRecordOnsiteReceipt } from '@/lib/booking/payment-state';
 import { useState } from 'react';
 import { BookingResponse } from '@/lib/api/booking';
 import { bookingApi } from '@/lib/api/booking';
@@ -65,12 +66,7 @@ export default function BookingDetailModal({
     }
   };
 
-  const canConfirmPayment = () => {
-    return (
-      booking.paymentMethod?.toUpperCase() === 'HOTEL' &&
-      (booking.status === 'PENDING_PAYMENT' || booking.status === 'PENDING')
-    );
-  };
+  const canConfirmPayment = () => canRecordOnsiteReceipt(booking);
 
   const canChangeStatus = () => {
     if (!['CONFIRMED', 'CHECKED_IN'].includes(booking.status)) return false;
@@ -111,8 +107,7 @@ export default function BookingDetailModal({
     }
   };
 
-  const handleChangeStatus = async () => {
-    const nextStatus = getNextStatus();
+  const handleChangeStatus = async (nextStatus: string | null = getNextStatus()) => {
     if (!nextStatus) return;
 
     setIsChangingStatus(true);
@@ -288,9 +283,13 @@ export default function BookingDetailModal({
                 </button>
               )}
 
+              {booking.onsiteReservationStatus === 'V1_CONFIRMED' && booking.status === 'CONFIRMED' && canChangeStatus() && (
+                <button onClick={() => void handleChangeStatus('NO_SHOW')} disabled={isChangingStatus}
+                  className="flex-1 bg-amber-600 text-white font-semibold py-2 px-4 rounded-lg">Khách không đến</button>
+              )}
               {canChangeStatus() && nextStatus && (
                 <button
-                  onClick={handleChangeStatus}
+                  onClick={() => void handleChangeStatus()}
                   disabled={isChangingStatus}
                   className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition"
                 >

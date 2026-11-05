@@ -152,9 +152,7 @@ export function HotelLocationPicker({ onCitySelect, onHotelSelect, initialHotelN
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <span className="rounded-full bg-[#E8EFFC] px-3 py-1 text-xs font-semibold text-[#0057FF]">Chọn</span>
-                    {city.hotelCount !== undefined && city.hotelCount !== null && (
-                      <span className="text-[11px] font-semibold text-[#4B5563]">{city.hotelCount.toLocaleString()} khách sạn</span>
-                    )}
+
                   </div>
                 </button>
               ))}
@@ -184,9 +182,7 @@ export function HotelLocationPicker({ onCitySelect, onHotelSelect, initialHotelN
                       <span className="rounded-full bg-[#E8F2FF] px-3 py-1 text-xs font-semibold text-[#1E64DD]">
                         {item.parentName ? 'Thành Phố' : 'Tỉnh'}
                       </span>
-                      {item.hotelCount !== undefined && item.hotelCount !== null && (
-                        <span className="text-xs font-semibold text-[#374151]">{item.hotelCount.toLocaleString()} khách sạn</span>
-                      )}
+
                     </div>
                   </button>
                 ))}

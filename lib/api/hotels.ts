@@ -73,7 +73,7 @@ const cleanHotelData = (hotel: any): Hotel => {
     roomTypes: hotel.roomTypes?.map((rt: any) => ({
       ...rt,
       name: parseStringValue(rt.name),
-      description: parseStringValue(rt.description),
+      description: typeof rt.description === "string" ? rt.description : undefined,
       bedType: parseStringValue(rt.bedType),
     })),
   };
@@ -84,7 +84,7 @@ const cleanRoomTypeData = (roomType: any): RoomType => {
   return {
     ...roomType,
     name: parseStringValue(roomType.name),
-    description: parseStringValue(roomType.description),
+    description: typeof roomType.description === "string" ? roomType.description : undefined,
     bedType: parseStringValue(roomType.bedType),
     capacity: roomType.capacity ? {
       ...roomType.capacity,

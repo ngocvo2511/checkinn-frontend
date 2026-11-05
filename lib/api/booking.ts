@@ -18,6 +18,7 @@ export interface BookingItemPayload {
 }
 
 export interface CreateBookingPayload {
+  idempotencyKey?: string;
   userId?: string;
   hotelId: string;
   hotelName: string;
@@ -43,6 +44,7 @@ export interface CancellationPolicyDetails {
 }
 
 export interface BookingResponse {
+  onsiteReservationStatus?: "V1_PENDING" | "V1_CONFIRMED" | "V1_RELEASED" | "V1_REVIEW_REQUIRED" | null;
   id: string;
   loyaltyStatus?: 'PENDING' | 'SETTLED' | 'REVERSED' | 'REVIEW_REQUIRED' | null;
   hotelId: string;

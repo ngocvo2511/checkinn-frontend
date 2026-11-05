@@ -46,6 +46,68 @@ test('successful empty response shows no matches without dependency error', asyn
   await expect(page.getByRole('checkbox',{name:/Villa|Apartment|Guest House/})).toHaveCount(3);
   await expect(page.getByRole('alert').filter({hasText:/Không thể|không hợp lệ/})).toHaveCount(0);
 });
+
+test('search does not fabricate amenities, ratings, discounts, location or points for missing catalog facts', async ({page}) => {
+  await mock(page, url => url.pathname.endsWith('/hotels/offers')
+    ? {json:[{hotel,offer:{roomTypeId:'good',quantity:1,unitPrice:200000,totalPerNight:200000,availableRooms:null,checkIn:null,checkOut:null,checkedAt:null}}]}
+    : {json:{totalReviews:0,averageRating:0}});
+  await page.goto('/search?cityName=Fixture');
+  await expect(page.getByText('Synthetic hotel',{exact:true})).toBeVisible();
+  await expect(page.getByText('Free WiFi',{exact:true})).toHaveCount(0);
+  await expect(page.getByText('240.000 VND',{exact:true})).toHaveCount(0);
+  await expect(page.getByText(/\d+ Points/)).toHaveCount(0);
+  await expect(page.getByText('Chưa có đánh giá',{exact:true})).toBeVisible();
+  await expect(page.getByText('Chưa cung cấp vị trí',{exact:true})).toBeVisible();
+});
+
+test('detail shows configured stock as total and never invents hotel policies or amenities', async ({page}) => {
+  await mock(page, url => {
+    if (url.pathname.endsWith('/hotels/fixture')) return {json:{...hotel,policies:[],faqs:[],amenityCategories:[]}};
+    if (url.pathname.includes('/stats/')) return {json:{totalReviews:0,averageRating:0}};
+    return {json:[]};
+  });
+  await page.goto('/hotel/fixture');
+  await expect(page.getByText('Synthetic hotel',{exact:true}).first()).toBeVisible();
+  await expect(page.getByText('Chỉ còn 2 phòng',{exact:true})).toHaveCount(0);
+  await expect(page.getByText('Tổng số phòng: 2',{exact:true})).toHaveCount(2);
+  await expect(page.getByText('Chưa cung cấp chính sách của cơ sở lưu trú.',{exact:true})).toBeVisible();
+  await expect(page.getByText('Chưa cung cấp câu hỏi thường gặp.',{exact:true})).toBeVisible();
+  await expect(page.getByText('Không được hoàn tiền',{exact:true})).toHaveCount(0);
+  await expect(page.getByText('Wi-Fi miễn phí',{exact:true})).toHaveCount(0);
+});
+
+test('amenity filtering uses all observed hotel labels and lets an unknown URL selection be cleared', async ({page}) => {
+  const withAmenities = {...hotel,amenityCategories:[{id:'category',title:'Hotel amenities',items:['A','B','C','D','E'].map(title=>({id:title,title}))}]};
+  await mock(page, url => url.pathname.endsWith('/hotels/offers')
+    ? {json:[{hotel:withAmenities,offer:{roomTypeId:'good',quantity:1,unitPrice:200000,totalPerNight:200000,availableRooms:null,checkIn:null,checkOut:null,checkedAt:null}}]}
+    : {json:{totalReviews:0,averageRating:0}});
+  await page.goto('/search?cityName=Fixture&amenity=E');
+  await expect(page.getByText('Synthetic hotel',{exact:true})).toBeVisible();
+  await expect(page.getByRole('checkbox',{name:'E',exact:true})).toBeChecked();
+  await page.reload();
+  await expect(page.getByText('Synthetic hotel',{exact:true})).toBeVisible();
+  await page.goto('/search?cityName=Fixture&amenity=Unknown');
+  await expect(page.getByText('Không tìm thấy khách sạn phù hợp',{exact:true})).toBeVisible();
+  await page.getByRole('checkbox',{name:'Unknown',exact:true}).click();
+  await expect(page).not.toHaveURL(/amenity=Unknown/);
+  await expect(page.getByRole('checkbox',{name:'Unknown',exact:true})).toHaveCount(0);
+  await expect(page.getByText('Synthetic hotel',{exact:true})).toBeVisible();
+});
+
+test('a rating-filter dependency failure is unknown rather than no matches and can be retried', async ({page}) => {
+  let failing = true;
+  await mock(page, url => {
+    if (url.pathname.endsWith('/hotels/offers')) return {json:[{hotel,offer:{roomTypeId:'good',quantity:1,unitPrice:200000,totalPerNight:200000,availableRooms:null,checkIn:null,checkOut:null,checkedAt:null}}]};
+    return failing ? {status:503,json:{}} : {json:{totalReviews:2,averageRating:8.5}};
+  });
+  await page.goto('/search?cityName=Fixture&guestRating=8');
+  await expect(page.getByTestId('search-error')).toContainText('Không thể xác minh đánh giá');
+  await expect(page.getByText('Không tìm thấy khách sạn phù hợp',{exact:true})).toHaveCount(0);
+  failing = false;
+  await page.getByRole('button',{name:'Thử lại',exact:true}).click();
+  await expect(page.getByText('Synthetic hotel',{exact:true})).toBeVisible();
+  await expect(page.getByText('8.5/10',{exact:false})).toBeVisible();
+});
 for (const picker of ['home','search']) {
   test(`${picker} autocomplete distinguishes failure, clears error on successful replacement`, async ({page}) => {
     let failing = true;

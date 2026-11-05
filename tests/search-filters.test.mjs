@@ -26,3 +26,19 @@ test('all published filters round-trip through URL and clearing affects only its
   assert.deepEqual(parseSearchFilters(cleared),{...input,amenities:[]});
   assert.equal(cleared.get('rooms'),'2');
 });
+import { amenityTitles, guestReviewFacts, matchesHotelAmenities } from '../lib/search/hotel-facts.ts';
+
+test('hotel facts preserve the full deterministic amenity set and unknown review state', () => {
+  const categories = [{items:['A','B','C','D','E','A'].map(title => ({title}))}];
+  assert.deepEqual(amenityTitles(categories), ['A','B','C','D','E']);
+  assert.deepEqual(amenityTitles(categories), amenityTitles(categories));
+  assert.deepEqual(amenityTitles([]), []);
+  assert.equal(matchesHotelAmenities(amenityTitles(categories), ['A','E']), true);
+  assert.equal(matchesHotelAmenities(['Wi-Fi'], ['WiFi']), false);
+  assert.equal(matchesHotelAmenities(['A'], ['A','Room-only amenity']), false);
+  assert.equal(matchesHotelAmenities([], ['Unknown']), false);
+  assert.deepEqual(guestReviewFacts(null), {rating:null,reviewCount:null});
+  assert.deepEqual(guestReviewFacts({totalReviews:0,averageRating:8}), {rating:null,reviewCount:0});
+  assert.deepEqual(guestReviewFacts({totalReviews:2,averageRating:4.5}), {rating:4.5,reviewCount:2});
+  assert.deepEqual(guestReviewFacts({totalReviews:2,averageRating:NaN}), {rating:null,reviewCount:2});
+});

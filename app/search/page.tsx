@@ -8,6 +8,7 @@ import { HotelCard } from "@/components/HotelCard";
 import { SearchFilters } from "@/components/SearchFilters";
 import { HotelSearchBar } from "@/components/HotelSearchBar";
 import { hotelApi, Hotel as ApiHotel } from "@/lib/api/hotels";
+import { amenityTitles, guestReviewFacts, matchesHotelAmenities } from "@/lib/search/hotel-facts";
 import { reviewApi } from "@/lib/api/reviews";
 import { parseSearchFilters, patchSearchFilters, type SearchFilterValues } from "@/lib/search/criteria";
 import { CustomerOnlyRoute } from "@/components/CustomerOnlyRoute";
@@ -17,8 +18,8 @@ interface Hotel {
   id: string;
   name: string;
   location: string;
-  rating: number;
-  reviewCount: number;
+  rating: number | null;
+  reviewCount: number | null;
   price: number;
   originalPrice?: number;
   image: string;
@@ -185,41 +186,22 @@ export default function SearchPage() {
             ...((hotel.roomTypes?.flatMap(rt => rt.mediaAssets?.map(m => m.url) || []) || []))
           ];
 
-          // Extract amenities from amenityCategories
-          let hotelAmenities: string[] = [];
-          if (hotel.amenityCategories && hotel.amenityCategories.length > 0) {
-            // Flatten all items from all categories
-            const allItems = hotel.amenityCategories.flatMap(cat => 
-              (cat.items || []).map(item => item.title).filter(Boolean)
-            );
-            // Randomly select 3-4 amenities
-            const count = Math.min(allItems.length, Math.floor(Math.random() * 2) + 3); // 3 or 4
-            hotelAmenities = allItems
-              .sort(() => Math.random() - 0.5)
-              .slice(0, count);
-          }
-          // Fallback amenities if none found
-          if (hotelAmenities.length === 0) {
-            const fallbackAmenities = ["Free WiFi", "Bãi đỗ xe", "Nhà hàng", "Hồ bơi", "Gym"];
-            const count = Math.floor(Math.random() * 2) + 3; // 3 or 4
-            hotelAmenities = fallbackAmenities.slice(0, count);
-          }
+          const hotelAmenities = amenityTitles(hotel.amenityCategories);
+          const reviews = guestReviewFacts(reviewStats);
 
           return {
             id: hotel.id,
             accommodationTypeLabel: hotel.accommodationTypeLabel,
             name: cleanQuotes(hotel.name),
-            location: locationParts.join(", ") || "Đà Nẵng",
-            rating: reviewStats?.averageRating ?? hotel.starRating ?? 8.0,
-            reviewCount: reviewStats?.totalReviews ?? 0,
+            location: locationParts.join(", ") || "Chưa cung cấp vị trí",
+            rating: reviews.rating,
+            reviewCount: reviews.reviewCount,
             price: minPrice,
-            originalPrice: minPrice > 0 ? Math.floor(minPrice * 1.2) : undefined,
             image: primaryImage,
             images: allImages,
             amenities: hotelAmenities,
             availableRooms: hotel.matchedOffer.availableRooms ?? undefined,
             starRating: hotel.starRating,
-            loyaltyPoints: minPrice > 0 ? Math.floor(minPrice / 100000) : 0,
           };
         }));
 
@@ -268,14 +250,14 @@ export default function SearchPage() {
     // Guest rating filter (any selected threshold matches)
     if (selectedGuestRatings.length > 0) {
       filtered = filtered.filter((h) =>
-        selectedGuestRatings.some((threshold) => h.rating >= threshold)
+        h.rating !== null && selectedGuestRatings.some((threshold) => h.rating! >= threshold)
       );
     }
 
     // Amenities filter
     if (selectedAmenities.length > 0) {
       filtered = filtered.filter((h) =>
-        selectedAmenities.every((a) => h.amenities.includes(a))
+        matchesHotelAmenities(h.amenities, selectedAmenities)
       );
     }
 
@@ -286,6 +268,9 @@ export default function SearchPage() {
     const next = patchSearchFilters(new URLSearchParams(searchParams.toString()), filters);
     router.push(`/search?${next}`, {scroll:false});
   };
+
+  const resultError = error || (selectedGuestRatings.length > 0 && hotels.some(h => h.rating === null && h.reviewCount !== 0)
+    ? "Không thể xác minh đánh giá để lọc kết quả. Vui lòng thử lại." : null);
 
   return (
     <CustomerOnlyRoute>
@@ -355,13 +340,13 @@ export default function SearchPage() {
             <SearchFilters
               value={filterValues}
               onFilterChange={handleFilterChange}
-              totalResults={loading || error ? null : filteredHotels.length}
+              totalResults={loading || resultError ? null : filteredHotels.length}
               hotels={hotels}
             />
 
             {/* Hotels Grid */}
             <div>
-              {!loading && !error && <div className="mb-6 flex items-center justify-between">
+              {!loading && !resultError && <div className="mb-6 flex items-center justify-between">
                 <p className="text-lg font-semibold text-[#2B3037]">
                   Tìm thấy {filteredHotels.length} khách sạn
                 </p>
@@ -377,9 +362,9 @@ export default function SearchPage() {
                 <div className="text-center py-12">
                   <p className="text-[#8B94A4]">Đang tải...</p>
                 </div>
-              ) : error ? (
+              ) : resultError ? (
                 <div role="alert" data-testid="search-error" className="text-center py-12">
-                  <p className="text-red-600 mb-2">{error}</p>
+                  <p className="text-red-600 mb-2">{resultError}</p>
                   <button className="text-blue-600 underline" onClick={() => setRetry(value => value + 1)}>Thử lại</button>
                 </div>
               ) : filteredHotels.length > 0 ? (

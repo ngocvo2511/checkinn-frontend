@@ -9,6 +9,17 @@ async function mocked(fetcher, run) {
   globalThis.fetch = fetcher;
   try { await run(); } finally { globalThis.fetch = previous; }
 }
+
+test('room description is plain text and never JSON-decoded or fabricated by adapters', async () => {
+  for (const description of ['', 'Phòng hướng biển 🌊\nTầng 2', '"quoted"', '<script>plain text</script>', '{"a":"text"}']) {
+    const room = {id:'room',name:'Synthetic room',description};
+    await mocked(async url => Response.json(String(url).includes('/hotels/hotel')
+      ? {id:'hotel',name:'Synthetic hotel',roomTypes:[room]} : room), async () => {
+      assert.equal((await hotelApi.getRoomTypeById('room')).description, description);
+      assert.equal((await hotelApi.getHotelById('hotel')).roomTypes[0].description, description);
+    });
+  }
+});
 for (const [status, code] of [[400,'VALIDATION'],[401,'UNAUTHORIZED'],[403,'FORBIDDEN'],[404,'NOT_FOUND'],[409,'CONFLICT'],[500,'UPSTREAM'],[503,'UPSTREAM']]) {
   test(`search never returns no matches for HTTP ${status}`, async () => {
     await mocked(async () => new Response(null, { status }), async () => {

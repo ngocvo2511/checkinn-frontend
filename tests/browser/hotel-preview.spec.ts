@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 const id = '00000000-0000-4000-8000-0000000000f1';
 const owner = '00000000-0000-4000-8000-0000000000f2';
-const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'Authorization,Content-Type', 'access-control-allow-methods': 'GET,OPTIONS' };
+const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'Authorization,Content-Type', 'access-control-allow-methods': 'GET,PUT,OPTIONS' };
 
 test('changing an address clears its old pin immediately and stale geocoding cannot replace a manual pin', async ({ page }) => {
   let release: () => void = () => {};
@@ -88,6 +88,7 @@ for (const allowed of [true, false]) {
 test('host can open an inactive room using authenticated private preview', async ({ page }) => {
   const room = '00000000-0000-4000-8000-0000000000f4';
   let previews = 0; let publicReads = 0;
+  let description = '"Phòng hướng biển 🌊"\nTầng 2';
   await page.addInitScript(({ owner }) => {
     localStorage.setItem('token','synthetic-owner-token');
     localStorage.setItem('user',JSON.stringify({ userId:owner,role:'OWNER',fullName:'Synthetic Owner' }));
@@ -98,7 +99,11 @@ test('host can open an inactive room using authenticated private preview', async
       if (route.request().method() === 'OPTIONS') return route.fulfill({ status:204,headers:cors });
       if (url.pathname === `/api/hotel/api/v1/${room}/preview`) {
         previews++; expect(route.request().headers()['authorization']).toBe('Bearer synthetic-owner-token');
-        return route.fulfill({ headers:cors,json:{ id:room,hotelId:id,name:'Synthetic inactive room',isActive:false,basePrice:1000000,totalRooms:2,capacity:{adults:2,children:0},amenities:[],mediaAssets:[] } });
+        return route.fulfill({ headers:cors,json:{ id:room,hotelId:id,name:'Synthetic inactive room',description,isActive:false,basePrice:1000000,totalRooms:2,capacity:{adults:2,children:0},amenities:[],mediaAssets:[] } });
+      }
+      if (url.pathname === `/api/hotel/api/v1/${room}` && route.request().method() === 'PUT') {
+        description = route.request().postDataJSON().description;
+        return route.fulfill({headers:cors,json:{id:room,hotelId:id,name:'Synthetic inactive room',description,isActive:false,basePrice:1000000,totalRooms:2,capacity:{adults:2,children:0},amenities:[],mediaAssets:[]}});
       }
       if (url.pathname === `/api/hotel/api/v1/${room}`) publicReads++;
       return route.fulfill({ status:200,headers:cors,json:[] });
@@ -110,16 +115,26 @@ test('host can open an inactive room using authenticated private preview', async
   await page.goto(`/host/hotels/${id}/rooms/${room}`);
   await expect(page.getByRole('heading',{name:'Chỉnh sửa phòng',exact:true})).toBeVisible();
   await expect(page.locator('input[value="Synthetic inactive room"]')).toBeVisible();
+  const field = page.getByPlaceholder('Mô tả về phòng...');
+  await expect(field).toHaveValue(description);
+  const changed = '"Mô tả mới 🌊"\nTầng 3';
+  await field.fill(changed);
+  await page.getByRole('button',{name:'Lưu thay đổi',exact:true}).click();
+  await expect(page.getByText('Đã cập nhật thông tin phòng thành công!',{exact:true})).toBeVisible();
+  await page.reload();
+  await expect(field).toHaveValue(changed);
   expect(previews).toBeGreaterThan(0); expect(publicReads).toBe(0);
 });
 
 test('public hotel never uses city coordinates as an exact hotel pin', async ({ page }) => {
   let mapRequests = 0;
+  let nearbyRequests = 0;
   await page.route('**/*', async route => {
     const url = new URL(route.request().url());
     if (url.hostname.endsWith('tile.openstreetmap.org')) mapRequests++;
     if (url.port === '8080') {
       if (route.request().method() === 'OPTIONS') return route.fulfill({ status:204,headers:cors });
+      if (url.pathname.includes('/places/nearby')) nearbyRequests++;
       if (url.pathname === `/api/hotel/hotels/${id}`) return route.fulfill({ headers:cors,json:{
         id,name:'Synthetic city origin hotel',isActive:true,approvedStatus:'APPROVED',starRating:3,roomTypes:[],mediaAssets:[],policies:[],faqs:[],amenityCategories:[],
         address:{street:'Synthetic street',city:'Synthetic city',country:'VN',latitude:12,longitude:108,coordinateSource:'CITY_CENTROID'},
@@ -136,6 +151,8 @@ test('public hotel never uses city coordinates as an exact hotel pin', async ({ 
   await page.goto(`/hotel/${id}`);
   await expect(page.getByRole('heading',{name:'Synthetic city origin hotel',exact:true})).toBeVisible();
   await expect(page.getByText('Tọa độ bản đồ đang được cập nhật',{exact:true})).toBeVisible();
-  await expect(page.getByText('Gợi ý theo khu vực thành phố; chưa có tọa độ khách sạn để tính khoảng cách từ nơi lưu trú.',{exact:true})).toBeVisible();
+  // The road-distance integration requires verified hotel coordinates and hides nearby places otherwise.
+  await expect(page.getByRole('heading',{name:'Địa điểm lân cận & Ẩm thực nổi bật',exact:true})).toHaveCount(0);
   expect(mapRequests).toBe(0);
+  expect(nearbyRequests).toBe(0);
 });

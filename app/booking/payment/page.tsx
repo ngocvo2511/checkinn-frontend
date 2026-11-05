@@ -1,8 +1,8 @@
 "use client";
-import { canStartPayment } from "@/lib/booking/payment-state";
+import { canStartPayment, holdSecondsRemaining } from "@/lib/booking/payment-state";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Ban,
   BedDouble,
@@ -57,9 +57,7 @@ export default function PaymentPage() {
   const [paymentMethod, setPaymentMethod] = useState<"hotel" | "vnpay">("hotel");
   const [voucherCode, setVoucherCode] = useState("");
   const [voucherMessage, setVoucherMessage] = useState<string | null>(null);
-  const [timeRemaining, setTimeRemaining] = useState(15 * 60); // default 15 minutes
-  const expiresAtRef = useRef<number | null>(null);
-  const HOLD_TTL_SECONDS = 15 * 60;
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const isPayableStatus = canStartPayment(booking);
 
   const taxAndFees = 0;
@@ -116,11 +114,14 @@ export default function PaymentPage() {
       return;
     }
 
+    let active = true;
+    setBooking(null);
     setFetchingBooking(true);
     bookingApi
       .getBooking(bookingId)
-      .then((data) => setBooking(data))
+      .then((data) => { if (active) setBooking(data); })
       .catch((err) => {
+        if (!active) return;
         const msg = err?.message || "Không lấy được thông tin đặt phòng";
         setError(msg);
         // If backend enforces auth and we hit 401/403, send user to login instead of showing booking info
@@ -129,12 +130,17 @@ export default function PaymentPage() {
           router.replace(`/login?redirect=${redirect}`);
         }
       })
-      .finally(() => setFetchingBooking(false));
-  }, [bookingId]);
+      .finally(() => { if (active) setFetchingBooking(false); });
+    return () => { active = false; };
+  }, [bookingId, user, authLoading, router]);
 
   useEffect(() => {
     if (!booking) return;
     if (!isPayableStatus) {
+      if (booking.onsiteReservationStatus != null) {
+        router.replace(`/booking/payment/hotel-confirm?bookingId=${booking.id}`);
+        return;
+      }
       const statusMsg = Number(booking.paidAmount) > 0 && ["PENDING", "PENDING_PAYMENT"].includes(booking.status)
         ? "Đã ghi nhận thanh toán, đặt phòng đang chờ đối soát. Vui lòng không thanh toán lại."
         : ["CONFIRMED", "CHECKED_IN", "CHECKED_OUT"].includes(booking.status)
@@ -150,84 +156,34 @@ export default function PaymentPage() {
   }, [booking, isPayableStatus, router, error]);
 
   useEffect(() => {
-    // Initialize remaining time from server expiry
-    const expiresAtIso = booking?.holdExpiresAt;
-    if (expiresAtIso) {
-      expiresAtRef.current = new Date(expiresAtIso).getTime();
-    } else if (booking?.createdAt) {
-      // Fallback: compute expiry from booking creation time + TTL
-      const createdMs = new Date(booking.createdAt).getTime();
-      expiresAtRef.current = createdMs + HOLD_TTL_SECONDS * 1000;
-    }
-
-    if (expiresAtRef.current) {
-      const now = Date.now();
-      const diffSec = Math.max(0, Math.floor((expiresAtRef.current - now) / 1000));
-      setTimeRemaining(diffSec);
-    }
-
-    const timer = setInterval(() => {
-      const now = Date.now();
-      const expiresMs = expiresAtRef.current;
-      if (expiresMs) {
-        const diffSec = Math.max(0, Math.floor((expiresMs - now) / 1000));
-        setTimeRemaining(diffSec);
-        if (diffSec === 0) {
-          setError("Hết thời gian giữ chỗ. Vui lòng đặt lại.");
-        }
-      } else {
-        // No server expiry available: fallback local countdown
-        setTimeRemaining((prev) => {
-          const next = Math.max(0, prev - 1);
-          if (next === 0) {
-            setError("Hết thời gian giữ chỗ. Vui lòng đặt lại.");
-          }
-          return next;
-        });
-      }
-    }, 1000);
-
+    const recompute = () => setTimeRemaining(holdSecondsRemaining(booking?.holdExpiresAt));
+    recompute();
+    const timer = setInterval(recompute, 1000);
     return () => clearInterval(timer);
-  }, [booking?.holdExpiresAt, booking?.createdAt]);
+  }, [booking?.holdExpiresAt]);
 
   useEffect(() => {
-    const refreshAndRecompute = async () => {
-      // If we have a bookingId, refresh booking from server to get latest expiry
-      if (bookingId) {
-        try {
-          const latest = await bookingApi.getBooking(bookingId);
-          setBooking(latest);
-          const expiresAtIso = latest.holdExpiresAt;
-          if (expiresAtIso) {
-            expiresAtRef.current = new Date(expiresAtIso).getTime();
-          } else if (latest.createdAt) {
-            const createdMs = new Date(latest.createdAt).getTime();
-            expiresAtRef.current = createdMs + HOLD_TTL_SECONDS * 1000;
-          }
-        } catch (e) {
-          // Swallow refresh errors; fallback to local recompute below
-        }
-      }
-      const expiresMs = expiresAtRef.current;
-      if (expiresMs) {
-        const now = Date.now();
-        const diffSec = Math.max(0, Math.floor((expiresMs - now) / 1000));
-        setTimeRemaining(diffSec);
-        if (diffSec === 0) {
-          setError("Hết thời gian giữ chỗ. Vui lòng đặt lại.");
-        }
+    let active = true;
+    const refresh = async () => {
+      if (!bookingId || !user || authLoading) return;
+      try {
+        const latest = await bookingApi.getBooking(bookingId);
+        if (active) setBooking(latest);
+      } catch {
+        if (active) setError("Không thể cập nhật đặt phòng. Vui lòng thử lại.");
       }
     };
     const onVisibility = () => {
-      if (document.visibilityState === "visible") refreshAndRecompute();
+      if (document.visibilityState === "visible") void refresh();
     };
-    window.addEventListener("focus", refreshAndRecompute);
+    window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
-      window.removeEventListener("focus", refreshAndRecompute);
+      active = false;
+      window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, []);
+  }, [bookingId, user, authLoading]);
 
   const formatTime = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
@@ -242,6 +198,10 @@ export default function PaymentPage() {
       return;
     }
 
+    if (timeRemaining === null) {
+      setError("Chưa xác minh được thời hạn giữ chỗ. Vui lòng tải lại đặt phòng.");
+      return;
+    }
     if (timeRemaining <= 0) {
       setError("Hết thời gian giữ chỗ. Vui lòng tạo lại đơn hoặc chọn phương thức khác.");
       return;
@@ -316,10 +276,11 @@ export default function PaymentPage() {
               <div className="rounded-2xl shadow-sm p-4 flex items-center justify-between bg-gradient-to-r from-[#0A6CDC] to-[#0B8FF9] text-white">
                 <div className="flex items-center gap-2">
                   <MessageCircle className="h-5 w-5" />
-                  <p className="text-sm font-semibold">Đừng lo lắng, giá vẫn giữ nguyên. Hoàn tất thanh toán của bạn bằng</p>
+                  <p className="text-sm font-semibold">{timeRemaining === null ? "Cần tải lại đặt phòng để xác minh thời hạn giữ chỗ." : timeRemaining === 0 ? "Hết thời gian giữ chỗ. Vui lòng kiểm tra lại đặt phòng." : "Hoàn tất thanh toán trong thời gian giữ chỗ"}</p>
+                  {timeRemaining === null && <button type="button" onClick={() => window.location.reload()} className="underline text-sm">Tải lại đặt phòng</button>}
                 </div>
                 <div className="flex items-center gap-2 font-bold text-lg text-[#C3FF5A]">
-                  <span>{formatTime(timeRemaining)}</span>
+                  <span>{timeRemaining === null ? "Chưa xác minh thời hạn giữ chỗ" : formatTime(timeRemaining)}</span>
                   <Clock3 className="h-5 w-5" />
                 </div>
               </div>
@@ -397,7 +358,7 @@ export default function PaymentPage() {
               {successMessage && <p className="text-sm text-green-600">{successMessage}</p>}
               <button
                 onClick={handleConfirm}
-                disabled={loading || fetchingBooking || !isPayableStatus}
+                disabled={loading || fetchingBooking || !isPayableStatus || timeRemaining === null || timeRemaining <= 0}
                 className={`w-full rounded-lg px-4 py-3 text-white font-semibold shadow transition ${
                   loading || fetchingBooking ? "bg-[#93C5FD]" : "bg-[#2563EB] hover:bg-[#1D4ED8]"
                 }`}

@@ -38,7 +38,7 @@ export function SearchFilters({ onFilterChange, value, totalResults, hotels = []
     return Array.from(amenitySet).sort();
   }, [hotels]);
 
-  const amenityOptions = allAmenities.length > 0 ? allAmenities : ["Tủ lạnh", "No cancellation", "Breakfast included", "Swimming pool"];
+  const amenityOptions = [...new Set([...amenities, ...allAmenities])];
   const displayedAmenities = showAllAmenities ? amenityOptions : amenityOptions.slice(0, DISPLAY_AMENITIES_COUNT);
 
   const clampedRange = useMemo(() => {
@@ -250,6 +250,8 @@ export function SearchFilters({ onFilterChange, value, totalResults, hotels = []
       {/* Amenities */}
       <div className="mb-8 border-t border-[#E4E6EB] pt-6">
         <h4 className="mb-4 font-semibold text-[#2B3037]">Tiện nghi</h4>
+        <p className="mb-3 text-xs text-[#656F81]">Tiện nghi cấp khách sạn, khớp chính xác tất cả tên đã chọn. Chưa gộp tên tương đương.</p>
+        {amenityOptions.length === 0 && <p className="text-xs text-[#656F81]">Chưa có tiện nghi từ kết quả hiện tại.</p>}
         <div className="space-y-3">
           {displayedAmenities.map((amenity) => (
             <label key={amenity} className="flex items-center gap-3 cursor-pointer">

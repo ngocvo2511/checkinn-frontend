@@ -103,8 +103,8 @@ export default function HostBookingsPage() {
     return {
       total: bookings.length,
       confirmed: bookings.filter(b => b.status?.toUpperCase() === 'CONFIRMED').length,
-      pending: bookings.filter(b => b.status?.toUpperCase() === 'PENDING').length,
-      totalRevenue: bookings.reduce((sum, b) => sum + (b.totalAmount || 0), 0),
+      pending: bookings.filter(b => ['PENDING','PENDING_PAYMENT'].includes(b.status?.toUpperCase())).length,
+      totalRevenue: bookings.reduce((sum, b) => sum + (b.paidAmount || 0), 0),
     };
   }, [bookings]);
 
@@ -175,7 +175,7 @@ export default function HostBookingsPage() {
                 </div>
                 <div className="rounded-2xl border border-[#E8E9F1] bg-white p-5 shadow-[0_12px_28px_rgba(0,0,0,0.08)]">
                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#8B94A4]">
-                    Tổng doanh thu
+                    Tổng tiền đã thu
                   </p>
                   <p className="mt-2 text-2xl font-bold text-[#1F2226]">
                     {stats.totalRevenue.toLocaleString('vi-VN')}đ

@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { bookingAttempt, type BookingAttempt } from "@/lib/booking/creation-command";
 import { AlertTriangle, Ban, CheckCircle2, Info, MinusCircle } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -17,6 +18,7 @@ const formatPrice = (value?: number) => {
 };
 
 export default function BookingPage() {
+  const creationAttempt = useRef<BookingAttempt | null>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user: authUser, isLoading: authLoading } = useAuth();
@@ -247,7 +249,8 @@ export default function BookingPage() {
         ],
       };
 
-      const booking = await bookingApi.createBooking(payload);
+      creationAttempt.current = bookingAttempt(creationAttempt.current, payload);
+      const booking = await bookingApi.createBooking({ ...payload, idempotencyKey: creationAttempt.current.key });
       const params = new URLSearchParams({ bookingId: booking.id });
       router.push(`/booking/payment?${params.toString()}`);
     } catch (error: any) {

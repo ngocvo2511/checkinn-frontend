@@ -1,6 +1,41 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { canStartPayment, paymentOutcome } from '../lib/booking/payment-state.ts';
+import { canStartPayment, paymentOutcome, holdSecondsRemaining, canRecordOnsiteReceipt, onsiteReservationMessage } from '../lib/booking/payment-state.ts';
+
+test('onsite room confirmation is separate from money and cannot be charged again', () => {
+  const booking = {status:'CONFIRMED',paymentMethod:'HOTEL',paidAmount:0,onsiteReservationStatus:'V1_CONFIRMED'};
+  assert.equal(canStartPayment(booking),false);
+  assert.equal(canRecordOnsiteReceipt(booking),true);
+  assert.equal(canRecordOnsiteReceipt({...booking,paidAmount:1000000}),false);
+  for (const state of ['V1_PENDING','V1_REVIEW_REQUIRED']) {
+    assert.equal(canRecordOnsiteReceipt({...booking,status:'PENDING_PAYMENT',onsiteReservationStatus:state}),false);
+    assert.equal(canStartPayment({...booking,status:'PENDING_PAYMENT',onsiteReservationStatus:state}),false);
+    assert.doesNotMatch(onsiteReservationMessage({...booking,status:'PENDING_PAYMENT',onsiteReservationStatus:state}), /Đặt phòng đã được xác nhận/);
+  }
+  assert.match(onsiteReservationMessage(booking),/thực thu tiền/);
+  assert.doesNotMatch(onsiteReservationMessage({...booking,status:'CANCELLED'}),/Đặt phòng đã được xác nhận/);
+});
+import { bookingAttempt } from '../lib/booking/creation-command.ts';
+
+test('booking retries retain a command key; changed input starts a different attempt', () => {
+  const first = bookingAttempt(null, { hotelId: 'hotel', quantity: 1 });
+  assert.match(first.key, /^[\da-f-]{36}$/);
+  assert.equal(bookingAttempt(first, { hotelId: 'hotel', quantity: 1 }), first);
+  const changed = bookingAttempt(first, { hotelId: 'hotel', quantity: 2 });
+  assert.notEqual(changed.key, first.key);
+  assert.notEqual(bookingAttempt(null, { hotelId: 'hotel', quantity: 1 }).key, first.key);
+});
+
+test('hold countdown requires an absolute server deadline and never manufactures a TTL', () => {
+  const now = Date.parse('2026-11-05T03:00:00Z');
+  for (const deadline of [undefined, null, '', 'bad-date', '2026-11-05T03:15:00', '2026-02-30T03:15:00Z']) {
+    assert.equal(holdSecondsRemaining(deadline, now), null);
+  }
+  assert.equal(holdSecondsRemaining('2026-11-05T03:15:00Z', now), 900);
+  assert.equal(holdSecondsRemaining('2026-11-05T10:15:00+07:00', now), 900);
+  assert.equal(holdSecondsRemaining('2026-11-05T02:59:59Z', now), 0);
+  assert.equal(holdSecondsRemaining('2026-11-05T03:00:00Z', now), 0);
+});
 
 test('received money waiting for stock reconciliation cannot be charged again', () => {
   assert.equal(canStartPayment({ status: 'PENDING_PAYMENT', paidAmount: 1000000 }), false);
