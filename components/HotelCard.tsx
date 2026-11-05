@@ -5,8 +5,8 @@ interface Hotel {
   id: string;
   name: string;
   location: string;
-  rating: number;
-  reviewCount: number;
+  rating: number | null;
+  reviewCount: number | null;
   price: number;
   originalPrice?: number;
   image: string;
@@ -130,7 +130,7 @@ export function HotelCard({ hotel, onSelect }: HotelCardProps) {
           {/* Right Section */}
           <div className="flex flex-col items-end justify-between h-full min-h-[175px]">
             {/* Rating */}
-            {hotel.rating > 0 && hotel.rating >= 6 ? (
+            {hotel.rating !== null && hotel.reviewCount !== null && hotel.reviewCount > 0 ? (
               <div className="text-right">
                 <p className="text-sm text-[#0071CE]">
                   <span className="font-bold">{hotel.rating}/10</span>{" "}
@@ -139,7 +139,7 @@ export function HotelCard({ hotel, onSelect }: HotelCardProps) {
                 <p className="text-xs  text-[#707577]">({hotel.reviewCount} đánh giá)</p>
               </div>
             ) : (
-              <div></div>
+              <p className="text-sm text-[#707577]">{hotel.reviewCount === 0 ? "Chưa có đánh giá" : "Chưa xác minh đánh giá"}</p>
             )}
 
             {/* Price Section */}

@@ -9,6 +9,7 @@ import NearbyPlacesSection from "@/components/NearbyPlacesSection";
 import HotelLocationMap from "@/components/map/HotelLocationMap";
 import Footer from "@/components/Footer";
 import { hotelApi, Hotel as ApiHotel, RoomType, MediaAsset } from "@/lib/api/hotels";
+import { amenityTitles, guestReviewFacts } from "@/lib/search/hotel-facts";
 import { reviewApi } from "@/lib/api/reviews";
 import { authApi } from "@/lib/api/auth";
 import { useAuth } from "@/hooks/useAuth";
@@ -28,21 +29,6 @@ const formatPrice = (value?: number) => {
   if (value === undefined || value === null) return "Liên hệ";
   return value.toLocaleString("vi-VN");
 };
-
-const fallbackAmenities = [
-  "Wi-Fi miễn phí",
-  "Hồ bơi",
-  "Nhà hàng",
-  "Lễ tân 24h",
-  "Chỗ đậu xe",
-  "Máy lạnh",
-];
-
-const fallbackPolicies = [
-  "Nhận phòng từ 14:00 · Trả phòng trước 12:00",
-  "Hủy phòng tùy điều kiện từng hạng phòng",
-  "Xuất trình CMND/CCCD khi nhận phòng",
-];
 
 const getRatingLabel = (rating: number | undefined) => {
   if (!rating) return 'Chưa có';
@@ -94,6 +80,7 @@ export default function HotelDetailPage() {
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewStats, setReviewStats] = useState<any>(null);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState(false);
   const [activeSection, setActiveSection] = useState("photos");
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
@@ -163,7 +150,10 @@ export default function HotelDetailPage() {
   // Fetch reviews when hotel is loaded
   useEffect(() => {
     if (!hotel?.id) return;
-    
+    let current = true;
+    setReviewStats(null);
+    setReviews([]);
+    setReviewsError(false);
     const fetchReviews = async () => {
       setReviewsLoading(true);
       try {
@@ -171,6 +161,7 @@ export default function HotelDetailPage() {
         const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
         
         const stats = await reviewApi.getReviewStats(hotel.id, token || undefined);
+        if (!current) return;
         setReviewStats(stats);
 
         // Enrich with owner responses
@@ -189,6 +180,7 @@ export default function HotelDetailPage() {
           ownerResponse: responses[idx] ?? r.ownerResponse,
         }));
 
+        if (!current) return;
         setReviews(enriched);
 
         // Initialize feedback status from server response
@@ -200,13 +192,15 @@ export default function HotelDetailPage() {
         });
         setFeedbackStatus(initialFeedback);
       } catch (err) {
+        if (current) setReviewsError(true);
         console.error('Error fetching reviews:', err);
       } finally {
-        setReviewsLoading(false);
+        if (current) setReviewsLoading(false);
       }
     };
     
     fetchReviews();
+    return () => { current = false; };
   }, [hotel?.id]);
 
   useEffect(() => {
@@ -217,7 +211,7 @@ export default function HotelDetailPage() {
       const sectionHeadings = [
         { id: 'photos', text: null }, // photos always first, no specific heading
         { id: 'overview', text: 'Đánh giá tổng quan' },
-        { id: 'rooms', text: 'Những phòng còn trống' },
+        { id: 'rooms', text: 'Các loại phòng' },
         { id: 'amenities', text: 'Tiện ích của khách sạn' },
         { id: 'policies', text: 'Chính sách và những thông tin liên quan' },
         { id: 'reviews', text: 'Đánh giá khách hàng' }
@@ -299,23 +293,14 @@ export default function HotelDetailPage() {
     return Array.from(uniqueByUrl.values()).sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
   }, [hotel]);
 
-  const availableRooms: RoomType[] = useMemo(() => {
+  const activeRooms: RoomType[] = useMemo(() => {
     if (!hotel?.roomTypes) return [];
     return hotel.roomTypes
       .filter((rt) => rt.isActive !== false)
       .sort((a, b) => (a.basePrice ?? a.pricePerNight ?? 0) - (b.basePrice ?? b.pricePerNight ?? 0));
   }, [hotel]);
 
-  const amenityList = useMemo(() => {
-    // Lấy tất cả items từ amenityCategories
-    const items: string[] = [];
-    (hotel?.amenityCategories || []).forEach((cat) => {
-      (cat.items || []).forEach((item) => {
-        if (item.title) items.push(item.title);
-      });
-    });
-    return items.length > 0 ? items : fallbackAmenities;
-  }, [hotel]);
+  const amenityList = useMemo(() => amenityTitles(hotel?.amenityCategories), [hotel]);
 
   const policyList = useMemo(() => {
     if (hotel?.policies && hotel.policies.length > 0) {
@@ -330,8 +315,7 @@ export default function HotelDetailPage() {
         };
       });
     }
-    // Fallback with category structure
-    return fallbackPolicies.map(p => ({ category: 'Chính sách chung', content: p }));
+    return [];
   }, [hotel]);
 
   const formattedAddress = useMemo(() => {
@@ -339,7 +323,7 @@ export default function HotelDetailPage() {
     const parts = [
       hotel.address.street,
       hotel.address.city || hotel.city?.name,
-      hotel.address.country || "Việt Nam"
+      hotel.address.country
     ].filter(Boolean);
     return parts.join(", ");
   }, [hotel]);
@@ -351,27 +335,8 @@ export default function HotelDetailPage() {
     if (hotel?.faqs && hotel.faqs.length > 0) {
       return hotel.faqs;
     }
-    return [
-      {
-        question: "Giá phòng đã bao gồm bữa sáng chưa?",
-        answer: "Tùy thuộc vào từng hạng phòng bạn chọn. Vui lòng kiểm tra thông tin bữa sáng chi tiết của từng hạng phòng."
-      },
-      {
-        question: "Khách sạn có chỗ đậu xe không?",
-        answer: "Khách sạn có hỗ trợ bố trí chỗ đậu xe hoặc bãi đỗ xe liên kết an ninh. Quý khách vui lòng liên hệ hotline để được hướng dẫn."
-      },
-      {
-        question: "Giờ nhận và trả phòng tại khách sạn?",
-        answer: "Thời gian nhận phòng tiêu chuẩn từ 14:00 và trả phòng trước 12:00 trưa hôm sau."
-      },
-      {
-        question: "Tôi có thể liên hệ trực tiếp với khách sạn qua kênh nào?",
-        answer: hotel?.contactPhone 
-          ? `Quý khách có thể liên hệ hotline: ${hotel.contactPhone}${hotel.contactEmail ? ` hoặc email: ${hotel.contactEmail}` : ""}.`
-          : "Quý khách có thể liên hệ đội ngũ hỗ trợ Checkinn 24/7 để được kết nối trực tiếp với khách sạn."
-      }
-    ];
-  }, [hotel?.faqs, hotel?.contactPhone, hotel?.contactEmail]);
+    return [];
+  }, [hotel?.faqs]);
 
   // Policy category icons - paste your icon URLs here
   const policyCategoryIcons: Record<string, string> = {
@@ -414,9 +379,9 @@ export default function HotelDetailPage() {
   const hasMoreImages = heroImages.length > 2; // Nếu có > 2 ảnh
   const overlayImage = heroImages[2]?.url || heroImages[1]?.url || primaryImage;
   const ratingScore = hotel?.starRating ?? 0; // Hotel star rating (scale 1-5)
-  const averageRating = reviewStats?.averageRating ?? 0; // Customer review average (scale 0-10)
-  const lowestPrice = hotel?.lowestPrice ?? 0;
-  const reviewCount = reviewStats?.totalReviews ?? 0;
+  const { rating: averageRating, reviewCount } = guestReviewFacts(reviewStats);
+  const lowestPrice = hotel?.lowestPrice != null && hotel.lowestPrice > 0 ? hotel.lowestPrice : undefined;
+
   const amenityCategories = hotel?.amenityCategories || [];
   const hasAmenityCategories = amenityCategories.length > 0;
 
@@ -813,15 +778,15 @@ export default function HotelDetailPage() {
                 <div>
                   <p className="text-xs uppercase text-[#6B7280]">Đánh giá tổng quan</p>
                   <div className="mt-1 flex items-baseline gap-3">
-                    <span className="text-4xl font-bold text-[#0F172A]">{averageRating > 0 ? averageRating.toFixed(1) : 'N/A'}</span>
-                    <span className="text-sm text-[#4B5563]">/ 10 · {getRatingLabel(averageRating)}</span>
+                    <span className="text-4xl font-bold text-[#0F172A]">{averageRating !== null ? averageRating.toFixed(1) : 'N/A'}</span>
+                    <span className="text-sm text-[#4B5563]">/ 10 · {getRatingLabel(averageRating ?? undefined)}</span>
                   </div>
-                  <p className="text-sm text-[#4B5563]">{reviewCount > 0 ? `Dựa trên ${reviewCount} đánh giá` : 'Chưa có đánh giá'}</p>
+                  <p className="text-sm text-[#4B5563]">{reviewCount === null ? 'Chưa xác minh đánh giá' : reviewCount > 0 ? `Dựa trên ${reviewCount} đánh giá` : 'Chưa có đánh giá'}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-[#9CA3AF]">Giá/phòng/đêm từ</p>
-                  <p className="text-2xl font-bold text-[#DC2626]">{formatPrice(Number(lowestPrice))}</p>
-                  <p className="text-xs text-[#9CA3AF]">Chưa gồm thuế & phí</p>
+                  <p className="text-2xl font-bold text-[#DC2626]">{formatPrice(lowestPrice)}</p>
+                  <p className="text-xs text-[#9CA3AF]">Giá cơ bản</p>
                 </div>
               </div>
 
@@ -878,7 +843,7 @@ export default function HotelDetailPage() {
 
               <div className="flex flex-wrap justify-between gap-3 items-center">
                 <p className="text-sm text-[#4B5563]">
-                  {reviews.length > 2 ? `Xem thêm ${reviewCount - 2} đánh giá khác` : 'Xem chi tiết trải nghiệm từ khách đã lưu trú'}
+                  {reviews.length > 2 ? `Xem thêm ${(reviewCount ?? reviews.length) - 2} đánh giá khác` : 'Xem chi tiết trải nghiệm từ khách đã lưu trú'}
                 </p>
                 <button
                   onClick={() => handleScrollTo("reviews")}
@@ -917,8 +882,8 @@ export default function HotelDetailPage() {
         {/* Rooms */}
         <section id="rooms" className="mx-auto max-w-screen-xl px-4 md:px-8 lg:px-12 pt-10">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-[#0F172A]">Những phòng còn trống</h2>
-            <span className="text-sm text-[#6B7280]">Giá theo mỗi phòng/đêm, chưa gồm thuế & phí</span>
+            <h2 className="text-xl font-semibold text-[#0F172A]">Các loại phòng</h2>
+            <span className="text-sm text-[#6B7280]">Giá cơ bản theo mỗi phòng/đêm</span>
           </div>
 
           {Number(rooms) > 1 && (
@@ -929,14 +894,15 @@ export default function HotelDetailPage() {
             </div>
           )}
 
-          {availableRooms.length === 0 ? (
+          {activeRooms.length === 0 ? (
             <div className="rounded-xl border border-dashed border-[#E5E7EB] bg-white p-6 text-[#6B7280]">
-              Chưa có phòng khả dụng.
+              Chưa có loại phòng đang được công bố.
             </div>
           ) : (
             <div className="space-y-4">
-              {availableRooms.map((room) => {
-                const roomPrice = room.basePrice ?? room.pricePerNight ?? 0;
+              {activeRooms.map((room) => {
+                const configuredPrice = room.basePrice ?? room.pricePerNight;
+                const roomPrice = typeof configuredPrice === "number" && Number.isFinite(configuredPrice) && configuredPrice > 0 ? configuredPrice : undefined;
                 const roomImage = getFirstRoomImage(room.mediaAssets);
                 const roomName = room.name?.replace(/^"(.*)"$/, "$1") || room.name;
                 const roomAdults = room.capacity?.adults || 2;
@@ -950,8 +916,8 @@ export default function HotelDetailPage() {
                       </div>
                       <div className="relative h-48 w-full overflow-hidden rounded-xl">
                         <img src={roomImage} alt={room.name} className="h-full w-full object-cover" />
-                        {room.totalRooms !== undefined && (
-                          <span className="absolute top-3 right-3 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-[#DC2626] shadow">Chỉ còn {room.totalRooms} phòng</span>
+                        {room.totalRooms !== undefined && room.totalRooms !== null && room.totalRooms > 0 && (
+                          <span className="absolute top-3 right-3 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-[#DC2626] shadow">Tổng số phòng: {room.totalRooms}</span>
                         )}
                         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2">
                           <div className="flex items-center gap-1 bg-white/85 px-3 py-1 rounded-full text-xs text-[#111827] shadow">
@@ -984,17 +950,17 @@ export default function HotelDetailPage() {
                         {/* Column 1: Room Details */}
                         <div className="flex flex-col gap-2 flex-1 border-r border-[#E5E7EB] px-4 py-3">
                           {room.capacity?.breakfastIncluded ? (
-                            <p className="text-sm text-[#374151] font-medium">Bữa sáng cho {room.capacity.breakfastQuantity || (roomAdults + roomChildren)} người</p>
+                            <p className="text-sm text-[#374151] font-medium">Bữa sáng cho {room.capacity.breakfastQuantity != null && room.capacity.breakfastQuantity > 0 ? `${room.capacity.breakfastQuantity} người` : "khách lưu trú theo hạng phòng"}</p>
                           ) : (
-                            <p className="text-sm text-[#9CA3AF]">Không bao gồm bữa sáng</p>
+                            <p className="text-sm text-[#9CA3AF]">{room.capacity?.breakfastIncluded === false ? "Không bao gồm bữa sáng" : "Chưa cung cấp thông tin bữa sáng"}</p>
                           )}
                           <div className="flex items-center gap-2 text-sm text-[#6B7280]">
                             <BedDouble className="h-4 w-4 text-[#6B7280]" />
-                            <span>{room.capacity?.bedType || "Giường linh hoạt"}</span>
+                            <span>{room.capacity?.bedType || "Chưa cung cấp loại giường"}</span>
                           </div>
                           <div className="flex items-center gap-2 text-sm text-[#6B7280]">
                             <Ban className="h-4 w-4 text-[#DC2626]" />
-                            <span>Không được hoàn tiền</span>
+                            <span>Xem chính sách hủy/hoàn tại bước đặt phòng</span>
                           </div>
                         </div>
 
@@ -1019,11 +985,11 @@ export default function HotelDetailPage() {
 
                         {/* Column 3: Price */}
                         <div className="text-right border-r border-[#E5E7EB] px-4 py-3 h-full">
-                          <p className="text-lg font-bold text-[#DC2626]">{formatPrice(Number(roomPrice))} VND</p>
+                          <p className="text-lg font-bold text-[#DC2626]">{formatPrice(roomPrice)}{roomPrice !== undefined ? " VND" : ""}</p>
                           {Number(rooms) > 1 && (
-                            <p className="text-xs text-[#6B7280] mt-1">= {formatPrice(Number(roomPrice) * Number(rooms))} VND</p>
+                            <p className="text-xs text-[#6B7280] mt-1">= {formatPrice(roomPrice === undefined ? undefined : roomPrice * Number(rooms))} VND</p>
                           )}
-                          <p className="text-xs text-[#6B7280] mt-1">Chưa bao gồm thuế và phí</p>
+                          <p className="text-xs text-[#6B7280] mt-1">Giá cơ bản</p>
                         </div>
 
                         {/* Column 4: Quantity */}
@@ -1038,7 +1004,7 @@ export default function HotelDetailPage() {
                               setSelectedRoomType(room.id);
                               handleBookRoom(room);
                             }}
-                            disabled={Boolean(Number(rooms) > 1 && selectedRoomType && selectedRoomType !== room.id)}
+                            disabled={roomPrice === undefined || Boolean(Number(rooms) > 1 && selectedRoomType && selectedRoomType !== room.id)}
                             className={`rounded-lg px-4 py-2 text-white text-sm font-semibold shadow transition ${
                               Number(rooms) > 1 && selectedRoomType && selectedRoomType !== room.id
                                 ? "bg-[#9CA3AF] cursor-not-allowed"
@@ -1108,6 +1074,7 @@ export default function HotelDetailPage() {
             <h2 className="text-xl font-semibold text-[#0F172A]">Tiện ích của khách sạn</h2>
           </div>
           <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
+            {amenityList.length === 0 && <p className="text-sm text-[#6B7280]">Chưa cung cấp tiện nghi</p>}
             {hasAmenityCategories ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {amenityCategories
@@ -1179,6 +1146,7 @@ export default function HotelDetailPage() {
                 {/* First 3 policies + Read all button */}
                 <div>
                   <ul className="space-y-4 mb-4">
+                    {policyList.length === 0 && <p className="text-sm text-[#6B7280]">Chưa cung cấp chính sách của cơ sở lưu trú.</p>}
                     {policyList.slice(0, 3).map((p: any, idx) => (
                       <li key={`${idx}-${p.category}-${p.content}`} className="flex items-start gap-3">
                         <PolicyIcon category={p.category} />
@@ -1229,7 +1197,7 @@ export default function HotelDetailPage() {
                     )}
                     <div className="flex justify-between py-2 border-b border-[#F3F4F6]">
                       <span className="text-[#6B7280]">Thời gian nhận/trả phòng</span>
-                      <span className="text-[#0F172A] font-medium">Nhận phòng từ 14:00 · Trả phòng trước 12:00</span>
+                      <span className="text-[#0F172A] font-medium">Xem chính sách của cơ sở lưu trú</span>
                     </div>
                     <div className="flex justify-between py-2 border-b border-[#F3F4F6]">
                       <span className="text-[#6B7280]">Hạng sao</span>
@@ -1240,7 +1208,7 @@ export default function HotelDetailPage() {
                     <div className="flex justify-between py-2 border-b border-[#F3F4F6]">
                       <span className="text-[#6B7280]">Tiện ích nổi bật</span>
                       <span className="text-[#0F172A] text-right font-medium max-w-md">
-                        {amenityList.slice(0, 6).join(", ")}
+                        {amenityList.slice(0, 6).join(", ") || "Chưa cung cấp tiện nghi"}
                       </span>
                     </div>
                     <div className="flex justify-between py-2">
@@ -1266,6 +1234,7 @@ export default function HotelDetailPage() {
               Câu hỏi thường gặp
             </h3>
             <div className="space-y-4 divide-y divide-[#F3F4F6]">
+              {faqList.length === 0 && <p className="text-sm text-[#6B7280]">Chưa cung cấp câu hỏi thường gặp.</p>}
               {faqList.map((faq: any, idx: number) => (
                 <div key={idx} className="pt-3 first:pt-0">
                   <p className="font-semibold text-base text-[#111827] mb-1">{faq.question}</p>
@@ -1400,7 +1369,7 @@ export default function HotelDetailPage() {
                 <div>
                   <h4 className="text-base font-semibold text-[#0F172A] mb-3">Tiện nghi</h4>
                   <div className="flex flex-wrap gap-2 text-xs text-[#374151]">
-                    {(roomModal.room.amenities && roomModal.room.amenities.length > 0 ? roomModal.room.amenities : amenityList).map((a: any, idx: number) => (
+                    {(roomModal.room.amenities && roomModal.room.amenities.length > 0 ? roomModal.room.amenities : []).map((a: any, idx: number) => (
                       <span key={typeof a === 'object' ? (a.id || a.title || idx) : (a || idx)} className="inline-flex items-center gap-1 rounded-full bg-[#F3F4F6] px-3 py-1">
                         {typeof a === 'object' ? a.title : a}
                       </span>
@@ -1429,7 +1398,7 @@ export default function HotelDetailPage() {
 
           {reviewsLoading ? (
             <div className="text-center py-8 text-[#6B7280]">Đang tải đánh giá...</div>
-          ) : reviewStats ? (
+          ) : reviewsError ? (<p role="alert">Không thể tải đánh giá. Vui lòng tải lại trang.</p>) : reviewStats && reviewCount !== null && reviewCount > 0 ? (
             <>
               {/* Overall Rating Summary */}
               <div className="bg-white rounded-2xl border border-[#E5E7EB] p-8 mb-8 shadow-sm">
@@ -1438,7 +1407,7 @@ export default function HotelDetailPage() {
                   <div className="text-center md:text-left flex-shrink-0">
                     <div className="flex items-center gap-4">
                       <div className="text-5xl md:text-6xl font-bold text-[#0F172A]">
-                        {reviewStats.averageRating?.toFixed(1) || '0'}
+                        {averageRating !== null ? averageRating.toFixed(1) : 'N/A'}
                       </div>
                       <div className="text-left">
                         <p className="text-3xl font-semibold text-green-600">

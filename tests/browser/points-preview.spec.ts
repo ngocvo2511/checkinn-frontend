@@ -77,6 +77,32 @@ test('production booking UI displays server rate/cap and submits actual quoted p
   await expect.poll(() => submitted?.pointsToUse).toBe(714);
 });
 
+test('booking retries after lost response reuse the key and editing input rotates it', async ({ page }) => {
+  await setup(page, route => route.fulfill({ json: cappedQuote }));
+  const commands: string[] = [];
+  await page.route('**/api/bookings', async route => {
+    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
+    commands.push(route.request().postDataJSON().idempotencyKey);
+    return route.abort('connectionfailed');
+  });
+  await page.locator('form input[type="text"]').first().fill('Synthetic Guest');
+  await page.locator('input[type="email"]').fill('quote@example.invalid');
+  await page.locator('input[type="tel"]').fill('912345678');
+  const submit = page.getByRole('button', { name: 'Tiếp tục', exact: true });
+  await submit.click();
+  await expect.poll(() => commands.length).toBe(1);
+  await expect(submit).toBeEnabled();
+  await submit.click();
+  await expect.poll(() => commands.length).toBe(2);
+  expect(commands[0]).toMatch(/^[\da-f-]{36}$/);
+  expect(commands[1]).toBe(commands[0]);
+  await expect(submit).toBeEnabled();
+  await page.locator('input[type="tel"]').fill('912345679');
+  await submit.click();
+  await expect.poll(() => commands.length).toBe(3);
+  expect(commands[2]).not.toBe(commands[0]);
+});
+
 test('pending/error quote disables continuation until retry or explicit clear', async ({ page }) => {
   let release: () => void = () => {};
   const gate = new Promise<void>(resolve => { release = resolve; });

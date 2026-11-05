@@ -57,3 +57,30 @@ a default. The admin queue is `/admin/pending`, with type review details under
 `/host/hotels/{hotelId}` so unrelated legacy edits need no forced classification.
 See the workspace accommodation plan and backend Docker README for release and
 schema-preserving rollback requirements.
+
+## Booking and hotel review (05/11/2026)
+
+Booking creation retries reuse one command key per unchanged mounted form.
+Payment checks require an absolute server deadline. Onsite reservation status,
+host cash receipts, no-show handling and collected-money totals are tested
+separately. Public hotel tests cover complete amenity labels, unknown guest
+ratings, review dependency failures and plain room-description round trips.
+
+Validation after excluding all place-service integration changes:
+
+- `npm run test:regression`: 62 passed.
+- `npx tsc --noEmit` and the standard `npm run build` are blocked by the
+  unchanged upstream `NearbyPlacesSection.tsx:161` passing `showDistance` to
+  `PlaceCard`, whose upstream props do not declare it. This is outside this PR's
+  scope and is intentionally left for the place-service owner.
+- Browser suite: 51 passed, one existing coordinate/place regression failed
+  (`public hotel never uses city coordinates as an exact hotel pin`). Its test,
+  hotel-coordinate calculation and nearby-place wiring match `origin/main`.
+- To exercise booking/hotel runtime behavior despite that separate type error,
+  the browser artifact was built with a temporary `typescript.ignoreBuildErrors`
+  setting. The config was restored byte-for-byte before testing and is not part
+  of the commit. This is runtime coverage, not a passing production-build claim.
+
+Place components, place API/types, hotel nearby-place wiring and backend
+place-service are unchanged by this PR. Browser API responses are synthetic;
+see the companion backend's Docker validation for real database/HTTP tests.

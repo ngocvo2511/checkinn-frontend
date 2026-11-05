@@ -1,5 +1,6 @@
 'use client';
 
+import { canRecordOnsiteReceipt } from '@/lib/booking/payment-state';
 import { useState } from 'react';
 import { BookingResponse, bookingApi } from '@/lib/api/booking';
 
@@ -17,14 +18,7 @@ export default function BookingPaymentConfirm({ booking, onConfirmed }: BookingP
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const canConfirmPayment = () => {
-    const status = booking.status?.toUpperCase() || '';
-    const isAwaitingPayment = status === 'PENDING' || status === 'PENDING_PAYMENT';
-    const isHotelPayment = booking.paymentMethod?.toUpperCase() === 'HOTEL';
-    const unpaidAmount = (booking.totalAmount || 0) - (booking.paidAmount || 0);
-
-    return isAwaitingPayment && isHotelPayment && unpaidAmount > 0;
-  };
+  const canConfirmPayment = () => canRecordOnsiteReceipt(booking);
 
   const handleConfirmPayment = async () => {
     setIsLoading(true);
