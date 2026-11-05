@@ -9,7 +9,6 @@ interface PlaceCardProps {
   onSelect: (place: NearbyPlace) => void;
   hotelLat?: number | null;
   hotelLng?: number | null;
-  showDistance?: boolean;
 }
 
 const CATEGORY_LABEL_MAP: Record<string, { label: string; color: string }> = {
@@ -20,7 +19,7 @@ const CATEGORY_LABEL_MAP: Record<string, { label: string; color: string }> = {
   ENTERTAINMENT: { label: "Vui chơi giải trí", color: "bg-purple-50 text-purple-700 border-purple-200" },
 };
 
-export default function PlaceCard({ place, onSelect, hotelLat, hotelLng, showDistance = hotelLat != null && hotelLng != null }: PlaceCardProps) {
+export default function PlaceCard({ place, onSelect, hotelLat, hotelLng }: PlaceCardProps) {
   const catInfo = CATEGORY_LABEL_MAP[place.category] || {
     label: place.category,
     color: "bg-blue-50 text-blue-700 border-blue-200"
@@ -62,12 +61,12 @@ export default function PlaceCard({ place, onSelect, hotelLat, hotelLng, showDis
         </div>
 
         {/* Road Distance Badge */}
-        {showDistance && Number.isFinite(place.distanceKm) && Number.isFinite(place.estimatedTravelTimeMinutes) && <div className="absolute right-3 top-3">
+        <div className="absolute right-3 top-3">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-black/70 px-2.5 py-0.5 text-xs font-medium text-white backdrop-blur-md shadow-xs">
             <Car className="w-3.5 h-3.5 text-sky-400 shrink-0" />
             <span>~{place.estimatedTravelTimeMinutes} phút ({place.distanceKm} km đường bộ)</span>
           </span>
-        </div>}
+        </div>
 
         {/* Media Counts */}
         <div className="absolute bottom-2 right-2 flex items-center gap-1.5">

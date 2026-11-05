@@ -128,13 +128,11 @@ test('host can open an inactive room using authenticated private preview', async
 
 test('public hotel never uses city coordinates as an exact hotel pin', async ({ page }) => {
   let mapRequests = 0;
-  let nearbyRequests = 0;
   await page.route('**/*', async route => {
     const url = new URL(route.request().url());
     if (url.hostname.endsWith('tile.openstreetmap.org')) mapRequests++;
     if (url.port === '8080') {
       if (route.request().method() === 'OPTIONS') return route.fulfill({ status:204,headers:cors });
-      if (url.pathname.includes('/places/nearby')) nearbyRequests++;
       if (url.pathname === `/api/hotel/hotels/${id}`) return route.fulfill({ headers:cors,json:{
         id,name:'Synthetic city origin hotel',isActive:true,approvedStatus:'APPROVED',starRating:3,roomTypes:[],mediaAssets:[],policies:[],faqs:[],amenityCategories:[],
         address:{street:'Synthetic street',city:'Synthetic city',country:'VN',latitude:12,longitude:108,coordinateSource:'CITY_CENTROID'},
@@ -151,8 +149,6 @@ test('public hotel never uses city coordinates as an exact hotel pin', async ({ 
   await page.goto(`/hotel/${id}`);
   await expect(page.getByRole('heading',{name:'Synthetic city origin hotel',exact:true})).toBeVisible();
   await expect(page.getByText('Tọa độ bản đồ đang được cập nhật',{exact:true})).toBeVisible();
-  // The road-distance integration requires verified hotel coordinates and hides nearby places otherwise.
-  await expect(page.getByRole('heading',{name:'Địa điểm lân cận & Ẩm thực nổi bật',exact:true})).toHaveCount(0);
+  await expect(page.getByText('Gợi ý theo khu vực thành phố; chưa có tọa độ khách sạn để tính khoảng cách từ nơi lưu trú.',{exact:true})).toBeVisible();
   expect(mapRequests).toBe(0);
-  expect(nearbyRequests).toBe(0);
 });
