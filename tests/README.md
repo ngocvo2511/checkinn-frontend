@@ -142,3 +142,23 @@ Review the corresponding HOTEL SQL and backend authorization/transaction changes
 together before deploying these screens. Actual legacy counts must be entered
 and reviewed by humans; neither fixture counts nor old values such as10 are
 automatically trusted. See the backend Docker README for migration/run details.
+
+Revenue consistency checkpoint (07/11/2026): `npm run test:regression` passes106
+tests. `npx playwright test --config=playwright.revenue.config.ts` passes6 browser
+cases on the actual Next dev server with intercepted API fixtures: Vietnam/Los
+Angeles calendar boundaries, signed cash refunds below zero, percentage units,
+applied versus draft dates, inclusive one-day ranges and reconciliation errors.
+The backend separately verifies actual transaction-date cash reports on cloned
+PostgreSQL/RabbitMQ; browser interception is not provider/database verification.
+
+`npm run build` and `npx tsc --noEmit` remain blocked by the existing
+`components/NearbyPlacesSection.tsx:161` `showDistance` props mismatch. This batch
+does not modify place-related code or use a TypeScript bypass. The dedicated
+revenue Playwright config runs development mode; no production build pass is
+claimed. Commission/net figures use the current authoritative rate and are
+explicitly estimates, not historical settlement statements. Unknown financial
+history returns a reconciliation error, never a fabricated zero chart.
+
+
+Final revenue review: [REVIEW_REVENUE_2026-11-07.md](REVIEW_REVENUE_2026-11-07.md)
+records current validation and the nonblocking baseline place build issue.

@@ -1,5 +1,7 @@
 'use client';
 
+import {reportMonthRange,reportChartRange,reportMonths,reportMonthKey} from '@/lib/reporting/calendar';
+
 import { useState, useEffect, useMemo } from 'react';
 import AdminMenu from '@/components/admin/menu/AdminMenu';
 import { revenueApi, AdminSummaryResponse, AdminRevenueResponse, TopHotelItem } from '@/lib/api/revenue';
@@ -9,15 +11,7 @@ export default function AdminReportsPage() {
   const [error, setError] = useState<string | null>(null);
   
   // Date range state (default to current month)
-  const [dateRange, setDateRange] = useState(() => {
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    return {
-      from: firstDay.toISOString().split('T')[0],
-      to: lastDay.toISOString().split('T')[0],
-    };
-  });
+  const [dateRange, setDateRange] = useState(() => reportMonthRange());
   
   const [adminSummary, setAdminSummary] = useState<AdminSummaryResponse | null>(null);
   const [adminRevenue, setAdminRevenue] = useState<AdminRevenueResponse | null>(null);
@@ -30,10 +24,7 @@ export default function AdminReportsPage() {
         setError(null);
         
         // Tính toán 6 tháng gần nhất cho biểu đồ
-        const now = new Date();
-        const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
-        const chartFrom = sixMonthsAgo.toISOString().split('T')[0];
-        const chartTo = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+        const {from:chartFrom,to:chartTo} = reportChartRange();
         
         const [summaryData, revenueData] = await Promise.all([
           revenueApi.getAdminSummary(dateRange.from, dateRange.to),
@@ -42,9 +33,8 @@ export default function AdminReportsPage() {
         
         setAdminSummary(summaryData);
         setAdminRevenue(revenueData);
-      } catch (err: any) {
-        console.error('Error fetching admin data:', err);
-        setError(err?.message || 'Không thể tải dữ liệu báo cáo');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Không thể tải dữ liệu báo cáo');
       } finally {
         setLoading(false);
       }
@@ -58,23 +48,12 @@ export default function AdminReportsPage() {
     if (!adminRevenue?.data) return [];
     
     // Tạo 6 tháng gần nhất
-    const now = new Date();
-    const last6Months = [];
-    for (let i = 5; i >= 0; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      last6Months.push({
-        year: date.getFullYear(),
-        month: date.getMonth(),
-        monthKey: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`,
-        monthLabel: date.toLocaleDateString('en-US', { month: 'short' })
-      });
-    }
+    const last6Months = reportMonths();
     
     // Map dữ liệu từ API
     const revenueMap = new Map();
     adminRevenue.data.forEach((point) => {
-      const date = new Date(point.periodStart);
-      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const key = reportMonthKey(point.periodStart);
       revenueMap.set(key, point.amount / 1000); // Convert to K
     });
     
@@ -127,6 +106,7 @@ export default function AdminReportsPage() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#8B94A4]">Chọn khoảng thời gian</p>
+                  <p className="text-sm text-[#656F81]">Thu trừ hoàn theo ngày giao dịch, giờ Việt Nam.</p>
                   <div className="flex gap-2 mt-2">
                     <input
                       type="date"
@@ -163,19 +143,19 @@ export default function AdminReportsPage() {
               </div>
               
               <div className="rounded-2xl border border-[#E8E9F1] bg-gradient-to-br from-[#10B981] to-[#059669] p-5 text-white shadow-[0_14px_30px_rgba(16,185,129,0.25)]">
-                <p className="text-xs font-semibold uppercase tracking-[0.08em] opacity-90">Hoa hồng thu được</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] opacity-90">Hoa hồng ước tính theo tỷ lệ hiện tại</p>
                 <div className="text-3xl font-bold mt-2">{adminSummary.totalCommission.toLocaleString('vi-VN')} ₫</div>
                 <p className="text-sm opacity-80 mt-1">
                   {adminSummary.commissionRate !== undefined
-                    ? `${adminSummary.commissionRate.toFixed(1)}% của doanh thu`
-                    : `${((adminSummary.totalCommission / adminSummary.totalRevenue) * 100).toFixed(1)}% của doanh thu`}
+                    ? `${(adminSummary.commissionRate * 100).toFixed(1)}% của doanh thu`
+                    : 'Chưa có tỷ lệ hoa hồng'}
                 </p>
               </div>
               
               <div className="rounded-2xl border border-[#E8E9F1] bg-gradient-to-br from-[#F59E0B] to-[#D97706] p-5 text-white shadow-[0_14px_30px_rgba(245,158,11,0.25)]">
                 <p className="text-xs font-semibold uppercase tracking-[0.08em] opacity-90">Tổng booking</p>
                 <div className="text-3xl font-bold mt-2">{adminSummary.totalBookings.toLocaleString()}</div>
-                <p className="text-sm opacity-80 mt-1">Tất cả trạng thái</p>
+                <p className="text-sm opacity-80 mt-1">Booking có giao dịch thu trong kỳ</p>
               </div>
               
               <div className="rounded-2xl border border-[#E8E9F1] bg-gradient-to-br from-[#EF4444] to-[#DC2626] p-5 text-white shadow-[0_14px_30px_rgba(239,68,68,0.25)]">
@@ -266,9 +246,10 @@ export default function AdminReportsPage() {
                   const padY = 18;
 
                   const maxValue = Math.max(...monthlyRevenue.map((r) => r.value), 1); // Min 1 to avoid 0 range
-                  const minValue = 0; // Always start from 0 for revenue
+                  const minValue = Math.min(...monthlyRevenue.map((r) => r.value), 0);
                   const valueRange = Math.max(maxValue - minValue, 0.0001);
-                  const step = (width - padX * 2) / Math.max(1, monthlyRevenue.length - 1);
+                  const zeroY = padY + (1 - (0 - minValue) / valueRange) * (plotHeight - padY * 2);
+                    const step = (width - padX * 2) / Math.max(1, monthlyRevenue.length - 1);
 
                   type ChartPoint = { month: string; value: number; x: number; y: number };
                   const points: ChartPoint[] = monthlyRevenue.map((item, idx) => {
@@ -295,7 +276,7 @@ export default function AdminReportsPage() {
                     const d: string[] = [];
                     
                     // Start at bottom-left
-                    d.push(`M ${pts[0].x} ${plotHeight}`);
+                    d.push(`M ${pts[0].x} ${zeroY}`);
                     d.push(`L ${pts[0].x} ${pts[0].y}`);
                     
                     // Draw lines to each point
@@ -304,7 +285,7 @@ export default function AdminReportsPage() {
                     }
                     
                     // Close path back to baseline
-                    d.push(`L ${pts[pts.length - 1].x} ${plotHeight}`);
+                    d.push(`L ${pts[pts.length - 1].x} ${zeroY}`);
                     d.push('Z');
                     
                     return d.join(' ');
