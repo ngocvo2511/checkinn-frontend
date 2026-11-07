@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { parseStayDate, stayNights } from '@/lib/search/stay-dates';
 import { HotelLocationPicker } from './HotelLocationPicker';
 import { HotelGuestPicker } from './HotelGuestPicker';
 import DatePicker from 'react-datepicker';
@@ -182,10 +183,10 @@ export function HotelSearchBar({
   const [selectedCity, setSelectedCity] = useState<City | null>(null);
   const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null);
   const [checkInDate, setCheckInDate] = useState<Date | null>(
-    initialCheckIn ? new Date(initialCheckIn) : null
+    parseStayDate(initialCheckIn)
   );
   const [checkOutDate, setCheckOutDate] = useState<Date | null>(
-    initialCheckOut ? new Date(initialCheckOut) : null
+    parseStayDate(initialCheckOut)
   );
   const [adults, setAdults] = useState(parseInt(initialAdults || '1'));
   const [children, setChildren] = useState(parseInt(initialChildren || '0'));
@@ -230,7 +231,8 @@ export function HotelSearchBar({
       return `${day} thg ${month}`;
     };
 
-    const daysDiff = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+    const daysDiff = stayNights(checkIn,checkOut);
+    if (daysDiff === null || daysDiff < 1) return 'Chọn ngày';
     const nightsText = daysDiff === 1 ? '1 đêm' : `${daysDiff} đêm`;
 
     return `${formatDate(checkIn)} - ${formatDate(checkOut)}, ${nightsText}`;
@@ -293,7 +295,7 @@ export function HotelSearchBar({
   };
 
   const handleSearch = () => {
-    if (!checkInDate || !checkOutDate) {
+    if (!checkInDate || !checkOutDate || (stayNights(checkInDate,checkOutDate) ?? 0) < 1) {
       alert('Vui lòng chọn ngày nhận và trả phòng');
       return;
     }
@@ -315,7 +317,7 @@ export function HotelSearchBar({
   return (
     <>
       <style>{datePickerStyles}</style>
-      <div className="flex items-center gap-3 flex-wrap">
+      <div role="search" aria-label="Tìm cơ sở lưu trú" className="flex items-center gap-3 flex-wrap">
       {/* Location Input */}
       <div ref={locationRef} className="relative flex-1 min-w-[240px]">
         <button

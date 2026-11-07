@@ -1,3 +1,4 @@
+import {offerPage} from './offer-fixtures';
 import {test,expect,type Page} from '@playwright/test';
 const id='00000000-0000-4000-8000-0000000000c1',owner='00000000-0000-4000-8000-0000000000c2';
 const catalog=[{code:'HOTEL',label:'Hotel'},{code:'VILLA',label:'Villa'},{code:'APARTMENT',label:'Apartment'},{code:'GUEST_HOUSE',label:'Guest House'}];
@@ -12,10 +13,11 @@ async function mock(page:Page,respond:(url:URL,method:string,body:Record<string,
    if(method==='OPTIONS')return route.fulfill({status:204,headers:cors});
    const body=route.request().headers()['content-type']?.includes('application/json')?route.request().postDataJSON():null;
    const response=respond(u,method,body);
-   if(response)return route.fulfill({headers:cors,...response});
+   if(response){if(u.pathname.endsWith('/hotels/offers/page')&&Array.isArray(response.json))response.json=offerPage(u,response.json);return route.fulfill({headers:cors,...response});}
    if(u.pathname.endsWith('/accommodation-types'))return route.fulfill({headers:cors,json:catalog});
    if(u.pathname==='/cities')return route.fulfill({headers:cors,json:[{id,name:'Synthetic city'}]});
-   if(u.pathname.includes('/stats/'))return route.fulfill({headers:cors,json:{totalReviews:0,averageRating:0,ratingDistribution:{}}});
+   if(u.pathname.endsWith('/reviews/summaries'))return route.fulfill({headers:cors,json:u.searchParams.getAll('hotelIds').map(hotelId=>({hotelId,totalReviews:0,averageRating:null}))});
+      if(u.pathname.includes('/stats/'))return route.fulfill({headers:cors,json:{totalReviews:0,averageRating:0,ratingDistribution:{}}});
    if(u.pathname.includes('/reviews/'))return route.fulfill({headers:cors,json:{content:[],totalElements:0,totalPages:0}});
    return route.fulfill({headers:cors,json:[]});
   }
@@ -26,7 +28,7 @@ async function mock(page:Page,respond:(url:URL,method:string,body:Record<string,
 }
 test('type filters reach offer API and survive reload, back, forward and clear without changing budget',async({page})=>{
  let seen:string[]=[];
- await mock(page,u=>{if(u.pathname.endsWith('/hotels/offers')){seen=u.searchParams.getAll('accommodationTypes');expect(u.searchParams.get('maxPrice')).toBe('800000');return{json:[{hotel,offer:{roomTypeId:id,quantity:1,unitPrice:200000,totalPerNight:200000,availableRooms:null,checkIn:null,checkOut:null,checkedAt:null}}]};}});
+ await mock(page,u=>{if(u.pathname.endsWith('/hotels/offers/page')){seen=u.searchParams.getAll('accommodationTypes');expect(u.searchParams.get('maxPrice')).toBe('800000');return{json:[{hotel,offer:{roomTypeId:id,quantity:1,unitPrice:200000,totalPerNight:200000,availableRooms:null,checkIn:null,checkOut:null,checkedAt:null}}]};}});
  await page.goto('/search?cityId='+id+'&maxPrice=800000');
  await expect(page.getByRole('checkbox',{name:'Villa',exact:true})).toBeVisible();
  await page.getByRole('checkbox',{name:'Villa',exact:true}).click();
@@ -43,7 +45,7 @@ test('type filters reach offer API and survive reload, back, forward and clear w
  await expect(page.getByText('Hotel',{exact:true}).last()).toBeVisible();
 });
 test('unknown type in URL is visible and can be removed while preserving other criteria',async({page})=>{
- await mock(page,u=>u.pathname.endsWith('/hotels/offers')?{status:u.searchParams.has('accommodationTypes')?400:200,json:[]}:undefined);
+ await mock(page,u=>u.pathname.endsWith('/hotels/offers/page')?{status:u.searchParams.has('accommodationTypes')?400:200,json:[]}:undefined);
  await page.goto('/search?cityId='+id+'&maxPrice=800000&accommodationTypes=ALIEN');
  await expect(page.getByText('Loại hình trong URL không hợp lệ: ALIEN.')).toBeVisible();
  await expect(page.getByTestId('search-error')).toBeVisible();

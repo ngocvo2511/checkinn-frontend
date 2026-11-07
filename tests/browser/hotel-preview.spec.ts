@@ -149,6 +149,5 @@ test('public hotel never uses city coordinates as an exact hotel pin', async ({ 
   await page.goto(`/hotel/${id}`);
   await expect(page.getByRole('heading',{name:'Synthetic city origin hotel',exact:true})).toBeVisible();
   await expect(page.getByText('Tọa độ bản đồ đang được cập nhật',{exact:true})).toBeVisible();
-  await expect(page.getByText('Gợi ý theo khu vực thành phố; chưa có tọa độ khách sạn để tính khoảng cách từ nơi lưu trú.',{exact:true})).toBeVisible();
   expect(mapRequests).toBe(0);
 });

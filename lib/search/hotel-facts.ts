@@ -8,7 +8,7 @@ export function matchesHotelAmenities(actual: string[], selected: string[]): boo
   return selected.every(label => actual.includes(label));
 }
 
-export function guestReviewFacts(stats: { averageRating?: number; totalReviews?: number } | null | undefined): {
+export function guestReviewFacts(stats: { averageRating?: number | null; totalReviews?: number } | null | undefined): {
   rating: number | null; reviewCount: number | null;
 } {
   const count = stats?.totalReviews;

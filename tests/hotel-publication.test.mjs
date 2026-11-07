@@ -69,3 +69,9 @@ for (const [label, result, accepted] of [
     finally { globalThis.fetch = previous; }
   });
 }
+
+test('verified hotel coordinate source still requires geographic bounds', () => {
+  for (const [latitude,longitude] of [[91,108],[12,181],[-91,108],[12,-181],[Infinity,108]]) {
+    assert.deepEqual(hotelCoordinates({latitude,longitude,coordinateSource:'OWNER_PROVIDED'}),{});
+  }
+});

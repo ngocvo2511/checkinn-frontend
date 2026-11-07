@@ -3,35 +3,30 @@ import type { City } from './cities';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
 
-// Helper function to parse double-stringified values from backend
-const parseStringValue = (value: any): any => {
-  if (value === 'null' || value === 'undefined') return null;
-  if (typeof value === 'string') {
-    // Keep trying to parse until we get a non-string or a string without quotes
-    let parsed = value;
-    while (typeof parsed === 'string' && parsed.startsWith('"') && parsed.endsWith('"')) {
-      try {
-        parsed = JSON.parse(parsed);
-      } catch {
-        break;
-      }
-    }
-    return parsed;
+/** Compatibility only for an expected structured address, never for free text. */
+const legacyAddressObject=<T>(value:T):T|Record<string,unknown>=>{
+  let parsed:unknown=value;
+  for(let depth=0;depth<2&&typeof parsed==='string';depth++){
+    try{parsed=JSON.parse(parsed);}catch{return value;}
+    if(parsed&&typeof parsed==='object'&&!Array.isArray(parsed))return parsed as Record<string,unknown>;
+  }
+  return value;
+};
+
+/** Old generated mappers JSON-encoded these specific scalar fields once. */
+const mapperText=<T>(value:T,encoding:unknown):T|string|null=>{
+  if(encoding==='PLAIN_V1')return value;
+  if(encoding!==undefined&&encoding!==null)throw new ReadApiError('INVALID_RESPONSE');
+  if(typeof value==='string'){
+    try{const decoded:unknown=JSON.parse(value);if(decoded===null||typeof decoded==='string')return decoded;}catch{/* Legacy raw text stays literal. */}
   }
   return value;
 };
 
 // Clean hotel data from backend
 const cleanHotelData = (hotel: any): Hotel => {
-  let cleanedAddress = hotel.address;
-  if (typeof cleanedAddress === 'string') {
-    try {
-      cleanedAddress = JSON.parse(cleanedAddress);
-    } catch {
-      // Keep as is
-    }
-  }
-  if (cleanedAddress && typeof cleanedAddress === 'object') {
+  let cleanedAddress = legacyAddressObject(hotel.address);
+  if (cleanedAddress && typeof cleanedAddress === 'object' && !Array.isArray(cleanedAddress)) {
     cleanedAddress = {
       ...cleanedAddress,
       latitude: cleanedAddress.latitude != null ? Number(cleanedAddress.latitude) : undefined,
@@ -42,39 +37,39 @@ const cleanHotelData = (hotel: any): Hotel => {
   return {
     ...hotel,
     address: cleanedAddress,
-    name: parseStringValue(hotel.name),
-    description: parseStringValue(hotel.description),
-    contactEmail: parseStringValue(hotel.contactEmail),
-    contactPhone: parseStringValue(hotel.contactPhone),
+    name: mapperText(hotel.name,hotel.textEncoding),
+    description: mapperText(hotel.description,hotel.textEncoding),
+    contactEmail: mapperText(hotel.contactEmail,hotel.textEncoding),
+    contactPhone: mapperText(hotel.contactPhone,hotel.textEncoding),
     city: hotel.city ? {
       ...hotel.city,
-      name: parseStringValue(hotel.city.name),
-      parentName: parseStringValue(hotel.city.parentName),
+      name: mapperText(hotel.city.name,hotel.textEncoding),
+      parentName: mapperText(hotel.city.parentName,hotel.textEncoding),
     } : undefined,
     policies: hotel.policies?.map((p: any) => ({
       ...p,
-      title: p.title ? parseStringValue(p.title) : undefined,
-      category: p.category ? parseStringValue(p.category) : undefined,
-      content: parseStringValue(p.content),
+      title: p.title,
+      category: p.category,
+      content: p.content,
     })),
     faqs: hotel.faqs?.map((f: any) => ({
       ...f,
-      question: parseStringValue(f.question),
-      answer: parseStringValue(f.answer),
+      question: f.question,
+      answer: f.answer,
     })),
     amenityCategories: hotel.amenityCategories?.map((cat: any) => ({
       ...cat,
-      title: parseStringValue(cat.title),
+      title: cat.title,
       items: cat.items?.map((item: any) => ({
         ...item,
-        title: parseStringValue(item.title),
+        title: item.title,
       })),
     })),
     roomTypes: hotel.roomTypes?.map((rt: any) => ({
       ...rt,
-      name: parseStringValue(rt.name),
+      name: mapperText(rt.name,rt.textEncoding),
       description: typeof rt.description === "string" ? rt.description : undefined,
-      bedType: parseStringValue(rt.bedType),
+      bedType: rt.bedType,
     })),
   };
 };
@@ -83,12 +78,12 @@ const cleanHotelData = (hotel: any): Hotel => {
 const cleanRoomTypeData = (roomType: any): RoomType => {
   return {
     ...roomType,
-    name: parseStringValue(roomType.name),
+    name: mapperText(roomType.name,roomType.textEncoding),
     description: typeof roomType.description === "string" ? roomType.description : undefined,
-    bedType: parseStringValue(roomType.bedType),
+    bedType: roomType.bedType,
     capacity: roomType.capacity ? {
       ...roomType.capacity,
-      bedType: parseStringValue(roomType.capacity.bedType),
+      bedType: roomType.capacity.bedType,
     } : undefined,
   };
 };
@@ -116,10 +111,10 @@ export interface MediaAsset {
 export interface CapacityDto {
   adults: number;
   children: number;
-  bedType?: string;
-  roomSize?: number;
-  breakfastIncluded?: boolean;
-  breakfastQuantity?: number;
+  bedType?: string | null;
+  roomSize?: number | null;
+  breakfastIncluded?: boolean | null;
+  breakfastQuantity?: number | null;
 }
 
 export interface PolicyResponse {
@@ -149,6 +144,7 @@ export interface AmenityCategoryOption {
 }
 
 export interface RoomType {
+  textEncoding?: "PLAIN_V1";
   id: string;
   name: string;
   description?: string;
@@ -161,7 +157,7 @@ export interface RoomType {
   capacity?: CapacityDto;
   amenities?: string[];
   isActive?: boolean;
-  totalRooms?: number;
+  totalRooms?: number | null;
   roomAmount?: number;
   mediaAssets?: MediaAsset[];
 }
@@ -169,6 +165,7 @@ export interface RoomType {
 export type HotelApprovalStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export interface Hotel {
+  textEncoding?: "PLAIN_V1";
   accommodationType?: import("./accommodation-types").AccommodationType | null;
   accommodationTypeLabel?: string | null;
   id: string;
@@ -206,6 +203,7 @@ export interface RoomOffer {
 }
 
 export interface SearchHotelsParams {
+  amenityCodes?: string[];
   accommodationTypes?: string[];
   cityId?: string;
   cityName?: string;
@@ -241,6 +239,26 @@ const cleanSearchHotels = (data: unknown): Hotel[] => {
   catch { throw new ReadApiError('INVALID_RESPONSE'); }
 };
 
+type MatchedHotel=Hotel & {matchedOffer:RoomOffer};
+interface ReviewFacts {hotelId:string;totalReviews:number;averageRating:number|null;}
+export interface HotelOfferPageParams extends SearchHotelsParams {
+  page?:number;size?:number;sort?:string;starRatings?:number[];guestRatings?:number[];amenities?:string[];
+}
+export interface HotelOfferPage {
+  content:Array<MatchedHotel & {reviews:ReviewFacts}>;page:number;size:number;sort:string;
+  totalElements:number;totalPages:number;availableAmenities:string[];
+}
+function parseOfferRows(data:unknown,params:SearchHotelsParams):MatchedHotel[] {
+    return readArray<{hotel: Hotel; offer: RoomOffer}>(data, row => {
+      const o = row.offer;
+      return row.hotel && validSearchHotel(row.hotel) && o && typeof o.roomTypeId === 'string' &&
+        Number.isInteger(o.quantity) && o.quantity === (params.rooms ?? 1) && o.quantity > 0 && Number.isFinite(o.unitPrice) && o.unitPrice > 0 &&
+        Number.isFinite(o.totalPerNight) && Math.abs(o.totalPerNight - o.unitPrice * o.quantity) < 0.000001 &&
+        (o.availableRooms === null || (Number.isInteger(o.availableRooms) && o.availableRooms >= o.quantity)) &&
+        (params.checkIn ? o.checkIn === params.checkIn && o.checkOut === params.checkOut && typeof o.checkedAt === 'string' && o.availableRooms !== null : o.checkIn === null && o.checkOut === null && o.availableRooms === null);
+    }).map(row => ({...cleanSearchHotels([row.hotel])[0], matchedOffer: row.offer}));
+}
+
 export const hotelApi = {
   /** Canonical same-room offers from hotel-service. No fallback to client inventory. */
   async searchHotelOffers(params: SearchHotelsParams): Promise<Array<Hotel & { matchedOffer: RoomOffer }>> {
@@ -250,14 +268,27 @@ export const hotelApi = {
       else if (value !== undefined && value !== '') query.set(key, String(value));
     }
     const data = await readJson(`${API_BASE_URL}/api/hotel/hotels/offers?${query}`);
-    return readArray<{hotel: Hotel; offer: RoomOffer}>(data, row => {
-      const o = row.offer;
-      return row.hotel && validSearchHotel(row.hotel) && o && typeof o.roomTypeId === 'string' &&
-        Number.isInteger(o.quantity) && o.quantity === (params.rooms ?? 1) && o.quantity > 0 && Number.isFinite(o.unitPrice) && o.unitPrice > 0 &&
-        Number.isFinite(o.totalPerNight) && Math.abs(o.totalPerNight - o.unitPrice * o.quantity) < 0.000001 &&
-        (o.availableRooms === null || (Number.isInteger(o.availableRooms) && o.availableRooms >= o.quantity)) &&
-        (params.checkIn ? o.checkIn === params.checkIn && o.checkOut === params.checkOut && typeof o.checkedAt === 'string' && o.availableRooms !== null : o.checkIn === null && o.checkOut === null && o.availableRooms === null);
-    }).map(row => ({...cleanSearchHotels([row.hotel])[0], matchedOffer: row.offer}));
+    return parseOfferRows(data,params);
+  },
+
+  async searchHotelOfferPage(params:HotelOfferPageParams):Promise<HotelOfferPage> {
+    const pageNumber=params.page??0,size=params.size??20,sort=params.sort??'DEFAULT';
+    if(!Number.isSafeInteger(pageNumber)||pageNumber<0||pageNumber>2147483647||!Number.isSafeInteger(size)||size<1||size>50||!['DEFAULT','PRICE_ASC','PRICE_DESC','RATING_DESC'].includes(sort))throw new ReadApiError('VALIDATION');
+    const query=new URLSearchParams();
+    for(const [key,value] of Object.entries({...params,page:pageNumber,size,sort})){
+      if(Array.isArray(value))for(const item of value)query.append(key,String(item));
+      else if(value!==undefined&&value!=='')query.set(key,String(value));
+    }
+    const data=await readJson(`${API_BASE_URL}/api/hotel/hotels/offers/page?${query}`);
+    if(!data||typeof data!=='object'||Array.isArray(data))throw new ReadApiError('INVALID_RESPONSE');
+    const raw=data as {content:unknown;page:number;size:number;sort:string;totalElements:number;totalPages:number;availableAmenities:unknown};
+    if(raw.page!==pageNumber||raw.size!==size||raw.sort!==sort||!Number.isSafeInteger(raw.totalElements)||raw.totalElements<0||raw.totalPages!==Math.ceil(raw.totalElements/size)||!Array.isArray(raw.availableAmenities)||!raw.availableAmenities.every(v=>typeof v==='string'&&v.trim()&&v.length<=255)||new Set(raw.availableAmenities).size!==raw.availableAmenities.length)throw new ReadApiError('INVALID_RESPONSE');
+    const hotels=parseOfferRows(raw.content,params);
+    if(hotels.length!==Math.min(size,Math.max(0,raw.totalElements-pageNumber*size))||new Set(hotels.map(h=>h.id)).size!==hotels.length)throw new ReadApiError('INVALID_RESPONSE');
+    const rows=readArray<{hotel:Hotel;reviews:ReviewFacts}>(raw.content,row=>{
+      const r=row.reviews;return !!r&&r.hotelId===row.hotel.id&&Number.isSafeInteger(r.totalReviews)&&r.totalReviews>=0&&(r.totalReviews===0?r.averageRating===null:typeof r.averageRating==='number'&&Number.isFinite(r.averageRating)&&r.averageRating>=0&&r.averageRating<=10);
+    });
+    return {...raw,availableAmenities:raw.availableAmenities as string[],content:hotels.map((hotel,index)=>({...hotel,reviews:rows[index].reviews}))};
   },
 
   /**
@@ -547,7 +578,7 @@ export const hotelApi = {
 
       const result = await response.json();
       return (result || []).map((cat: AmenityCategoryOption) => ({
-        type: parseStringValue(cat.type),
+        type: cat.type,
       })).filter((c: AmenityCategoryOption) => !!c.type);
     } catch (error) {
       console.error('Error fetching amenity categories:', error);
@@ -1045,6 +1076,7 @@ export type { ReviewStats } from './reviews';
 /** Only hotel-specific coordinates may be presented as a hotel pin or distance origin. */
 export function hotelCoordinates(address?: HotelAddress | null) {
   const validSource = address?.coordinateSource === 'OWNER_PROVIDED' || address?.coordinateSource === 'GEOCODED';
-  if (!validSource || !Number.isFinite(address?.latitude) || !Number.isFinite(address?.longitude)) return {};
+  if (!validSource || !Number.isFinite(address?.latitude) || !Number.isFinite(address?.longitude)
+      || Math.abs(address!.latitude!) > 90 || Math.abs(address!.longitude!) > 180) return {};
   return { latitude: address!.latitude, longitude: address!.longitude };
 }

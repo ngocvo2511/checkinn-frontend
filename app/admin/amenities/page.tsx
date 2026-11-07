@@ -1,0 +1,25 @@
+"use client";
+import {useEffect,useState} from 'react';
+import {amenityApi,type AmenityCode,type AmenityMappingRequest} from '@/lib/api/amenity-catalog';
+const empty:AmenityCode={code:'',label:'',description:'',active:true,revision:0};
+export default function AmenityCatalogPage(){
+ const [catalog,setCatalog]=useState<AmenityCode[]>([]),[pending,setPending]=useState<AmenityMappingRequest[]>([]),[page,setPage]=useState(0),[history,setHistory]=useState(false),[retry,setRetry]=useState(0),[loaded,setLoaded]=useState(false);
+ const [form,setForm]=useState(empty),[editing,setEditing]=useState(false),[error,setError]=useState(''),[busy,setBusy]=useState(false),[reasons,setReasons]=useState<Record<string,string>>({});
+ useEffect(()=>{let current=true;setLoaded(false);setError('');Promise.all([amenityApi.catalog(true),amenityApi.pending(page,history)]).then(([rows,requests])=>{if(current){setCatalog(rows);setPending(requests);setLoaded(true);}}).catch(()=>{if(current)setError('Không tải được catalog hoặc yêu cầu mapping.');});return()=>{current=false;};},[page,retry,history]);
+ async function save(e:React.FormEvent){e.preventDefault();setBusy(true);setError('');try{await amenityApi.save(form,!editing);setForm(empty);setEditing(false);setRetry(n=>n+1);}catch{setError('Không lưu được catalog. Mã có thể đã tồn tại hoặc revision đã thay đổi; hãy tải lại.');}finally{setBusy(false);}}
+ async function review(row:AmenityMappingRequest,approve:boolean){setBusy(true);setError('');try{await amenityApi.review(row,approve,reasons[row.id]||'');setRetry(n=>n+1);}catch{setError('Không duyệt được mapping. Nhãn, mã hoặc revision có thể đã thay đổi; hãy tải lại.');}finally{setBusy(false);}}
+ return <main className="p-6 space-y-5"><h1 className="text-2xl font-bold">Catalog tiện nghi</h1><p>Mã ổn định, không sửa mã sau khi tạo. Ngừng sử dụng mã sẽ loại mã đó khỏi bộ lọc công khai. Nhãn cũ và lịch sử mapping được giữ nguyên.</p>
+ {error&&<p role="alert">{error}</p>}<button type="button" onClick={()=>setRetry(n=>n+1)}>Tải lại catalog</button>{!loaded&&!error&&<p>Đang tải catalog…</p>}
+ <form onSubmit={save} className="border p-4 space-y-3"><h2>{editing?'Sửa tiện nghi':'Tạo tiện nghi'}</h2><fieldset disabled={busy||!loaded} className="space-y-3">
+ <label className="block">Mã tiện nghi <input required pattern="[A-Z][A-Z0-9_]{0,63}" maxLength={64} disabled={editing} value={form.code} onChange={e=>setForm({...form,code:e.target.value})} className="border"/></label>
+ <label className="block">Tên tiện nghi <input required maxLength={255} value={form.label} onChange={e=>setForm({...form,label:e.target.value})} className="border"/></label>
+ <label className="block">Mô tả ý nghĩa <textarea maxLength={1000} value={form.description||''} onChange={e=>setForm({...form,description:e.target.value})} className="border"/></label>
+ <label className="block"><input type="checkbox" checked={form.active} onChange={e=>setForm({...form,active:e.target.checked})}/> Đang sử dụng</label><button type="submit">Lưu tiện nghi</button> <button type="button" onClick={()=>{setEditing(false);setForm(empty);}}>Tạo mã khác</button></fieldset></form>
+ {loaded&&catalog.length===0&&<p>Catalog chưa có mã. Không tự tạo từ nhãn cũ.</p>}
+ <ul>{catalog.map(row=><li key={row.code}>{row.code}: {row.label} — {row.active?'Đang sử dụng':'Ngừng sử dụng'} <button type="button" disabled={busy} onClick={()=>{setEditing(true);setForm(row);}}>Sửa {row.code}</button></li>)}</ul>
+ <h2 className="text-xl font-semibold">{history?"Lịch sử mapping":"Mapping chờ kiểm tra"}</h2><button type="button" onClick={()=>{setPage(0);setHistory(!history);}}>{history?"Xem yêu cầu chờ duyệt":"Xem lịch sử mapping"}</button><p>Kiểm tra ý nghĩa nhãn tại cơ sở trước khi duyệt; tên giống nhau không bảo đảm cùng dịch vụ. Duyệt danh sách rỗng nghĩa là gỡ mapping.</p>
+ {loaded&&pending.length===0&&<p>Không có yêu cầu ở trang này.</p>}
+ {loaded&&pending.map(row=><section key={row.id} aria-label={`Duyệt ${row.title_snapshot}`} className="border p-4 space-y-2"><p>Cơ sở: {row.hotel_id} · Nhãn: {row.title_snapshot}</p><p>Mã đề xuất: {row.codes.join(', ')||'Gỡ tất cả mã'}</p><p>Ghi chú: {row.note||'Không có'}</p><p>Trạng thái: {row.status}{row.review_reason?` — ${row.review_reason}`:""}</p><a className="underline" href={`/hotel/${row.hotel_id}`} target="_blank" rel="noreferrer">Xem cơ sở</a><label className="block">Lý do quyết định <input required maxLength={1000} className="border" value={reasons[row.id]||''} onChange={e=>setReasons({...reasons,[row.id]:e.target.value})}/></label><button disabled={busy||row.status!=="PENDING"||!reasons[row.id]?.trim()} onClick={()=>review(row,true)}>Duyệt mapping</button> <button disabled={busy||row.status!=="PENDING"||!reasons[row.id]?.trim()} onClick={()=>review(row,false)}>Từ chối mapping</button></section>)}
+ <nav aria-label="Trang mapping"><button disabled={page===0||busy} onClick={()=>setPage(n=>n-1)}>Trang trước</button> <span>{page+1}</span> <button disabled={!loaded||pending.length<50||busy} onClick={()=>setPage(n=>n+1)}>Trang sau</button></nav>
+ </main>;
+}

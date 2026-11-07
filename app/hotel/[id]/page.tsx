@@ -7,7 +7,8 @@ import HotelDetailHeader from "@/components/HotelDetailHeader";
 import NearbyPlacesSection from "@/components/NearbyPlacesSection";
 import HotelLocationMap from "@/components/map/HotelLocationMap";
 import Footer from "@/components/Footer";
-import { hotelApi, Hotel as ApiHotel, RoomType, MediaAsset } from "@/lib/api/hotels";
+import { hotelApi, hotelCoordinates, Hotel as ApiHotel, RoomType, MediaAsset } from "@/lib/api/hotels";
+import {roomFacts} from "@/lib/search/room-facts";
 import { amenityTitles, guestReviewFacts } from "@/lib/search/hotel-facts";
 import { reviewApi } from "@/lib/api/reviews";
 import { authApi } from "@/lib/api/auth";
@@ -327,8 +328,7 @@ export default function HotelDetailPage() {
     return parts.join(", ");
   }, [hotel]);
 
-  const hotelLat = hotel?.address?.latitude ?? hotel?.city?.latitude;
-  const hotelLng = hotel?.address?.longitude ?? hotel?.city?.longitude;
+  const { latitude: hotelLat, longitude: hotelLng } = hotelCoordinates(hotel?.address);
 
   const faqList = useMemo(() => {
     if (hotel?.faqs && hotel.faqs.length > 0) {
@@ -398,6 +398,7 @@ export default function HotelDetailPage() {
     return sorted[0]?.url || "/placeholder-room.jpg";
   };
 
+  const modalRoomFacts=roomModal.room?roomFacts(roomModal.room):null;
   const modalImages = useMemo(() => {
     if (!roomModal.room) return [];
     const assets = roomModal.room.mediaAssets || [];
@@ -444,6 +445,8 @@ export default function HotelDetailPage() {
   };
 
   const handleBookRoom = (room: RoomType) => {
+    const facts=roomFacts(room);
+    if(facts.price===null || facts.totalRooms===null || !facts.capacityKnown)return;
     // Check if user is logged in
     if (!user) {
       setShowLogin(true);
@@ -462,7 +465,7 @@ export default function HotelDetailPage() {
       hotelName: hotel?.name || "",
       roomId: room.id,
       roomName: room.name,
-      roomPrice: String(room.basePrice ?? room.pricePerNight ?? 0),
+      roomPrice: String(facts.price),
       checkIn: checkIn,
       checkOut: checkOut,
       adults: adults,
@@ -900,12 +903,12 @@ export default function HotelDetailPage() {
           ) : (
             <div className="space-y-4">
               {activeRooms.map((room) => {
-                const configuredPrice = room.basePrice ?? room.pricePerNight;
-                const roomPrice = typeof configuredPrice === "number" && Number.isFinite(configuredPrice) && configuredPrice > 0 ? configuredPrice : undefined;
+                const facts=roomFacts(room);
+                const roomPrice=facts.price??undefined;
                 const roomImage = getFirstRoomImage(room.mediaAssets);
-                const roomName = room.name?.replace(/^"(.*)"$/, "$1") || room.name;
-                const roomAdults = room.capacity?.adults || 2;
-                const roomChildren = room.capacity?.children || 0;
+                const roomName = room.name;
+                const roomAdults=facts.adults;
+                const roomChildren=facts.children;
                 return (
                   <div key={room.id} className="grid gap-4 rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm md:grid-cols-[280px_1fr]">
                     {/* Left: Image and Name */}
@@ -915,9 +918,10 @@ export default function HotelDetailPage() {
                       </div>
                       <div className="relative h-48 w-full overflow-hidden rounded-xl">
                         <img src={roomImage} alt={room.name} className="h-full w-full object-cover" />
-                        {room.totalRooms !== undefined && room.totalRooms !== null && room.totalRooms > 0 && (
-                          <span className="absolute top-3 right-3 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-[#DC2626] shadow">Tổng số phòng: {room.totalRooms}</span>
+                        {facts.totalRooms !== null && (
+                          <span className="absolute top-3 right-3 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-[#DC2626] shadow">Tổng số phòng: {facts.totalRooms}</span>
                         )}
+                        {facts.totalRooms===null&&<span className="absolute top-3 right-3 rounded-full bg-white/90 px-3 py-1 text-xs text-amber-800">Chưa xác minh số lượng phòng</span>}
                         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2">
                           <div className="flex items-center gap-1 bg-white/85 px-3 py-1 rounded-full text-xs text-[#111827] shadow">
                             <span className="inline-block h-2 w-2 rounded-full bg-[#111827]"></span>
@@ -965,6 +969,7 @@ export default function HotelDetailPage() {
 
                         {/* Column 2: Guests */}
                         <div className="flex items-start gap-3 justify-center border-r border-[#E5E7EB] px-4 py-3 h-full">
+                          {facts.capacityKnown ? <>
                           <div className="flex items-center gap-1">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                               <path d="M3.44954 20.6443C3.3058 21.3665 3.88623 22 4.62267 22H19.3773C20.1138 22 20.6942 21.3665 20.5505 20.6443C19.9516 17.635 17.9884 13 12 13C6.01165 13 4.04844 17.635 3.44954 20.6443Z" fill="#687176"/>
@@ -972,7 +977,7 @@ export default function HotelDetailPage() {
                             </svg>
                             <span className="text-sm font-semibold text-[#0F172A]">{roomAdults}</span>
                           </div>
-                          {roomChildren > 0 && (
+                          {roomChildren !== null && roomChildren > 0 && (
                             <div className="flex items-center gap-1">
                               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M9.24994 5.375C11.7944 5.375 13.8574 7.43797 13.8574 9.98242V10.7188C13.8574 12.3416 13.0169 13.7672 11.749 14.5879C12.8584 14.9509 13.7447 15.5503 14.4404 16.2803C15.5741 17.4702 16.1635 18.9559 16.4667 20.1738C16.8042 21.5298 15.687 22.625 14.455 22.625H4.04486C2.81305 22.6248 1.69572 21.5297 2.03314 20.1738C2.33632 18.9559 2.92581 17.4702 4.05951 16.2803C4.75496 15.5504 5.64097 14.9509 6.74994 14.5879C5.48246 13.7671 4.64252 12.3412 4.64252 10.7188V9.98242C4.64252 7.43807 6.70563 5.37516 9.24994 5.375Z" fill="#687176"/>
@@ -980,6 +985,7 @@ export default function HotelDetailPage() {
                               <span className="text-sm font-semibold text-[#0F172A]">{roomChildren}</span>
                             </div>
                           )}
+                                                  </> : <span className="text-xs text-amber-800">Chưa xác minh sức chứa</span>}
                         </div>
 
                         {/* Column 3: Price */}
@@ -1003,9 +1009,9 @@ export default function HotelDetailPage() {
                               setSelectedRoomType(room.id);
                               handleBookRoom(room);
                             }}
-                            disabled={roomPrice === undefined || Boolean(Number(rooms) > 1 && selectedRoomType && selectedRoomType !== room.id)}
+                            disabled={!facts.hasRequiredDetails || Boolean(Number(rooms) > 1 && selectedRoomType && selectedRoomType !== room.id)}
                             className={`rounded-lg px-4 py-2 text-white text-sm font-semibold shadow transition ${
-                              Number(rooms) > 1 && selectedRoomType && selectedRoomType !== room.id
+                              !facts.hasRequiredDetails || Number(rooms) > 1 && selectedRoomType && selectedRoomType !== room.id
                                 ? "bg-[#9CA3AF] cursor-not-allowed"
                                 : "bg-[#2563EB] hover:bg-[#1D4ED8]"
                             }`}
@@ -1280,7 +1286,7 @@ export default function HotelDetailPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-8">
             <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full overflow-hidden">
               <div className="px-6 pt-6 pb-3 border-b border-[#E5E7EB]">
-                <h3 className="text-xl font-bold text-[#0F172A]">{roomModal.room.name?.replace(/^"(.*)"$/, "$1") || roomModal.room.name}</h3>
+                <h3 className="text-xl font-bold text-[#0F172A]">{roomModal.room.name}</h3>
               </div>
               <div className="grid lg:grid-cols-[1.4fr_1fr]">
                 <div className="relative bg-[#1F2937] p-4 pb-24">
@@ -1340,6 +1346,10 @@ export default function HotelDetailPage() {
               </div>
 
                 <div className="p-6 space-y-4 text-sm text-[#374151]">
+                {roomModal.room.description?.trim() && <div>
+                  <h4 className="text-base font-semibold text-[#0F172A] mb-3">Mô tả phòng</h4>
+                  <p className="whitespace-pre-line">{roomModal.room.description}</p>
+                </div>}
                 <div>
                   <h4 className="text-base font-semibold text-[#0F172A] mb-3">Thông tin phòng</h4>
                   <div className="space-y-2 text-sm text-[#4B5563]">
@@ -1352,8 +1362,7 @@ export default function HotelDetailPage() {
                     <div className="flex items-center gap-2">
                       <span>👥</span>
                       <span>
-                        {roomModal.room.capacity?.adults || 0} người lớn
-                        {roomModal.room.capacity?.children ? `, ${roomModal.room.capacity.children} trẻ em` : ""}
+                        {modalRoomFacts?.capacityKnown ? `${modalRoomFacts.adults} người lớn, ${modalRoomFacts.children} trẻ em` : 'Chưa xác minh sức chứa'}
                       </span>
                     </div>
                     {roomModal.room.capacity?.bedType && (
@@ -1633,6 +1642,7 @@ function LoginModal({ onClose, onSwitchToSignup }: { onClose: () => void; onSwit
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
 
   const handleSubmit = async () => {
     if (!email || !password) {

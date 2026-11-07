@@ -84,3 +84,61 @@ Validation after excluding all place-service integration changes:
 Place components, place API/types, hotel nearby-place wiring and backend
 place-service are unchanged by this PR. Browser API responses are synthetic;
 see the companion backend's Docker validation for real database/HTTP tests.
+
+
+## Validation, coordinates and internal sessions (05/11/2026)
+
+Public hotel map pins require verified hotel coordinate provenance and geographic
+bounds. Place components, their distance labels, and nearby-place integration
+remain at the existing baseline and are excluded from this review.
+
+NextAuth credentials and custom login share the internal token/userId/role
+contract. Google sign-in is disabled until a verified server-side exchange
+exists; old Google cookies/storage cannot become an internal bearer session.
+Custom login ends the cookie session before accepting another account; logout
+revokes the internal token, ends the cookie session and clears synchronized
+client state. localStorage is a compatibility cache, not an authorization source.
+
+Browser auth-session cases call the real production-artifact NextAuth route,
+CSRF/cookie/session callbacks, UI logout and account replacement. Playwright
+starts a loopback-only synthetic auth upstream on3351; it never connects to a
+real identity provider or database. This is distinct from the other intercepted
+browser API fixtures and from native backend JWT checks. API_INTERNAL_URL points
+to that test fixture only in playwright.config.ts, not production configuration.
+
+Run `npm run test:regression`, `npm run build`, `npx tsc --noEmit` and
+`npx playwright test`. Backend verified-clone harnesses are documented separately
+in checkinn/docker/README.md. Native auth-session-smoke.py uses random-password
+synthetic accounts and real backend login/JWT/revocation. It prepares verified
+email/admin role only for generated fixtures; it does not certify actual OTP
+mail delivery, OAuth or admin provisioning.
+
+
+Search lifecycle/date regression (06/11/2026): search-lifecycle.spec.ts tests
+same-component URL/back changes, empty destination clearing and delayed old
+success/error/hotel redirect responses. It also checks detail-header province
+identity, western timezone date preservation and invalid calendar inputs.
+Date helpers treat stays as civil days and count nights across daylight saving,
+not elapsed hours. All backend/map responses are synthetic browser fixtures.
+
+## Review checkpoint (07/11/2026)
+
+The final review supersedes the earlier checkpoint's green build claim after
+place-related edits were rolled back. Current results: 103 Node regressions and
+100 browser cases pass; the 15 affected amenity/unknown-room cases pass on rerun.
+Standard build/typecheck remain blocked by the unchanged upstream place props
+mismatch. Runtime testing used a temporary, uncommitted TypeScript bypass.
+See [REVIEW_2026-11-07.md](REVIEW_2026-11-07.md) for scope, branch order and limits.
+
+`inventory-review.spec.ts` covers owner sourced proposal without overwriting an
+unsaved description/price/unknown stock, stale proposal, required admin reason,
+failed review and queue outage. `inventory-review.test.mjs` checks strict nullable
+state/evidence shape, verified-count consistency, source/revision payloads and
+single-attempt errors. The backend `room-inventory-review-smoke.py` additionally
+uses this actual TypeScript SDK through the verified test gateway for OWNER and
+ADMIN calls; intercepted browser fixtures alone are not database verification.
+
+Review the corresponding HOTEL SQL and backend authorization/transaction changes
+together before deploying these screens. Actual legacy counts must be entered
+and reviewed by humans; neither fixture counts nor old values such as10 are
+automatically trusted. See the backend Docker README for migration/run details.

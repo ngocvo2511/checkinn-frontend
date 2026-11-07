@@ -6,6 +6,8 @@ export interface AdminMenuItem {
 }
 
 export const adminMenuItems: AdminMenuItem[] = [
+  {label:'Xác minh số phòng',href:'/admin/inventory-reviews',iconPath:'M4 4H20V20H4V4ZM8 8H16V10H8V8Z'},
+  {label:'Catalog tiện nghi',href:'/admin/amenities',iconPath:'M4 4H20V20H4V4ZM8 8H16V10H8V8Z'},
   {
     label: 'Dashboard',
     href: '/admin/dashboard',
