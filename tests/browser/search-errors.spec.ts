@@ -1,3 +1,4 @@
+import {offerPage} from './offer-fixtures';
 import { test, expect } from '@playwright/test';
 const catalog = [{code:'HOTEL',label:'Hotel'},{code:'VILLA',label:'Villa'},{code:'APARTMENT',label:'Apartment'},{code:'GUEST_HOUSE',label:'Guest House'}];
 const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'Content-Type', 'access-control-allow-methods': 'GET,OPTIONS' };
@@ -11,7 +12,14 @@ async function mock(page: import('@playwright/test').Page, respond: (url: URL) =
     if (url.port === '8080') {
       if (url.pathname.endsWith('/accommodation-types')) return route.fulfill({headers:cors,json:catalog});
       if (route.request().method() === 'OPTIONS') return route.fulfill({status:204, headers:cors});
-      return route.fulfill({headers:cors, ...respond(url)});
+      const response=respond(url);
+      if(url.pathname.endsWith('/hotels/offers/page')&&Array.isArray(response.json))response.json=offerPage(url,response.json);
+      // Summary fixtures carry one row per requested identity, preserving error modes.
+      if(url.pathname.endsWith('/reviews/summaries')&&response.json&&typeof response.json==='object'&&!Array.isArray(response.json)){
+        const stats=response.json as {totalReviews?:number;averageRating?:number};
+        if(typeof stats.totalReviews==='number')response.json=url.searchParams.getAll('hotelIds').map(hotelId=>({hotelId,...stats,averageRating:stats.totalReviews===0?null:stats.averageRating}));
+      }
+      return route.fulfill({headers:cors, ...response});
     }
     if (url.origin !== 'http://127.0.0.1:3300') return route.abort();
     if (url.pathname === '/api/auth/session') return route.fulfill({json:null});
@@ -22,7 +30,7 @@ for (const mode of ['name', 'location', 'partial availability', 'malformed avail
   test(`search shows an error instead of no matches for ${mode} failure, then retries`, async ({ page }) => {
     let failing = true;
     await mock(page, url => {
-      if (url.pathname.endsWith('/hotels/offers')) {
+      if (url.pathname.endsWith('/hotels/offers/page')) {
         if (failing) return mode === 'malformed availability' ? {json:[{hotel,offer:{}}]} : {status:503,json:{}};
         return {json:[{hotel,offer:{roomTypeId:'good',quantity:1,unitPrice:200000,totalPerNight:200000,availableRooms:2,checkIn:'2026-12-01',checkOut:'2026-12-02',checkedAt:'2026-11-04T00:00:00Z'}}]};
       }
@@ -48,7 +56,7 @@ test('successful empty response shows no matches without dependency error', asyn
 });
 
 test('search does not fabricate amenities, ratings, discounts, location or points for missing catalog facts', async ({page}) => {
-  await mock(page, url => url.pathname.endsWith('/hotels/offers')
+  await mock(page, url => url.pathname.endsWith('/hotels/offers/page')
     ? {json:[{hotel,offer:{roomTypeId:'good',quantity:1,unitPrice:200000,totalPerNight:200000,availableRooms:null,checkIn:null,checkOut:null,checkedAt:null}}]}
     : {json:{totalReviews:0,averageRating:0}});
   await page.goto('/search?cityName=Fixture');
@@ -78,8 +86,8 @@ test('detail shows configured stock as total and never invents hotel policies or
 
 test('amenity filtering uses all observed hotel labels and lets an unknown URL selection be cleared', async ({page}) => {
   const withAmenities = {...hotel,amenityCategories:[{id:'category',title:'Hotel amenities',items:['A','B','C','D','E'].map(title=>({id:title,title}))}]};
-  await mock(page, url => url.pathname.endsWith('/hotels/offers')
-    ? {json:[{hotel:withAmenities,offer:{roomTypeId:'good',quantity:1,unitPrice:200000,totalPerNight:200000,availableRooms:null,checkIn:null,checkOut:null,checkedAt:null}}]}
+  await mock(page, url => url.pathname.endsWith('/hotels/offers/page')
+    ? {json:url.searchParams.getAll('amenities').includes('Unknown')?offerPage(url,[],{availableAmenities:['A','B','C','D','E']}):[{hotel:withAmenities,offer:{roomTypeId:'good',quantity:1,unitPrice:200000,totalPerNight:200000,availableRooms:null,checkIn:null,checkOut:null,checkedAt:null}}]}
     : {json:{totalReviews:0,averageRating:0}});
   await page.goto('/search?cityName=Fixture&amenity=E');
   await expect(page.getByText('Synthetic hotel',{exact:true})).toBeVisible();
@@ -97,8 +105,8 @@ test('amenity filtering uses all observed hotel labels and lets an unknown URL s
 test('a rating-filter dependency failure is unknown rather than no matches and can be retried', async ({page}) => {
   let failing = true;
   await mock(page, url => {
-    if (url.pathname.endsWith('/hotels/offers')) return {json:[{hotel,offer:{roomTypeId:'good',quantity:1,unitPrice:200000,totalPerNight:200000,availableRooms:null,checkIn:null,checkOut:null,checkedAt:null}}]};
-    return failing ? {status:503,json:{}} : {json:{totalReviews:2,averageRating:8.5}};
+    if (url.pathname.endsWith('/hotels/offers/page')) return failing ? {status:503,json:{}} : {json:[{hotel,offer:{roomTypeId:'good',quantity:1,unitPrice:200000,totalPerNight:200000,availableRooms:null,checkIn:null,checkOut:null,checkedAt:null},reviews:{hotelId:hotel.id,totalReviews:2,averageRating:8.5}}]};
+    return {json:[]};
   });
   await page.goto('/search?cityName=Fixture&guestRating=8');
   await expect(page.getByTestId('search-error')).toContainText('Không thể xác minh đánh giá');
@@ -128,7 +136,7 @@ for (const picker of ['home','search']) {
 
 test('search displays server offer price instead of the cheapest catalog room', async ({page}) => {
   await mock(page, url => {
-    if (url.pathname.endsWith('/hotels/offers')) return {json:[{hotel:{...hotel,lowestPrice:100000},offer:{roomTypeId:'good',quantity:1,unitPrice:300000,totalPerNight:300000,availableRooms:2,checkIn:'2026-12-01',checkOut:'2026-12-02',checkedAt:'2026-11-04T00:00:00Z'}}]};
+    if (url.pathname.endsWith('/hotels/offers/page')) return {json:[{hotel:{...hotel,lowestPrice:100000},offer:{roomTypeId:'good',quantity:1,unitPrice:300000,totalPerNight:300000,availableRooms:2,checkIn:'2026-12-01',checkOut:'2026-12-02',checkedAt:'2026-11-04T00:00:00Z'}}]};
     return {json:[]};
   });
   await page.goto('/search?cityName=Fixture&checkIn=2026-12-01&checkOut=2026-12-02');
@@ -140,7 +148,7 @@ for (const key of ['cityId','provinceId']) {
   test(`direct search URL keeps ${key} authoritative even without cityName`, async ({page}) => {
     let observed = false;
     await mock(page, url => {
-      if (url.pathname.endsWith('/hotels/offers')) {
+      if (url.pathname.endsWith('/hotels/offers/page')) {
         observed = true;
         expect(url.searchParams.get(key)).toBe('00000000-0000-4000-8000-0000000000f1');
         expect(url.searchParams.has('cityName')).toBe(false);
@@ -156,7 +164,7 @@ for (const key of ['cityId','provinceId']) {
 test('budget defaults, zero, reset and rating changes remain synchronized through URL and back', async ({page}) => {
   let price = '';
   await mock(page, url => {
-    if (url.pathname.endsWith('/hotels/offers')) price = url.searchParams.get('maxPrice') || '';
+    if (url.pathname.endsWith('/hotels/offers/page')) price = url.searchParams.get('maxPrice') || '';
     return {json:[]};
   });
   await page.goto('/search?cityName=Fixture');
@@ -187,7 +195,7 @@ test('choosing a province preserves its type through the picker, URL and offer r
   let seen=false;
   await mock(page,url => {
     if (url.pathname.includes('/cities/')) return {json:[{id,name:'Fixture province',type:'PROVINCE'}]};
-    if (url.pathname.endsWith('/hotels/offers') && url.searchParams.get('provinceId') === id) {
+    if (url.pathname.endsWith('/hotels/offers/page') && url.searchParams.get('provinceId') === id) {
       seen=true; expect(url.searchParams.has('cityId')).toBe(false); expect(url.searchParams.has('cityName')).toBe(false);
     }
     return {json:[]};

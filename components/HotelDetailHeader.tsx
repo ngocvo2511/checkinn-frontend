@@ -179,6 +179,7 @@ export default function HotelDetailHeader({ sections, activeSection, onSectionCl
         <div className="bg-white border-b border-[#E5E7EB]">
           <div className="mx-auto max-w-screen-xl px-4 md:px-8 lg:px-12 py-4">
             <HotelSearchBar
+              key={JSON.stringify([hotelId,checkIn,checkOut,adults,children,rooms])}
               initialHotelName={hotelName}
               initialCheckIn={checkIn}
               initialCheckOut={checkOut}
@@ -208,7 +209,10 @@ export default function HotelDetailHeader({ sections, activeSection, onSectionCl
                 }
                 // If selected location is a city (not a hotel), redirect to search page with city filter
                 else if (!data.hotelId && data.cityName) {
-                  router.push(`/search?cityId=${data.cityId}&cityName=${encodeURIComponent(data.cityName)}&${queryString}`);
+                  if (data.provinceId) params.set('provinceId',data.provinceId);
+                  else if (data.cityId) params.set('cityId',data.cityId);
+                  params.set('cityName',data.cityName);
+                  router.push(`/search?${params.toString()}`);
                 }
                 // If staying on same hotel, just update search parameters
                 else {

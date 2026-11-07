@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import RoomInventoryReview from '@/components/host/RoomInventoryReview';
+import type {InventoryState} from '@/lib/api/inventory-review';
 import { useParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import HostMenu from "@/components/host/menu/HostMenu";
+import {roomEditState,roomFacts,roomUpdatePatch,type RoomEditState} from "@/lib/search/room-facts";
 import { hotelApi, RoomType } from "@/lib/api/hotels";
 
 export default function EditRoomPage() {
@@ -22,20 +25,29 @@ export default function EditRoomPage() {
   const [newAmenityInput, setNewAmenityInput] = useState('');
   const [uploading, setUploading] = useState(false);
   const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
-  const [initialRoomAmount, setInitialRoomAmount] = useState(0);
+  const [initialRoomAmount, setInitialRoomAmount] = useState<number|null>(null);
+  const [inventoryManaged,setInventoryManaged]=useState(true);
+  const inventoryStateChanged=useCallback((state:InventoryState|null)=>{
+    setInventoryManaged(state===null||state.managed);
+    if(state){
+      setInitialRoomAmount(state.currentQuantity);
+      setRoom(previous=>previous?{...previous,totalRooms:state.currentQuantity}:previous);
+      setFormData(previous=>({...previous,roomAmount:state.currentQuantity}));
+    }
+  },[]);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<RoomEditState>({
     name: '',
     description: '',
-    basePrice: 0,
-    roomAmount: 0,
+    basePrice: null,
+    roomAmount: null,
     capacity: {
-      adults: 2,
-      children: 0,
-      bedType: '',
-      roomSize: 0,
-      breakfastIncluded: false,
-      breakfastQuantity: 0,
+      adults: null,
+      children: null,
+      bedType: null,
+      roomSize: null,
+      breakfastIncluded: null,
+      breakfastQuantity: null,
     }
   });
 
@@ -167,22 +179,8 @@ export default function EditRoomPage() {
         const data = await hotelApi.getRoomTypePreview(roomId, token);
         setRoom(data);
         setSelectedAmenities(data.amenities || []);
-        const currentRoomAmount = data.roomAmount ?? data.totalRooms ?? data.availableRooms ?? 0;
-        setInitialRoomAmount(currentRoomAmount);
-        setFormData({
-          name: data.name || '',
-          description: data.description || '',
-          basePrice: data.basePrice || data.pricePerNight || 0,
-          roomAmount: currentRoomAmount,
-          capacity: {
-            adults: data.capacity?.adults || 2,
-            children: data.capacity?.children || 0,
-            bedType: data.capacity?.bedType || data.bedType || '',
-            roomSize: data.capacity?.roomSize || data.roomSize || 0,
-            breakfastIncluded: data.capacity?.breakfastIncluded || false,
-            breakfastQuantity: data.capacity?.breakfastQuantity || 0,
-          }
-        });
+        setInitialRoomAmount(roomFacts(data).totalRooms);
+        setFormData(roomEditState(data));
       } catch (err: any) {
         setError(err?.message || "Không thể tải thông tin phòng");
       } finally {
@@ -196,40 +194,18 @@ export default function EditRoomPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.name.trim()) {
-      alert('Tên phòng không được để trống');
-      return;
-    }
-    if (formData.basePrice <= 0) {
-      alert('Giá phòng phải lớn hơn 0');
-      return;
-    }
-    if (formData.roomAmount <= 0) {
-      setError('Số lượng phòng phải lớn hơn 0');
-      return;
-    }
-    if (formData.roomAmount < initialRoomAmount) {
-      setError(`Số lượng phòng không thể giảm xuống dưới ${initialRoomAmount}. Hiện tại: ${initialRoomAmount} phòng.`);
-      return;
-    }
-    if (formData.capacity.adults <= 0) {
-      setError('Số người lớn phải lớn hơn 0');
-      return;
-    }
+    if(!room)return;
+    let patch:ReturnType<typeof roomUpdatePatch>;
+    try{patch=roomUpdatePatch(room,formData,selectedAmenities);}
+    catch(error){setSuccessMessage(null);setError(error instanceof Error?error.message:'Thông tin phòng không hợp lệ');return;}
+    if(Object.keys(patch).length===0){setError(null);setSuccessMessage('Không có thay đổi để lưu.');return;}
 
     setSaving(true);
     setError(null);
     setSuccessMessage(null);
 
     try {
-      await hotelApi.updateRoomType(roomId, {
-        name: formData.name,
-        basePrice: formData.basePrice,
-        capacity: formData.capacity,
-        roomAmount: formData.roomAmount,
-        description: formData.description,
-        amenities: selectedAmenities,
-      });
+      await hotelApi.updateRoomType(roomId,patch);
 
       setSuccessMessage('Đã cập nhật thông tin phòng thành công!');
       setTimeout(() => {
@@ -245,7 +221,7 @@ export default function EditRoomPage() {
       
       // Kiểm tra lỗi cụ thể về số lượng phòng
       if (errorMessage.includes('Số lượng phòng') || errorMessage.includes('roomAmount')) {
-        errorMessage = `Không thể giảm số lượng phòng. Số lượng phòng hiện tại là ${initialRoomAmount}, bạn chỉ có thể tăng hoặc giữ nguyên.`;
+        errorMessage = 'Số lượng phòng chưa được xác minh hoặc đã thay đổi. Hãy tải lại thông tin phòng.';
       }
       
       setError(errorMessage);
@@ -293,7 +269,7 @@ export default function EditRoomPage() {
         <Header />
         <div className="flex">
           <HostMenu />
-          <main className="flex-1 p-8">
+          <main className="ml-[280px] min-w-0 flex-1 p-8">
             <div className="flex items-center justify-center h-64">
               <div className="text-[#6B7280]">Đang tải...</div>
             </div>
@@ -309,7 +285,7 @@ export default function EditRoomPage() {
         <Header />
         <div className="flex">
           <HostMenu />
-          <main className="flex-1 p-8">
+          <main className="ml-[280px] min-w-0 flex-1 p-8">
             <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-red-800">
               {error}
             </div>
@@ -324,7 +300,7 @@ export default function EditRoomPage() {
       <Header />
       <div className="flex">
         <HostMenu />
-        <main className="flex-1 p-8">
+        <main className="ml-[280px] min-w-0 flex-1 p-8">
           <div className="max-w-4xl mx-auto">
             {/* Header */}
             <div className="mb-6 flex items-center justify-between">
@@ -368,6 +344,7 @@ export default function EditRoomPage() {
             )}
 
             {/* Form */}
+            <RoomInventoryReview roomId={roomId} onState={inventoryStateChanged}/>
             <form onSubmit={handleSave} className="space-y-6">
               {/* Image Upload Section */}
               <div className="rounded-xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
@@ -480,8 +457,9 @@ export default function EditRoomPage() {
                       <input
                         type="number"
                         min="0"
-                        value={formData.basePrice}
-                        onChange={(e) => setFormData({ ...formData, basePrice: Number(e.target.value) })}
+                        aria-label="Giá phòng mỗi đêm"
+                        value={formData.basePrice ?? ''}
+                        onChange={(e) => setFormData({ ...formData, basePrice: e.target.value===''?null:Number(e.target.value) })}
                         className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
                       />
                     </div>
@@ -492,14 +470,17 @@ export default function EditRoomPage() {
                       </label>
                       <input
                         type="number"
-                        min={initialRoomAmount}
-                        value={formData.roomAmount}
-                        onChange={(e) => setFormData({ ...formData, roomAmount: Number(e.target.value) })}
+                        aria-label="Số lượng phòng"
+                        disabled={initialRoomAmount===null||inventoryManaged}
+                        min={initialRoomAmount??1}
+                        value={formData.roomAmount ?? ''}
+                        onChange={(e) => setFormData({ ...formData, roomAmount: e.target.value===''?null:Number(e.target.value) })}
                         className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
                       />
-                      {initialRoomAmount > 0 && (
+                      {initialRoomAmount===null&&<p className="mt-1 text-xs text-amber-800">Số lượng phòng chưa được xác minh. Các thay đổi khác vẫn có thể lưu.</p>}
+                      {initialRoomAmount !== null && (
                         <p className="mt-1 text-xs text-[#6B7280]">
-                          Số lượng hiện tại: {initialRoomAmount}. Chỉ có thể tăng hoặc giữ nguyên.
+                          Số lượng hiện tại: {initialRoomAmount}. {inventoryManaged?'Cập nhật qua đề xuất số phòng ở trên sau khi tải được trạng thái.':'Chỉ có thể tăng hoặc giữ nguyên qua biểu mẫu này; xác minh nguồn qua đề xuất ở trên.'}
                         </p>
                       )}
                     </div>
@@ -511,8 +492,9 @@ export default function EditRoomPage() {
                       <input
                         type="number"
                         min="0"
-                        value={formData.capacity.roomSize}
-                        onChange={(e) => setFormData({ ...formData, capacity: { ...formData.capacity, roomSize: Number(e.target.value) } })}
+                        aria-label="Diện tích phòng"
+                        value={formData.capacity.roomSize ?? ''}
+                        onChange={(e) => setFormData({ ...formData, capacity: { ...formData.capacity, roomSize: e.target.value===''?null:Number(e.target.value) } })}
                         className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
                       />
                     </div>
@@ -587,10 +569,11 @@ export default function EditRoomPage() {
                       <input
                         type="number"
                         min="1"
-                        value={formData.capacity.adults}
+                        aria-label="Người lớn"
+                        value={formData.capacity.adults ?? ''}
                         onChange={(e) => setFormData({
                           ...formData,
-                          capacity: { ...formData.capacity, adults: Number(e.target.value) }
+                          capacity: { ...formData.capacity, adults: e.target.value===''?null:Number(e.target.value) }
                         })}
                         className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
                       />
@@ -603,10 +586,11 @@ export default function EditRoomPage() {
                       <input
                         type="number"
                         min="0"
-                        value={formData.capacity.children}
+                        aria-label="Trẻ em"
+                        value={formData.capacity.children ?? ''}
                         onChange={(e) => setFormData({
                           ...formData,
-                          capacity: { ...formData.capacity, children: Number(e.target.value) }
+                          capacity: { ...formData.capacity, children: e.target.value===''?null:Number(e.target.value) }
                         })}
                         className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
                       />
@@ -619,7 +603,8 @@ export default function EditRoomPage() {
                     </label>
                     <input
                       type="text"
-                      value={formData.capacity.bedType}
+                      aria-label="Loại giường"
+                      value={formData.capacity.bedType ?? ''}
                       onChange={(e) => setFormData({
                         ...formData,
                         capacity: { ...formData.capacity, bedType: e.target.value }
@@ -633,7 +618,9 @@ export default function EditRoomPage() {
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={formData.capacity.breakfastIncluded}
+                        checked={formData.capacity.breakfastIncluded===true}
+                        aria-checked={formData.capacity.breakfastIncluded===null?'mixed':formData.capacity.breakfastIncluded}
+                        ref={input=>{if(input)input.indeterminate=formData.capacity.breakfastIncluded===null;}}
                         onChange={(e) => setFormData({
                           ...formData,
                           capacity: { ...formData.capacity, breakfastIncluded: e.target.checked }
@@ -643,16 +630,18 @@ export default function EditRoomPage() {
                       <span className="text-sm text-[#374151]">Bao gồm bữa sáng</span>
                     </label>
 
+                    {formData.capacity.breakfastIncluded===null&&<span className="text-xs text-amber-800">Chưa xác minh thông tin bữa sáng</span>}
                     {formData.capacity.breakfastIncluded && (
                       <div className="flex items-center gap-2">
                         <label className="text-sm text-[#374151]">Số lượng:</label>
                         <input
                           type="number"
                           min="0"
-                          value={formData.capacity.breakfastQuantity}
+                          aria-label="Số suất bữa sáng"
+                          value={formData.capacity.breakfastQuantity ?? ''}
                           onChange={(e) => setFormData({
                             ...formData,
-                            capacity: { ...formData.capacity, breakfastQuantity: Number(e.target.value) }
+                            capacity: { ...formData.capacity, breakfastQuantity: e.target.value===''?null:Number(e.target.value) }
                           })}
                           className="w-20 px-3 py-1 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
                         />

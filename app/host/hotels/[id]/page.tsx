@@ -1,5 +1,6 @@
 "use client";
 
+import {HotelAmenityMappings} from '@/components/HotelAmenityMappings';
 import {HotelAccommodationEditor} from '@/components/HotelAccommodationEditor';
 
 import { useEffect, useMemo, useState } from "react";
@@ -1708,6 +1709,7 @@ export default function HostHotelDetailPage() {
 
           {/* Amenities */}
           <section id="amenities" className="mx-auto max-w-5xl px-4 md:px-8 lg:px-12 pb-10">
+            <HotelAmenityMappings hotelId={hotelId} sourceKey={JSON.stringify(amenityCategories)}/>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-[#0F172A]">Tiện ích của khách sạn</h2>
               <button

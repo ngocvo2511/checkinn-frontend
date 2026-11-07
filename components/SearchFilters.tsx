@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { MIN_PRICE, MAX_PRICE, type SearchFilterValues } from "@/lib/search/criteria";
 
+import {AmenityCodeFilters} from './AmenityCodeFilters';
 import {useAccommodationCatalog} from "./AccommodationTypeSelect";
 
 interface SearchFiltersProps {
@@ -10,9 +11,10 @@ interface SearchFiltersProps {
   value: SearchFilterValues;
   totalResults: number | null;
   hotels?: Array<{ amenities: string[] }>;
+  availableAmenities?: string[];
 }
 
-export function SearchFilters({ onFilterChange, value, totalResults, hotels = [] }: SearchFiltersProps) {
+export function SearchFilters({ onFilterChange, value, totalResults, hotels = [], availableAmenities }: SearchFiltersProps) {
   const catalog = useAccommodationCatalog();
   const invalidTypes = !catalog.loading && !catalog.error ? value.accommodationTypes.filter(code=>!catalog.options.some(o=>o.code===code)) : [];
   const STEP = 50000;
@@ -29,14 +31,14 @@ export function SearchFilters({ onFilterChange, value, totalResults, hotels = []
 
   // Extract unique amenities from hotels
   const allAmenities = useMemo(() => {
-    const amenitySet = new Set<string>();
+    const amenitySet = new Set<string>(availableAmenities??[]);
     hotels.forEach((hotel) => {
       hotel.amenities.forEach((amenity) => {
         amenitySet.add(amenity);
       });
     });
     return Array.from(amenitySet).sort();
-  }, [hotels]);
+  }, [hotels,availableAmenities]);
 
   const amenityOptions = [...new Set([...amenities, ...allAmenities])];
   const displayedAmenities = showAllAmenities ? amenityOptions : amenityOptions.slice(0, DISPLAY_AMENITIES_COUNT);
@@ -247,6 +249,7 @@ export function SearchFilters({ onFilterChange, value, totalResults, hotels = []
         </div>
       </div>
 
+      <AmenityCodeFilters value={value.amenityCodes} onChange={amenityCodes=>onFilterChange({amenityCodes})}/>
       {/* Amenities */}
       <div className="mb-8 border-t border-[#E4E6EB] pt-6">
         <h4 className="mb-4 font-semibold text-[#2B3037]">Tiện nghi</h4>

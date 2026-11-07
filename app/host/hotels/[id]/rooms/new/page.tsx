@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import HostMenu from "@/components/host/menu/HostMenu";
-import { hotelApi } from "@/lib/api/hotels";
+import { hotelApi, type CapacityDto } from "@/lib/api/hotels";
 
 export default function NewRoomPage() {
   const params = useParams();
@@ -20,7 +20,7 @@ export default function NewRoomPage() {
   const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
   const [createdRoomId, setCreatedRoomId] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{ name: string; description: string; basePrice: number; roomAmount: number; capacity: CapacityDto }>({
     name: '',
     description: '',
     basePrice: 0,
@@ -28,10 +28,10 @@ export default function NewRoomPage() {
     capacity: {
       adults: 2,
       children: 0,
-      bedType: '',
-      roomSize: 0,
-      breakfastIncluded: false,
-      breakfastQuantity: 0,
+      bedType: null,
+      roomSize: null,
+      breakfastIncluded: null,
+      breakfastQuantity: null,
     }
   });
 
@@ -344,8 +344,9 @@ export default function NewRoomPage() {
                       <input
                         type="number"
                         min="0"
-                        value={formData.capacity.roomSize}
-                        onChange={(e) => setFormData({ ...formData, capacity: { ...formData.capacity, roomSize: Number(e.target.value) } })}
+                        aria-label="Diện tích phòng"
+                        value={formData.capacity.roomSize ?? ''}
+                        onChange={(e) => setFormData({ ...formData, capacity: { ...formData.capacity, roomSize: e.target.value===''?null:Number(e.target.value) } })}
                         className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
                       />
                     </div>
@@ -452,10 +453,10 @@ export default function NewRoomPage() {
                     </label>
                     <input
                       type="text"
-                      value={formData.capacity.bedType}
+                      value={formData.capacity.bedType ?? ''}
                       onChange={(e) => setFormData({
                         ...formData,
-                        capacity: { ...formData.capacity, bedType: e.target.value }
+                        capacity: { ...formData.capacity, bedType: e.target.value || null }
                       })}
                       className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
                       placeholder="VD: 1 giường đôi, 2 giường đơn"
@@ -466,7 +467,9 @@ export default function NewRoomPage() {
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={formData.capacity.breakfastIncluded}
+                        checked={formData.capacity.breakfastIncluded===true}
+                        aria-checked={formData.capacity.breakfastIncluded==null?'mixed':formData.capacity.breakfastIncluded}
+                        ref={input=>{if(input)input.indeterminate=formData.capacity.breakfastIncluded==null;}}
                         onChange={(e) => setFormData({
                           ...formData,
                           capacity: { ...formData.capacity, breakfastIncluded: e.target.checked }
@@ -476,16 +479,18 @@ export default function NewRoomPage() {
                       <span className="text-sm text-[#374151]">Bao gồm bữa sáng</span>
                     </label>
 
+                    {formData.capacity.breakfastIncluded==null&&<span className="text-xs text-amber-800">Chưa xác minh thông tin bữa sáng</span>}
                     {formData.capacity.breakfastIncluded && (
                       <div className="flex items-center gap-2">
                         <label className="text-sm text-[#374151]">Số lượng:</label>
                         <input
                           type="number"
                           min="0"
-                          value={formData.capacity.breakfastQuantity}
+                          aria-label="Số suất bữa sáng"
+                          value={formData.capacity.breakfastQuantity ?? ''}
                           onChange={(e) => setFormData({
                             ...formData,
-                            capacity: { ...formData.capacity, breakfastQuantity: Number(e.target.value) }
+                            capacity: { ...formData.capacity, breakfastQuantity: e.target.value===''?null:Number(e.target.value) }
                           })}
                           className="w-20 px-3 py-1 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0057FF]"
                         />

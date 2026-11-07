@@ -19,7 +19,7 @@ test('changing an amenity preserves budget, destination, dates and unrelated fil
   assert.deepEqual(parseSearchFilters(after).amenities,['Pool','WiFi']);
 });
 test('all published filters round-trip through URL and clearing affects only its own field', () => {
-  const input={accommodationTypes:[],priceRange:[200000,800000],amenities:['A&B','Wi Fi'],starRatings:[3,5],guestRatings:[8,9]};
+  const input={amenityCodes:["WIFI_FREE"],accommodationTypes:[],priceRange:[200000,800000],amenities:['A&B','Wi Fi'],starRatings:[3,5],guestRatings:[8,9]};
   const params=patchSearchFilters(new URLSearchParams('rooms=2'),input);
   assert.deepEqual(parseSearchFilters(new URLSearchParams(params.toString())),input);
   const cleared=patchSearchFilters(params,{amenities:[]});
@@ -42,3 +42,25 @@ test('hotel facts preserve the full deterministic amenity set and unknown review
   assert.deepEqual(guestReviewFacts({totalReviews:2,averageRating:4.5}), {rating:4.5,reviewCount:2});
   assert.deepEqual(guestReviewFacts({totalReviews:2,averageRating:NaN}), {rating:null,reviewCount:2});
 });
+
+import {parseStayDate,stayNights} from '../lib/search/stay-dates.ts';
+test('civil stay dates do not shift in a western timezone and nights ignore daylight saving hours',()=>{
+  const before=process.env.TZ;process.env.TZ='America/Los_Angeles';
+  try {
+    const date=parseStayDate('2099-01-01');assert.equal(date.getFullYear(),2099);assert.equal(date.getMonth(),0);assert.equal(date.getDate(),1);
+    assert.equal(stayNights(parseStayDate('2026-11-01'),parseStayDate('2026-11-02')),1);
+    assert.equal(stayNights(parseStayDate('2026-03-08'),parseStayDate('2026-03-09')),1);
+  } finally {if(before===undefined)delete process.env.TZ;else process.env.TZ=before;}
+});
+test('invalid stay dates remain unknown and valid leap days round trip',()=>{
+  for(const value of [null,undefined,'','not-a-date','2026-02-29','2026-13-01','2026-1-01','2026-01-01T00:00:00Z'])assert.equal(parseStayDate(value),null);
+  assert.equal(parseStayDate('2024-02-29').getDate(),29);assert.equal(stayNights(new Date('invalid'),new Date()),null);
+});
+
+ test('canonical codes and legacy literal amenities remain independent across URL changes',()=>{
+ const before=new URLSearchParams('cityId=fixture&amenity=Wi-Fi&amenityCodes=WIFI_PAID&amenityCodes=WIFI_FREE&amenityCodes=WIFI_FREE');
+ assert.deepEqual(parseSearchFilters(before).amenityCodes,['WIFI_FREE','WIFI_PAID']);
+ assert.deepEqual(parseSearchFilters(before).amenities,['Wi-Fi']);
+ const after=patchSearchFilters(before,{amenityCodes:[]});
+ assert.equal(after.get('amenity'),'Wi-Fi');assert.equal(after.get('cityId'),'fixture');assert.equal(after.has('amenityCodes'),false);
+ });
