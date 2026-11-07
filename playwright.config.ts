@@ -6,9 +6,9 @@ export default defineConfig({
   workers: 1,
   fullyParallel: false,
   use: { baseURL: 'http://127.0.0.1:3300', browserName: 'chromium', channel: 'msedge', headless: true, screenshot: 'only-on-failure' },
-  webServer: {
+  webServer: [{ command: "node tests/browser/auth-backend.mjs", url: "http://127.0.0.1:3351/_test/health", reuseExistingServer: false }, {
     command: 'node tests/browser/start-server.mjs',
     url: 'http://127.0.0.1:3300/booking', reuseExistingServer: false, timeout: 60000,
-    env: { HOSTNAME: '127.0.0.1', PORT: '3300', API_INTERNAL_URL: 'http://127.0.0.1:8080', NEXTAUTH_URL: 'http://127.0.0.1:3300', NEXT_TELEMETRY_DISABLED: '1' },
-  },
+    env: { HOSTNAME: '127.0.0.1', PORT: '3300', API_INTERNAL_URL: 'http://127.0.0.1:3351', NEXTAUTH_SECRET: 'synthetic-browser-session-signing-secret', NEXTAUTH_URL: 'http://127.0.0.1:3300', NEXT_TELEMETRY_DISABLED: '1' },
+  }],
 });

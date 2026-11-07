@@ -484,12 +484,12 @@ function LoginModal({ onClose, onOpenHostSignup }: { onClose: () => void; onOpen
               <span className="relative mx-auto block w-fit bg-white px-3 text-sm font-semibold text-[#656F81]">hoặc</span>
             </div>
 
-            <button
+            <button disabled title="Đăng nhập Google chưa được hỗ trợ"
               type="button"
               className="flex w-full items-center gap-3 rounded-xl border border-[#CED3DD] px-4 py-3 text-sm font-semibold text-[#2B3037] shadow-sm transition hover:border-[#0057FF] hover:text-[#0057FF]"
             >
               <span className="flex h-7 w-7 items-center justify-center rounded-full border border-[#E0E2E7] bg-white text-base font-bold text-[#DB4437]">G</span>
-              <span>Tiếp tục với Google</span>
+              <span>Google chưa được hỗ trợ</span>
             </button>
           </div>
         </>
@@ -1259,12 +1259,12 @@ function SignupModal({ onClose, variant = 'user' }: { onClose: () => void; varia
           <span className="relative mx-auto block w-fit bg-white px-3 text-sm font-semibold text-[#656F81]">hoặc</span>
         </div>
 
-        <button
+        <button disabled title="Đăng nhập Google chưa được hỗ trợ"
           type="button"
           className="flex w-full items-center gap-3 rounded-xl border border-[#CED3DD] px-4 py-3 text-sm font-semibold text-[#2B3037] shadow-sm transition hover:border-[#0057FF] hover:text-[#0057FF]"
         >
           <span className="flex h-7 w-7 items-center justify-center rounded-full border border-[#E0E2E7] bg-white text-base font-bold text-[#DB4437]">G</span>
-          <span>Tiếp tục với Google</span>
+          <span>Google chưa được hỗ trợ</span>
         </button>
       </div>
     </div>
