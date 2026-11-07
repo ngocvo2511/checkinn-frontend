@@ -1,4 +1,6 @@
 import axios from "axios";
+import {safeReportError,ReportApiError} from '../reporting/errors.ts';
+import {reportMonthKey} from '../reporting/calendar.ts';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
 
@@ -65,13 +67,14 @@ export interface HotelSummaryItem {
 }
 
 export interface OwnerSummaryResponse {
+  commissionRate?: number;
   totalRevenue: number;
   totalNetRevenue?: number;
   totalCommission?: number;
   hotels: HotelSummaryItem[];
 }
 
-export type GroupBy = "day" | "week" | "month" | "year";
+export type GroupBy = "day" | "month" | "year";
 
 // Admin-specific types for system-wide reporting
 export interface TopHotelItem {
@@ -125,11 +128,26 @@ export interface AdminRevenueResponse {
 }
 
 const api = axios.create({
+  timeout: 15000,
   baseURL: API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },
 });
+api.interceptors.response.use(response=>{
+  if(response.config.url?.endsWith('/revenue')) {
+    const validPoints=(value:unknown):boolean=>Array.isArray(value) && value.every(point=>{
+      if(typeof point?.periodStart!=='string' || typeof point?.amount!=='number' || !Number.isFinite(point.amount))return false;
+      try {reportMonthKey(point.periodStart);return true;}catch{return false;}
+    });
+    const data=response.data;
+    const valid=response.config.url.includes('/owner/')
+      ? typeof data?.totalRevenue==='number' && Number.isFinite(data.totalRevenue) && Array.isArray(data.hotels) && data.hotels.every((hotel:{revenue?:{data?:unknown}})=>validPoints(hotel?.revenue?.data))
+      : validPoints(data?.data);
+    if(!valid)throw new ReportApiError('INVALID_RESPONSE',502);
+  }
+  return response;
+},error=>Promise.reject(safeReportError(error)));
 
 api.interceptors.request.use(config => {
   if (typeof window !== "undefined") {
