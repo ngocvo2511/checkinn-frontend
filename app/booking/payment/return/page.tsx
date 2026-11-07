@@ -14,28 +14,44 @@ export default function VnPayReturnPage() {
   const [message, setMessage] = useState<string>("Đang xác thực thanh toán...");
   const [payment, setPayment] = useState<PaymentResponse | null>(null);
 
+  const [refresh,setRefresh]=useState(0);
+  const qs=searchParams.toString();
   useEffect(() => {
-    const qs = searchParams.toString();
+    setPayment(null);setStatus("pending");setMessage("Đang xác thực thanh toán...");
     if (!qs) return;
-    let active = true;
-
-    bookingApi
-      .processVnPayReturn(qs)
-      .then(async (resp) => {
-        const booking = resp.status === "COMPLETED" ? await bookingApi.getBooking(resp.bookingId).catch(() => null) : null;
-        if (!active) return;
-        setPayment(resp);
-        const outcome = paymentOutcome(resp.status, booking?.status);
-        setStatus(outcome.status);
-        setMessage(outcome.message);
-      })
-      .catch(() => {
-        if (!active) return;
-        setStatus("pending");
-        setMessage("Chưa xác minh được kết quả thanh toán. Vui lòng kiểm tra lịch sử đặt phòng hoặc liên hệ hỗ trợ trước khi thanh toán lại.");
-      });
-    return () => { active = false; };
-  }, [searchParams]);
+    let active=true;
+    bookingApi.processVnPayReturn(qs).then(resp => {
+      if (!active) return;
+      setPayment(resp);
+      const outcome=paymentOutcome(resp.status);
+      setStatus(outcome.status);setMessage(outcome.message);
+    }).catch(() => {
+      if (!active) return;
+      setStatus("pending");setMessage("Chưa xác minh được kết quả thanh toán. Vui lòng kiểm tra lịch sử đặt phòng hoặc liên hệ hỗ trợ trước khi thanh toán lại.");
+    });
+    return () => {active=false;};
+  },[qs]);
+  useEffect(() => {
+    if (payment?.status!=="COMPLETED") return;
+    let active=true, generation=0;
+    const load=async () => {
+      const request=++generation;
+      try {
+        const booking=await bookingApi.getBooking(payment.bookingId);
+        if (!active || request!==generation) return;
+        const outcome=paymentOutcome(payment.status,booking.status,booking.paidReservationStatus);
+        setStatus(outcome.status);setMessage(outcome.message);
+        if (booking.paidReservationStatus!=="V1_PENDING") clearInterval(timer);
+      } catch {
+        if (!active || request!==generation) return;
+        const outcome=paymentOutcome(payment.status);
+        setStatus(outcome.status);setMessage(outcome.message);
+      }
+    };
+    const timer=setInterval(() => {void load();},3000);
+    void load();
+    return () => {active=false;generation++;clearInterval(timer);};
+  },[payment,refresh]);
 
   const amount = payment?.amount;
   const paymentId = payment?.id || "--";
@@ -53,7 +69,8 @@ export default function VnPayReturnPage() {
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1">
                 <h1 className="text-2xl font-semibold mb-2">Kết quả thanh toán VNPay</h1>
-                <p className="text-sm">{message}</p>
+                <p className="text-sm" role="status">{message}</p>
+                {payment?.status === "COMPLETED" && <button type="button" className="underline" onClick={() => setRefresh(value => value + 1)}>Cập nhật trạng thái đặt phòng</button>}
               </div>
               <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${statusBadge}`}>
                 {status === "success" ? "Thành công" : status === "failed" ? "Thất bại" : "Đang xử lý"}

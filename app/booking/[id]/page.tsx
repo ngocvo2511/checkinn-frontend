@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { bookingApi, type BookingResponse } from "@/lib/api/booking";
-import { canStartPayment, onsiteReservationMessage } from "@/lib/booking/payment-state";
+import { canStartPayment, onsiteReservationMessage, paidReservationMessage } from "@/lib/booking/payment-state";
 
 const statusColor: Record<string, string> = {
   PENDING: "bg-amber-100 text-amber-800",
@@ -83,7 +83,11 @@ export default function BookingDetailsPage() {
           {error && <p className="text-sm text-red-600">{error}</p>}
           {!loading && !error && booking && (
             <div className="space-y-6">
-                {booking.onsiteReservationStatus != null && <div role="status" className="rounded-xl bg-blue-50 p-4 text-sm">
+                {booking.paidReservationStatus && <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-4" role="status">
+          <p>{paidReservationMessage(booking)}</p>
+          <button type="button" className="underline" onClick={() => setRefresh(value => value + 1)}>Cập nhật trạng thái đặt phòng</button>
+        </div>}
+        {booking.onsiteReservationStatus != null && <div role="status" className="rounded-xl bg-blue-50 p-4 text-sm">
                   {onsiteReservationMessage(booking)}
                   <button type="button" className="ml-2 underline" onClick={() => setRefresh(value => value + 1)}>Cập nhật trạng thái phòng</button>
                 </div>}

@@ -60,3 +60,12 @@ test('only an unpaid pending booking can start payment', () => {
   }
   assert.equal(canStartPayment({ status: 'CANCELLED', paidAmount: 0 }), false);
 });
+
+test('committed paid recovery is distinct from room success and never enables a second charge',() => {
+  for(const paidReservationStatus of ['V1_PENDING','V1_REVIEW_REQUIRED']) {
+    assert.equal(paymentOutcome('COMPLETED','CONFIRMED',paidReservationStatus).status,'pending');
+    assert.equal(canStartPayment({status:'PENDING_PAYMENT',paidAmount:0,paidReservationStatus}),false);
+  }
+  assert.equal(paymentOutcome('COMPLETED','CONFIRMED','V1_CONFIRMED').status,'success');
+  assert.equal(paymentOutcome('COMPLETED','CANCELLED','V1_RELEASED').status,'pending');
+});
