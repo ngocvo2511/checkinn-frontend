@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { Ban, BedDouble, MapPin, Phone, Mail, Star, Globe, Clock, ShieldCheck, HelpCircle, Info, ExternalLink } from "lucide-react";
 import HotelDetailHeader from "@/components/HotelDetailHeader";
 import NearbyPlacesSection from "@/components/NearbyPlacesSection";
@@ -1635,12 +1634,6 @@ function LoginModal({ onClose, onSwitchToSignup }: { onClose: () => void; onSwit
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleGoogleLogin = () => {
-    setError("");
-    setLoading(true);
-    signIn("google", { callbackUrl: "/" });
-  };
-
   const handleSubmit = async () => {
     if (!email || !password) {
       setError("Please fill in all fields");
@@ -1734,10 +1727,10 @@ function LoginModal({ onClose, onSwitchToSignup }: { onClose: () => void; onSwit
 
           <button
             type="button"
-            onClick={handleGoogleLogin}
+            disabled title="Đăng nhập Google chưa được hỗ trợ"
             className="w-full rounded-xl border border-[#E0E2E7] bg-white py-3 text-sm font-semibold text-[#2B3037] shadow-sm hover:bg-[#F7F8FA]"
           >
-            Tiếp tục với Google
+            Google chưa được hỗ trợ
           </button>
 
           <button

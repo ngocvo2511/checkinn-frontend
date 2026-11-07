@@ -3,7 +3,7 @@ const API_BASE_URL = `${API_ROOT}/api/auth`;
 
 export interface AuthResponse {
   token: string;
-  userId: number;
+  userId: string;
   email: string;
   fullName: string;
   role: string;
