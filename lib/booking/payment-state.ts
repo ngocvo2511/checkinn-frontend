@@ -7,16 +7,18 @@ export function holdSecondsRemaining(deadline: string | null | undefined, now = 
   return Math.max(0, Math.floor((timestamp - now) / 1000));
 }
 
-export function canStartPayment(booking: { status: string; paidAmount?: number | string | null; onsiteReservationStatus?: string | null } | null): boolean {
-  if (!booking || booking.paidAmount == null || booking.onsiteReservationStatus != null) return false;
+export function canStartPayment(booking: { status: string; paidAmount?: number | string | null; onsiteReservationStatus?: string | null; paidReservationStatus?: string | null } | null): boolean {
+  if (!booking || booking.paidAmount == null || booking.onsiteReservationStatus != null || booking.paidReservationStatus != null) return false;
   const paid = Number(booking.paidAmount);
   return ['PENDING', 'PENDING_PAYMENT'].includes(booking.status) && Number.isFinite(paid) && paid === 0;
 }
 
-export function paymentOutcome(paymentStatus: string, bookingStatus?: string): {
+export function paymentOutcome(paymentStatus: string, bookingStatus?: string, paidReservationStatus?: string | null): {
   status: 'pending' | 'success' | 'failed'; message: string;
 } {
   if (paymentStatus === 'COMPLETED') {
+    if (paidReservationStatus === 'V1_REVIEW_REQUIRED') return {status:'pending',message:'Đã ghi nhận thanh toán. Đơn cần được đối soát; vui lòng không thanh toán lại.'};
+    if (paidReservationStatus === 'V1_PENDING' && bookingStatus !== 'CANCELLED') return {status:'pending',message:'Đã ghi nhận thanh toán. Đang kiểm tra xác nhận phòng; vui lòng không thanh toán lại.'};
     if (['CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT'].includes(bookingStatus ?? '')) {
       return { status: 'success', message: 'Thanh toán VNPay thành công. Đơn đặt phòng đã được xác nhận.' };
     }
@@ -43,4 +45,12 @@ export function onsiteReservationMessage(booking: {status:string; onsiteReservat
     return 'Đặt phòng đã được xác nhận. Thanh toán được ghi nhận riêng khi khách sạn thực thu tiền.';
   if (booking.onsiteReservationStatus === 'V1_REVIEW_REQUIRED') return 'Chưa thể xác nhận phòng. Đơn cần được đối soát; vui lòng không tạo thanh toán mới.';
   return 'Đang xác nhận tồn phòng. Chưa thể thông báo đặt phòng thành công; vui lòng cập nhật trạng thái.';
+}
+
+export function paidReservationMessage(booking: {status:string;paidReservationStatus?:string|null}): string {
+  if (booking.status==='CANCELLED') return 'Đã ghi nhận thanh toán cho đơn đã hủy. Việc hoàn tiền cần được xử lý riêng; không thanh toán lại.';
+  if (booking.paidReservationStatus==='V1_REVIEW_REQUIRED') return 'Đã ghi nhận thanh toán. Đơn cần được đối soát; vui lòng không thanh toán lại.';
+  if (booking.paidReservationStatus==='V1_CONFIRMED' && ['CONFIRMED','CHECKED_IN','CHECKED_OUT'].includes(booking.status)) return 'Đã ghi nhận thanh toán và xác nhận phòng.';
+  if (booking.status==='NO_SHOW') return 'Đơn đã được ghi nhận khách không đến. Thanh toán được xử lý theo chính sách của đơn.';
+  return 'Đã ghi nhận thanh toán. Đang kiểm tra xác nhận phòng; vui lòng không thanh toán lại.';
 }

@@ -1,3 +1,4 @@
+import {ApiRequestError,bookingFetch,responseError,transportError} from './request-error.ts';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
 const BOOKING_API_BASE = API_BASE_URL;
 const USER_API_BASE = API_BASE_URL;
@@ -44,6 +45,7 @@ export interface CancellationPolicyDetails {
 }
 
 export interface BookingResponse {
+  paidReservationStatus?: "V1_PENDING" | "V1_CONFIRMED" | "V1_REVIEW_REQUIRED" | "V1_RELEASED" | null;
   onsiteReservationStatus?: "V1_PENDING" | "V1_CONFIRMED" | "V1_RELEASED" | "V1_REVIEW_REQUIRED" | null;
   id: string;
   loyaltyStatus?: 'PENDING' | 'SETTLED' | 'REVERSED' | 'REVIEW_REQUIRED' | null;
@@ -116,11 +118,12 @@ function getAuthToken(): string | null {
 }
 
 async function handleJsonResponse<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || `Yêu cầu thất bại với mã trạng thái ${res.status}`);
+  if (!res.ok) throw await responseError(res);
+  try { return await res.json(); }
+  catch(error) {
+    if(error instanceof Error && ['AbortError','TimeoutError'].includes(error.name))throw transportError(error);
+    throw new ApiRequestError(res.status,'INVALID_RESPONSE','Dữ liệu trả về không hợp lệ. Hãy kiểm tra trạng thái trước khi thử lại.');
   }
-  return res.json();
 }
 
 function authHeaders(): HeadersInit {
@@ -130,10 +133,10 @@ function authHeaders(): HeadersInit {
 
 export const bookingApi = {
   async getCancellationPolicy(): Promise<CancellationPolicyDetails> {
-    return handleJsonResponse<CancellationPolicyDetails>(await fetch(`${BOOKING_API_BASE}/api/bookings/cancellation-policy`));
+    return handleJsonResponse<CancellationPolicyDetails>(await bookingFetch(`${BOOKING_API_BASE}/api/bookings/cancellation-policy`));
   },
   async createBooking(payload: CreateBookingPayload): Promise<BookingResponse> {
-    const res = await fetch(`${BOOKING_API_BASE}/api/bookings`, {
+    const res = await bookingFetch(`${BOOKING_API_BASE}/api/bookings`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify(payload),
@@ -142,22 +145,22 @@ export const bookingApi = {
   },
 
   async getBooking(id: string): Promise<BookingResponse> {
-    const res = await fetch(`${BOOKING_API_BASE}/api/bookings/${id}`, { headers: { ...authHeaders() } });
+    const res = await bookingFetch(`${BOOKING_API_BASE}/api/bookings/${id}`, { headers: { ...authHeaders() } });
     return handleJsonResponse<BookingResponse>(res);
   },
 
   async getUserBookings(userId: string): Promise<BookingResponse[]> {
-    const res = await fetch(`${BOOKING_API_BASE}/api/bookings/user/${encodeURIComponent(userId)}`, { headers: { ...authHeaders() } });
+    const res = await bookingFetch(`${BOOKING_API_BASE}/api/bookings/user/${encodeURIComponent(userId)}`, { headers: { ...authHeaders() } });
     return handleJsonResponse<BookingResponse[]>(res);
   },
 
   async getHotelBookings(hotelId: string): Promise<BookingResponse[]> {
-    const res = await fetch(`${BOOKING_API_BASE}/api/bookings/hotel/${encodeURIComponent(hotelId)}`, { headers: { ...authHeaders() } });
+    const res = await bookingFetch(`${BOOKING_API_BASE}/api/bookings/hotel/${encodeURIComponent(hotelId)}`, { headers: { ...authHeaders() } });
     return handleJsonResponse<BookingResponse[]>(res);
   },
 
   async createPayment(bookingId: string, amount: number, method: PaymentMethod) {
-    const res = await fetch(`${BOOKING_API_BASE}/api/payments`, {
+    const res = await bookingFetch(`${BOOKING_API_BASE}/api/payments`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ bookingId, amount, method }),
@@ -166,7 +169,7 @@ export const bookingApi = {
   },
 
   async initVnPay(bookingId: string): Promise<VnPayInitResponse> {
-    const res = await fetch(`${BOOKING_API_BASE}/api/payments/vnpay/create?bookingId=${encodeURIComponent(bookingId)}`, {
+    const res = await bookingFetch(`${BOOKING_API_BASE}/api/payments/vnpay/create?bookingId=${encodeURIComponent(bookingId)}`, {
       method: 'POST',
       headers: { ...authHeaders() },
     });
@@ -174,17 +177,17 @@ export const bookingApi = {
   },
 
   async processVnPayReturn(queryString: string) {
-    const res = await fetch(`${BOOKING_API_BASE}/api/payments/vnpay/return?${queryString}`, { headers: { ...authHeaders() } });
+    const res = await bookingFetch(`${BOOKING_API_BASE}/api/payments/vnpay/return?${queryString}`, { headers: { ...authHeaders() } });
     return handleJsonResponse<PaymentResponse>(res);
   },
 
   async getBookingPayment(bookingId: string): Promise<PaymentResponse> {
-    const res = await fetch(`${BOOKING_API_BASE}/api/payments/booking/${encodeURIComponent(bookingId)}`, { headers: { ...authHeaders() } });
+    const res = await bookingFetch(`${BOOKING_API_BASE}/api/payments/booking/${encodeURIComponent(bookingId)}`, { headers: { ...authHeaders() } });
     return handleJsonResponse<PaymentResponse>(res);
   },
 
   async confirmPayment(bookingId: string): Promise<PaymentResponse> {
-    const res = await fetch(`${BOOKING_API_BASE}/api/payments/${encodeURIComponent(bookingId)}/confirm`, {
+    const res = await bookingFetch(`${BOOKING_API_BASE}/api/payments/${encodeURIComponent(bookingId)}/confirm`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
     });
@@ -192,7 +195,7 @@ export const bookingApi = {
   },
 
   async updateBookingStatus(bookingId: string, status: string): Promise<BookingResponse> {
-    const res = await fetch(`${BOOKING_API_BASE}/api/bookings/${encodeURIComponent(bookingId)}/status?status=${encodeURIComponent(status)}`, {
+    const res = await bookingFetch(`${BOOKING_API_BASE}/api/bookings/${encodeURIComponent(bookingId)}/status?status=${encodeURIComponent(status)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
     });
@@ -209,7 +212,7 @@ export interface LoyaltyPointsResponse {
 
 export const loyaltyApi = {
   async getUserPoints(userId: string): Promise<LoyaltyPointsResponse> {
-    const res = await fetch(`${USER_API_BASE}/api/loyalty-points/${encodeURIComponent(userId)}`, {
+    const res = await bookingFetch(`${USER_API_BASE}/api/loyalty-points/${encodeURIComponent(userId)}`, {
       headers: { ...authHeaders() },
     });
     return handleJsonResponse<LoyaltyPointsResponse>(res);
