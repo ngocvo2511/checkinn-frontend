@@ -197,3 +197,28 @@ the unchanged place-owned showDistance mismatch. Docker has no running test stac
 the integration runner stopped at clone verification, so integration/runtime
 checkpoint counts above were NOT rerun or certified by this review. No place code,
 local IDE settings, production schema/data or deployment changed.
+
+## Review history contract (9 November 2026)
+
+Branch `fix/review-contract-consistency` requires the paired backend's authenticated
+`GET /api/v1/reviews/me` before deployment. Account history now uses private stable
+pagination instead of aggregating other guests' public hotel reviews. Failed
+lookup/history is unknown and retryable; only successful absence permits a write
+action. Bearer identity remains authoritative, SDK writes never auto-retry, and
+the15s request deadline covers body consumption. Legacy200-null optional owner
+response remains compatible. Rating update payloads map to the REST flat fields.
+
+```powershell
+npm run test:regression
+npx playwright test --config=playwright.reviews.config.ts
+npx tsc --noEmit
+```
+
+Node134 PASS; dedicated actual Next development browser4 PASS: private pagination,
+history recovery, unknown review lookup on account reviews and booking history.
+Browser APIs use intercepted fixtures, not live backend evidence. Backend clone
+has separate PostgreSQL4/native HTTP+gRPC23 checks. Typecheck still fails only on
+the unchanged place-owned NearbyPlacesSection.tsx:161 showDistance props; no build
+bypass, production build pass or place change is claimed. Root plan section68 is
+outside Git; backend `hotel-service/REVIEW_CONTRACT_2026-11-09.md` preserves rollout
+and migration limitations for review/push.

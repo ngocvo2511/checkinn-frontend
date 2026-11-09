@@ -53,6 +53,9 @@ export default function BookingHistoryPage() {
   const [bookings, setBookings] = useState<BookingResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reviewStateKnown, setReviewStateKnown] = useState(false);
+  const [reviewRetry, setReviewRetry] = useState(0);
+  const [reviewError, setReviewError] = useState<string | null>(null);
   const [reviewedBookings, setReviewedBookings] = useState<Set<string>>(new Set());
   const [selectedReview, setSelectedReview] = useState<any>(null);
   const [hotelImages, setHotelImages] = useState<Record<string, string>>({});
@@ -67,7 +70,7 @@ export default function BookingHistoryPage() {
         setSelectedReview(review);
       }
     } catch (err) {
-      console.error('Error fetching review:', err);
+      setReviewError('Không thể tải đánh giá lúc này. Vui lòng thử lại.');
     }
   };
 
@@ -91,15 +94,19 @@ export default function BookingHistoryPage() {
     if (!user?.userId) return;
     setLoading(true);
     setError(null);
+    setReviewStateKnown(false); setReviewedBookings(new Set()); setReviewError(null);
     
+    let cancelled = false;
     const loadBookings = async () => {
       try {
         const data = await bookingApi.getUserBookings(String(user.userId));
+        if (cancelled) return;
         setBookings(data);
         
         // Check which bookings have reviews
         const token = localStorage.getItem('token') || localStorage.getItem('authToken');
-        if (token) {
+        try {
+          if (!token) throw new Error();
           const checkedOutBookings = data.filter(b => b.status === 'CHECKED_OUT');
           const reviewChecks = await Promise.all(
             checkedOutBookings.map(b => 
@@ -111,17 +118,20 @@ export default function BookingHistoryPage() {
           const reviewed = new Set(
             reviewChecks.filter(r => r.hasReview).map(r => r.id)
           );
+          if (cancelled) return;
           setReviewedBookings(reviewed);
-        }
+          setReviewStateKnown(true);
+        } catch { if (!cancelled) setReviewError("Chưa thể xác định trạng thái đánh giá. Vui lòng tải lại."); }
       } catch (err: any) {
-        setError(err?.message || "Không lấy được lịch sử đặt phòng");
+        if (!cancelled) setError("Không lấy được lịch sử đặt phòng. Vui lòng thử lại.");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     
-    loadBookings();
-  }, [user?.userId]);
+    void loadBookings();
+    return () => { cancelled = true; };
+  }, [user?.userId, reviewRetry]);
 
   // Fetch hotel images for all bookings
   useEffect(() => {
@@ -209,6 +219,8 @@ export default function BookingHistoryPage() {
 
           {user && (
             <div className="space-y-4">
+              {reviewError && <div role="alert" className="text-red-600">{reviewError}
+                <button className="ml-3 underline" onClick={() => setReviewRetry(value => value + 1)}>Thử tải lại đánh giá</button></div>}
               {loading && <p className="text-sm text-[#6B7280]">Đang tải...</p>}
               {error && <p className="text-sm text-red-600">{error}</p>}
               {!loading && !error && sorted.length === 0 && (
@@ -271,7 +283,7 @@ export default function BookingHistoryPage() {
                                 Thanh toán
                               </button>
                             ) : null}
-                            {booking.status === "CHECKED_OUT" && !reviewedBookings.has(booking.id) ? (
+                            {booking.status === "CHECKED_OUT" && reviewStateKnown && !reviewedBookings.has(booking.id) ? (
                               <button
                                 onClick={() => router.push(`/reviews/new?bookingId=${booking.id}&hotelId=${booking.hotelId}`)}
                                 className="rounded-lg bg-green-600 px-3 py-2 text-sm font-semibold text-white hover:bg-green-700 flex-1 lg:flex-none lg:w-28 whitespace-nowrap"
@@ -279,7 +291,7 @@ export default function BookingHistoryPage() {
                                 Viết đánh giá
                               </button>
                             ) : null}
-                            {booking.status === "CHECKED_OUT" && reviewedBookings.has(booking.id) ? (
+                            {booking.status === "CHECKED_OUT" && reviewStateKnown && reviewedBookings.has(booking.id) ? (
                               <button
                                 onClick={() => handleViewReview(booking.id)}
                                 className="px-3 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 rounded-lg flex-1 lg:flex-none lg:w-28 whitespace-nowrap border border-blue-200"

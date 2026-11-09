@@ -23,12 +23,12 @@ test('createReview requires a booking before sending and preserves lookup failur
   let calls = 0;
   globalThis.fetch = async () => {
     calls++;
-    return { ok: false, text: async () => 'Booking review eligibility unavailable' };
+    return new Response('synthetic-private-eligibility-detail', {status: 503});
   };
   try {
     await assert.rejects(reviewApi.createReview({ hotelId: 'hotel' }, 'test-token'), /Booking is required/);
     assert.equal(calls, 0);
-    await assert.rejects(reviewApi.createReview({ hotelId: 'hotel', bookingId: 'booking' }, 'test-token'), /eligibility unavailable/);
+    await assert.rejects(reviewApi.createReview({ hotelId: 'hotel', bookingId: 'booking' }, 'test-token'), error => error.status === 503 && !error.message.includes('synthetic-private'));
     assert.equal(calls, 1);
   } finally { globalThis.fetch = previous; }
 });
