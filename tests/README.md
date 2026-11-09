@@ -1,5 +1,16 @@
 # Regression checks
 
+Media/private-document checkpoint (09/11/2026), `fix/media-storage-boundaries`:
+Node regression116/116 and `npx playwright test
+--config=playwright.documents.config.ts`4/4 pass. New coverage distinguishes
+unknown storage from genuinely absent documents, retries only the read,
+validates the upload `{message}` acknowledgement, prevents automatic alternate
+route upload replay, and checks successful write/failed preview refresh without
+inventing approval state. Browser uses Next dev plus intercepted APIs; backend
+separately runs real loopback HTTP/gRPC/JWT tests. See backend media-service README.
+Standard typecheck still reports only the pre-existing place `showDistance`
+props error; no place source or TypeScript bypass is changed.
+
 Regulation checkpoint (07/11/2026), branch `fix/regulation-write-consistency`:
 `npm run test:regression` passes110 tests. `npx playwright test
 --config=playwright.regulations.config.ts` passes3 cases on the actual Next dev

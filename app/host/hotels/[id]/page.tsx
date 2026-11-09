@@ -3,8 +3,9 @@
 import {HotelAmenityMappings} from '@/components/HotelAmenityMappings';
 import {HotelAccommodationEditor} from '@/components/HotelAccommodationEditor';
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import {VerificationDocumentBoundary} from '@/components/VerificationDocumentBoundary';
 import HostMenu from "@/components/host/menu/HostMenu";
 import { hotelApi, Hotel as ApiHotel, RoomType, MediaAsset, HotelVerificationDocuments } from "@/lib/api/hotels";
 import NotificationModal, { useNotificationModal } from "@/components/NotificationModal";
@@ -161,6 +162,9 @@ export default function HostHotelDetailPage() {
 
   // Verification Documents state
   const [verificationDocs, setVerificationDocs] = useState<HotelVerificationDocuments | null>(null);
+  const [verificationDocsError,setVerificationDocsError]=useState<string|null>(null);
+  const [documentsLoading,setDocumentsLoading]=useState(false);
+  const documentGeneration=useRef(0);
   const [showDocModal, setShowDocModal] = useState(false);
   const [docSaving, setDocSaving] = useState(false);
   const [docError, setDocError] = useState<string | null>(null);
@@ -260,6 +264,21 @@ export default function HostHotelDetailPage() {
     window.scrollTo({ top, behavior: "auto" });
   };
 
+  const loadVerificationDocuments=async()=>{
+    const generation=++documentGeneration.current;
+    setDocumentsLoading(true);setVerificationDocsError(null);
+    try {
+      const docs=await hotelApi.getHotelDocuments(hotelId);
+      if(generation!==documentGeneration.current)return;
+      setVerificationDocs(docs);
+      setDocForm({businessLicenseNumber:docs.businessLicenseNumber||'',taxId:docs.taxId||'',
+        operationLicenseNumber:docs.operationLicenseNumber||'',ownerIdentityNumber:docs.ownerIdentityNumber||''});
+    }catch{
+      if(generation!==documentGeneration.current)return;
+      setVerificationDocs(null);setVerificationDocsError('Không thể tải hồ sơ tài liệu. Vui lòng thử lại.');
+    }finally{if(generation===documentGeneration.current)setDocumentsLoading(false);}
+  };
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -268,6 +287,7 @@ export default function HostHotelDetailPage() {
       return;
     }
 
+    let active=true;
     const fetchHotel = async () => {
       if (!hotelId) {
         setError("Thiếu mã khách sạn");
@@ -279,30 +299,19 @@ export default function HostHotelDetailPage() {
       setError(null);
       try {
         const data = await hotelApi.getHotelPreview(hotelId, token);
-        console.log('Fetched hotel data:', data);
+        if(!active)return;
         setHotel(data);
 
-        // Fetch verification documents for owner
-        try {
-          const docs = await hotelApi.getHotelDocuments(hotelId);
-          setVerificationDocs(docs);
-          setDocForm({
-            businessLicenseNumber: docs.businessLicenseNumber || '',
-            taxId: docs.taxId || '',
-            operationLicenseNumber: docs.operationLicenseNumber || '',
-            ownerIdentityNumber: docs.ownerIdentityNumber || '',
-          });
-        } catch (dErr) {
-          console.warn('Could not fetch verification docs:', dErr);
-        }
+        await loadVerificationDocuments();
       } catch (err: any) {
-        setError(err?.message || "Không thể tải thông tin khách sạn");
+        if(active)setError(err?.message || "Không thể tải thông tin khách sạn");
       } finally {
-        setLoading(false);
+        if(active)setLoading(false);
       }
     };
 
     fetchHotel();
+    return ()=>{active=false;documentGeneration.current++;};
   }, [hotelId]);
 
   useEffect(() => {
@@ -895,24 +904,19 @@ export default function HostHotelDetailPage() {
       setNewOwnerIdentityBackFile(null);
       setShowDocModal(false);
 
-      setSuccessMessage('Hồ sơ và tài liệu pháp lý đã được gửi lại thành công! Trạng thái chuyển về "Chờ duyệt" để Quản trị viên thẩm định.');
+      setVerificationDocs(null);
+      setVerificationDocsError('Hồ sơ đã cập nhật nhưng chưa tải lại được. Vui lòng thử lại.');
+
+      setSuccessMessage('Đã cập nhật hồ sơ. Kiểm tra trạng thái hiện tại trước khi gửi duyệt.');
       setTimeout(() => setSuccessMessage(null), 5000);
 
-      // Refresh data
-      const [updatedHotel, updatedDocs] = await Promise.all([
-        hotelApi.getHotelPreview(hotel.id, token),
-        hotelApi.getHotelDocuments(hotel.id),
-      ]);
+      // A successful write remains successful if the separate preview refresh is unavailable.
+      const updatedHotel=await hotelApi.getHotelPreview(hotel.id,token);
       setHotel(updatedHotel);
-      setVerificationDocs(updatedDocs);
-      setDocForm({
-        businessLicenseNumber: updatedDocs.businessLicenseNumber || '',
-        taxId: updatedDocs.taxId || '',
-        operationLicenseNumber: updatedDocs.operationLicenseNumber || '',
-        ownerIdentityNumber: updatedDocs.ownerIdentityNumber || '',
-      });
+      await loadVerificationDocuments();
     } catch (err: any) {
-      console.error('Lỗi cập nhật tài liệu xác thực:', err);
+      setVerificationDocs(null);
+      setVerificationDocsError('Không thể xác nhận hồ sơ sau cập nhật. Vui lòng tải lại.');
       setDocError(err?.message || 'Có lỗi xảy ra khi cập nhật tài liệu.');
     } finally {
       setDocSaving(false);
@@ -1234,6 +1238,7 @@ export default function HostHotelDetailPage() {
               <h2 className="text-xl font-semibold text-[#0F172A]">Giấy tờ pháp lý</h2>
               <button
                 type="button"
+                disabled={documentsLoading || !!verificationDocsError}
                 onClick={() => setShowDocModal(true)}
                 className="inline-flex items-center gap-2 rounded-lg border border-[#0057FF] px-3 py-1.5 text-xs font-semibold text-[#0057FF] transition hover:bg-[#0057FF] hover:text-white"
               >
@@ -1245,6 +1250,7 @@ export default function HostHotelDetailPage() {
               </button>
             </div>
 
+            <VerificationDocumentBoundary loading={documentsLoading} error={verificationDocsError} onRetry={()=>void loadVerificationDocuments()}>
             <div className="space-y-4">
               {/* Thông tin đăng ký */}
               <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
@@ -1447,6 +1453,7 @@ export default function HostHotelDetailPage() {
                 </div>
               </div>
             </div>
+            </VerificationDocumentBoundary>
           </section>
 
           {/* Photos */}
