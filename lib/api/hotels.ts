@@ -1,3 +1,4 @@
+import {updateHotelContent} from './hotel-content.ts';
 import {getHotelVerificationDocuments,uploadHotelVerificationDocuments} from './hotel-documents.ts';
 import { readJson, readArray, ReadApiError } from './read-request.ts';
 import type { City } from './cities';
@@ -538,102 +539,24 @@ export const hotelApi = {
     }
   },
 
-  // Update hotel amenities
-  updateAmenities: async (hotelId: string, amenityCategories: any[]): Promise<Hotel> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/amenities`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders(),
-        },
-        body: JSON.stringify({ amenityCategories }),
-      });
+  updateAmenities: async (hotelId: string, amenityCategories: any[]): Promise<Hotel> =>
+    cleanHotelData(await updateHotelContent(hotelId,'amenities',amenityCategories,authHeaders())),
 
-      if (!response.ok) {
-        throw new Error(`Failed to update amenities: ${response.status} ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      return cleanHotelData(result);
-    } catch (error) {
-      console.error('Error updating amenities:', error);
-      throw error;
-    }
-  },
-
-  // Get available amenity categories (for selection when editing amenities)
   getAmenityCategories: async (): Promise<AmenityCategoryOption[]> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/amenities/categories`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders(),
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch amenity categories: ${response.status} ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      return (result || []).map((cat: AmenityCategoryOption) => ({
-        type: cat.type,
-      })).filter((c: AmenityCategoryOption) => !!c.type);
-    } catch (error) {
-      console.error('Error fetching amenity categories:', error);
-      throw error;
-    }
+    const data=await readJson(`${API_BASE_URL}/api/hotel/hotels/amenities/categories`);
+    return readArray<AmenityCategoryOption>(data,row=>typeof row.type==='string'&&!!row.type.trim()&&row.type.length<=255);
   },
 
-  // Update hotel policies
-  updatePolicies: async (hotelId: string, policies: { title?: string; category?: string; content: string }[]): Promise<Hotel> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/policies`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders(),
-        },
-        body: JSON.stringify(policies),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to update policies: ${response.status} ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      return cleanHotelData(result);
-    } catch (error) {
-      console.error('Error updating policies:', error);
-      throw error;
-    }
+  getPolicyCategories: async (): Promise<{type:string}[]> => {
+    const data=await readJson(`${API_BASE_URL}/api/hotel/hotels/policies/categories`);
+    return readArray<{type:string}>(data,row=>typeof row.type==='string'&&!!row.type.trim()&&row.type.length<=255);
   },
 
-  // Update hotel FAQs (questions)
-  updateQuestions: async (hotelId: string, faqs: { question: string; answer: string }[]): Promise<Hotel> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/questions`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders(),
-        },
-        body: JSON.stringify(faqs),
-      });
+  updatePolicies: async (hotelId: string, policies: { title?: string; category?: string; content: string }[]): Promise<Hotel> =>
+    cleanHotelData(await updateHotelContent(hotelId,'policies',policies,authHeaders())),
 
-      if (!response.ok) {
-        throw new Error(`Failed to update questions: ${response.status} ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      return cleanHotelData(result);
-    } catch (error) {
-      console.error('Error updating questions:', error);
-      throw error;
-    }
-  },
+  updateQuestions: async (hotelId: string, faqs: { question: string; answer: string }[]): Promise<Hotel> =>
+    cleanHotelData(await updateHotelContent(hotelId,'questions',faqs,authHeaders())),
 
   // Get all cities
   getCities: async (): Promise<City[]> => {
