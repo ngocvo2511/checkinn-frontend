@@ -45,6 +45,10 @@ export default function ReviewsPage() {
   
   // Reviews
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewPage, setReviewPage] = useState(0);
+  const [reviewPages, setReviewPages] = useState(0);
+  const [reviewTotal, setReviewTotal] = useState(0);
+  const [reload, setReload] = useState(0);
   const [reviewHotelImages, setReviewHotelImages] = useState<Record<string, string>>({});
   const [reviewHotelNames, setReviewHotelNames] = useState<Record<string, string>>({});
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -64,97 +68,45 @@ export default function ReviewsPage() {
       const parsed = JSON.parse(stored) as AuthResponse;
       setUser(parsed);
     } catch (err) {
-      console.error("Failed to parse user", err);
+      setError("Không thể đọc phiên đăng nhập.");
     }
     setMounted(true);
   }, []);
 
-  // Load bookings and reviews
+  // Private history is selected by the backend JWT subject, never public hotel reviews.
   useEffect(() => {
     if (!user?.userId) return;
-    
+    let cancelled = false;
+    setLoading(true); setError(null); setReviews([]); setUnreviewedBookings([]);
     const loadData = async () => {
       try {
-        setLoading(true);
-        const token = localStorage.getItem('token');
-        
-        // Get all bookings
-        const allBookings = await bookingApi.getUserBookings(String(user.userId));
-        
-        // Filter CHECKED_OUT bookings
-        const checkedOutBookings = allBookings.filter(b => b.status === 'CHECKED_OUT');
-        
-        // Check which have reviews
-        const unreviewed: BookingResponse[] = [];
-        for (const booking of checkedOutBookings) {
-          if (token) {
-            const hasReview = await reviewApi.hasBookingBeenReviewed(booking.id, token);
-            if (!hasReview) {
-              unreviewed.push(booking);
-            }
-          }
-        }
-        
-        setUnreviewedBookings(unreviewed);
-        
-        // Fetch hotel images for unreviewed bookings
-        const images: Record<string, string> = {};
-        for (const booking of unreviewed) {
-          if (booking.hotelId) {
-            try {
-              const hotel = await hotelApi.getHotelById(booking.hotelId);
-              if (hotel.mediaAssets && hotel.mediaAssets.length > 0) {
-                images[booking.hotelId] = hotel.mediaAssets[0].url;
-              }
-            } catch (err) {
-              console.error(`Error fetching hotel ${booking.hotelId}:`, err);
-            }
-          }
-        }
-        setHotelImages(images);
-        
-        // Fetch all reviews from hotels user has booked
-        const allReviews: Review[] = [];
-        const hotelIds = new Set(allBookings.map(b => b.hotelId).filter(Boolean));
-        
-        for (const hotelId of hotelIds) {
-          try {
-            const response = await reviewApi.getHotelReviews(String(hotelId), 0, 100);
-            if (response.content) {
-              allReviews.push(...response.content);
-            }
-          } catch (err) {
-            console.error(`Error fetching reviews for hotel ${hotelId}:`, err);
-          }
-        }
-        
-        // Enrich each review with owner response
-        const responses = await Promise.all(
-          allReviews.map(async (r) => {
-            try {
-              return await reviewApi.getReviewResponse(r.id);
-            } catch {
-              return null;
-            }
-          })
-        );
-        const enriched = allReviews.map((r, idx) => ({
-          ...r,
-          ownerResponse: responses[idx] ?? r.ownerResponse,
-        }));
-
-        setReviews(enriched);
-        
-        setError(null);
-      } catch (err: any) {
-        setError(err?.message || "Không thể tải dữ liệu");
-      } finally {
-        setLoading(false);
-      }
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        if (!token) throw new Error('Vui lòng đăng nhập để xem đánh giá.');
+        const [allBookings, ownPage] = await Promise.all([
+          bookingApi.getUserBookings(String(user.userId)), reviewApi.getMyReviewPage(token, reviewPage),
+        ]);
+        const checkedOut = allBookings.filter(b => b.status === 'CHECKED_OUT');
+        const flags = await Promise.all(checkedOut.map(b => reviewApi.hasBookingBeenReviewed(b.id, token)));
+        if (cancelled) return;
+        setUnreviewedBookings(checkedOut.filter((_, index) => !flags[index]));
+        setReviews(ownPage.content); setReviewPages(ownPage.totalPages); setReviewTotal(ownPage.totalElements);
+      } catch {
+        if (!cancelled) setError('Không thể xác nhận dữ liệu đánh giá lúc này. Vui lòng thử tải lại.');
+      } finally { if (!cancelled) setLoading(false); }
     };
+    void loadData();
+    return () => { cancelled = true; };
+  }, [user?.userId, reviewPage, reload]);
 
-    loadData();
-  }, [user?.userId]);
+  useEffect(() => {
+    let cancelled = false;
+    const ids = [...new Set(unreviewedBookings.map(b => b.hotelId))];
+    void Promise.all(ids.map(async id => {
+      try { const hotel = await hotelApi.getHotelById(id); return [id, hotel.mediaAssets?.[0]?.url] as const; }
+      catch { return [id, undefined] as const; }
+    })).then(entries => { if (!cancelled) setHotelImages(Object.fromEntries(entries.filter((item): item is readonly [string, string] => !!item[1]))); });
+    return () => { cancelled = true; };
+  }, [unreviewedBookings]);
 
   // Load hotel images for reviews
   useEffect(() => {
@@ -175,7 +127,7 @@ export default function ReviewsPage() {
               names[review.hotelId] = hotel.name;
             }
           } catch (err) {
-            console.error(`Error fetching hotel ${review.hotelId}:`, err);
+            // Optional hotel decoration must not change the private review history.
           }
         }
       }
@@ -188,7 +140,7 @@ export default function ReviewsPage() {
     };
 
     loadReviewHotelInfo();
-  }, [reviews, reviewHotelImages, reviewHotelNames]);
+  }, [reviews]);
 
   const handleEditProfile = () => {
     router.push("/personal-data");
@@ -236,7 +188,7 @@ export default function ReviewsPage() {
                             : 'text-[#383e48] hover:bg-gray-50'
                         }`}
                       >
-                        Chưa đánh giá ({unreviewedBookings.length})
+                        Chưa đánh giá ({loading || error ? "--" : unreviewedBookings.length})
                       </button>
                       <button
                         onClick={() => setActiveTab('reviewed')}
@@ -246,7 +198,7 @@ export default function ReviewsPage() {
                             : 'text-[#383e48] hover:bg-gray-50'
                         }`}
                       >
-                        Đã đánh giá ({reviews.length})
+                        Đã đánh giá ({loading || error ? "--" : reviewTotal})
                       </button>
                     </div>
                   </div>
@@ -254,12 +206,18 @@ export default function ReviewsPage() {
                   {/* Tab Content */}
                   <div>
                     {loading && <p className="text-sm text-[#6B7280]">Đang tải...</p>}
-                    {error && <p className="text-sm text-red-600">{error}</p>}
+                    {error && <div role="alert" className="text-sm text-red-600">{error}
+                      <button className="ml-3 underline" onClick={() => setReload(value => value + 1)}>Thử tải lại đánh giá</button></div>}
+                    {activeTab === 'reviewed' && !error && reviewPages > 1 && <nav aria-label="Phân trang đánh giá" className="flex gap-4 my-4">
+                      <button disabled={loading || reviewPage === 0} onClick={() => setReviewPage(value => value - 1)}>Trang trước</button>
+                      <span>Trang {reviewPage + 1} / {reviewPages}</span>
+                      <button disabled={loading || reviewPage + 1 >= reviewPages} onClick={() => setReviewPage(value => value + 1)}>Trang sau</button>
+                    </nav>}
 
                     {/* Unreviewed Tab */}
                     {activeTab === 'unreviewed' && (
                       <div className="space-y-4">
-                        {!loading && unreviewedBookings.length === 0 && (
+                        {!loading && !error && unreviewedBookings.length === 0 && (
                           <p className="text-sm text-[#6B7280]">Không có đặt phòng nào cần đánh giá.</p>
                         )}
                         
@@ -307,7 +265,7 @@ export default function ReviewsPage() {
                     {/* Reviewed Tab */}
                     {activeTab === 'reviewed' && (
                       <div className="space-y-4">
-                        {!loading && reviews.length === 0 && (
+                        {!loading && !error && reviews.length === 0 && (
                           <p className="text-sm text-[#6B7280]">Chưa có đánh giá nào.</p>
                         )}
                         
@@ -364,7 +322,7 @@ export default function ReviewsPage() {
                                   </span>
                                 </div>
 
-                                <p className="text-lg font-bold text-[#0F172A]">{reviewHotelNames[review.hotelId] || 'Khách sạn'}</p>
+                                <p className="text-lg font-bold text-[#0F172A]">{review.hotelName || reviewHotelNames[review.hotelId] || 'Khách sạn'}</p>
                                 
                                 <p className="text-sm text-[#6B7280]">{formatDate(review.createdAt)}</p>
                                 

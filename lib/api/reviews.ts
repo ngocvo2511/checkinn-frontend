@@ -121,448 +121,100 @@ export interface CreateReviewResponseRequest {
 // API CLIENT
 // ==========================================
 
+export interface ReviewPage { content: Review[]; totalPages: number; totalElements: number }
+
+export class ReviewApiError extends Error {
+  readonly status: number | null;
+  constructor(status: number | null) {
+    super(status === 401 ? 'Vui lòng đăng nhập để thao tác với đánh giá.'
+      : status === 403 ? 'Bạn không có quyền thao tác với đánh giá này.'
+      : status === 404 ? 'Không tìm thấy đánh giá.'
+      : status === 409 ? 'Đánh giá hoặc phản hồi đã thay đổi. Vui lòng tải lại.'
+      : status === 400 ? 'Thông tin đánh giá không hợp lệ.'
+      : 'Không thể xác nhận dữ liệu đánh giá lúc này. Vui lòng tải lại trước khi gửi tiếp.');
+    this.name = 'ReviewApiError'; this.status = status;
+  }
+}
+
+async function request<T>(path: string, token?: string, method = 'GET', body?: unknown, absent = false): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/v1/reviews${path}`, {
+      method, headers: {'Content-Type': 'application/json', ...(token ? {Authorization: `Bearer ${token}`} : {})},
+      body: body === undefined ? undefined : JSON.stringify(body), signal: controller.signal,
+    });
+    if (!response.ok) {
+      await response.body?.cancel().catch(() => undefined);
+      if (absent && response.status === 404) return null as T;
+      throw new ReviewApiError(response.status);
+    }
+    if (method === 'DELETE' || path.endsWith('/helpful') || path.endsWith('/unhelpful') || response.status === 204) return undefined as T;
+    const data = await response.json();
+    if (path.startsWith('/check-booking/') && data == null) throw new ReviewApiError(null);
+    return data;
+  } catch (error) { throw error instanceof ReviewApiError ? error : new ReviewApiError(null); }
+  finally { clearTimeout(timer); }
+}
+async function reviewPage(path: string, token?: string): Promise<ReviewPage> {
+  const data = await request<ReviewPage>(path, token);
+  if (!data || !Array.isArray(data.content) || !Number.isInteger(data.totalPages) || data.totalPages < 0
+      || !Number.isInteger(data.totalElements) || data.totalElements < 0) throw new ReviewApiError(null);
+  return {...data, content: data.content.map(normalizeReviewRatings)};
+}
+const id = encodeURIComponent;
 export const reviewApi = {
-  // Get all reviews for a hotel
-  async getHotelReviews(hotelId: string, page: number = 0, size: number = 10): Promise<{
-    content: Review[];
-    totalPages: number;
-    totalElements: number;
-  }> {
-    const response = await fetch(
-      `${API_BASE_URL}/api/v1/reviews/hotel/${hotelId}?page=${page}&size=${size}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch reviews: ${response.statusText}`);
-    }
-
-    return response.json();
+  getHotelReviews(hotelId: string, page = 0, size = 10): Promise<ReviewPage> {
+    return reviewPage(`/hotel/${id(hotelId)}?page=${page}&size=${size}`);
   },
-
-  // Get review by ID
   async getReviewById(reviewId: string): Promise<Review> {
-    const response = await fetch(
-      `${API_BASE_URL}/api/v1/reviews/${reviewId}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch review: ${response.statusText}`);
-    }
-
-    return response.json();
+    return normalizeReviewRatings(await request<Review>(`/${id(reviewId)}`));
   },
-
-  // Get review statistics for a hotel
-  async getReviewStats(hotelId: string, token?: string): Promise<ReviewStats> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-
-    const response = await fetch(
-      `${API_BASE_URL}/api/v1/reviews/stats/hotel/${hotelId}`,
-      {
-        method: 'GET',
-        headers,
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch review stats: ${response.statusText}`);
-    }
-
-    return response.json();
+  getReviewStats(hotelId: string, token?: string): Promise<ReviewStats> {
+    return request(`/stats/hotel/${id(hotelId)}`, token);
   },
-
-  // Check if booking has been reviewed and get review details
   async getReviewByBookingId(bookingId: string, token: string): Promise<Review | null> {
-    try {
-      // Decode JWT to get userId
-      const payloadBase64 = token.split('.')[1];
-      const decodedPayload = JSON.parse(atob(payloadBase64));
-      const userId = decodedPayload.userId || decodedPayload.sub;
-
-      const response = await fetch(
-        `${API_BASE_URL}/api/v1/reviews/check-booking/${bookingId}?userId=${userId}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.status === 404) {
-        return null; // No review exists
-      }
-
-      if (!response.ok) {
-        return null; // On error, assume no review
-      }
-
-      return response.json(); // Return full review details
-    } catch (error) {
-      console.error('Error fetching review:', error);
-      return null;
-    }
+    const result = await request<Review | null>(`/check-booking/${id(bookingId)}`, token, 'GET', undefined, true);
+    if (result && (typeof result.id !== 'string' || result.bookingId !== bookingId)) throw new ReviewApiError(null);
+    return result ? normalizeReviewRatings(result) : null;
   },
-
-  // Get user's own reviews by decoding JWT and filtering
-  async getUserReviews(token: string, page: number = 0, size: number = 10): Promise<Review[]> {
-    try {
-      // Decode JWT to get userId
-      const base64Url = token.split('.')[1];
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const decodedPayload = JSON.parse(atob(base64));
-      const userId = decodedPayload.userId || decodedPayload.sub;
-
-      if (!userId) {
-        throw new Error('Cannot extract userId from token');
-      }
-
-      // Fetch reviews with userId filter - call backend with userId as query param
-      const response = await fetch(
-        `${API_BASE_URL}/api/v1/reviews/user/${userId}?page=${page}&size=${size}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        console.warn('Failed to fetch user reviews:', response.statusText);
-        return [];
-      }
-
-      const data = await response.json();
-      return data.content || [];
-    } catch (error) {
-      console.error('Error fetching user reviews:', error);
-      return [];
-    }
+  getMyReviewPage(token: string, page = 0, size = 10): Promise<ReviewPage> {
+    return reviewPage(`/me?page=${page}&size=${size}`, token);
   },
-
-  // Check if booking has been reviewed
+  async getUserReviews(token: string, page = 0, size = 10): Promise<Review[]> {
+    return (await this.getMyReviewPage(token, page, size)).content;
+  },
   async hasBookingBeenReviewed(bookingId: string, token: string): Promise<boolean> {
-    const review = await this.getReviewByBookingId(bookingId, token);
-    return review !== null;
+    return (await this.getReviewByBookingId(bookingId, token)) !== null;
   },
-
-  // Create a new review
-  async createReview(request: CreateReviewRequest, token: string): Promise<Review> {
-    if (!request.bookingId?.trim()) {
-      throw new Error('Booking is required to create a review');
-    }
-
-    const response = await fetch(
-      `${API_BASE_URL}/api/v1/reviews`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(request),
-      }
-    );
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Failed to create review: ${error}`);
-    }
-
-    return response.json();
+  async createReview(body: CreateReviewRequest, token: string): Promise<Review> {
+    if (!body.bookingId?.trim()) throw new Error('Booking is required to create a review');
+    return normalizeReviewRatings(await request<Review>('', token, 'POST', body));
   },
-
-  // Update review
-  async updateReview(reviewId: string, request: UpdateReviewRequest, token: string): Promise<Review> {
-    const response = await fetch(
-      `${API_BASE_URL}/api/v1/reviews/${reviewId}`,
-      {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(request),
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Failed to update review: ${response.statusText}`);
-    }
-
-    return response.json();
+  async updateReview(reviewId: string, body: UpdateReviewRequest, token: string): Promise<Review> {
+    const {ratings, ...fields} = body;
+    const payload = {...fields, ...(ratings ? {staffRating: ratings.staff, amenitiesRating: ratings.amenities,
+      cleanlinessRating: ratings.cleanliness, comfortRating: ratings.comfort,
+      valueForMoneyRating: ratings.valueForMoney, locationRating: ratings.location} : {})};
+    return normalizeReviewRatings(await request<Review>(`/${id(reviewId)}`, token, 'PUT', payload));
   },
-
-  // Delete review
-  async deleteReview(reviewId: string, token: string): Promise<void> {
-    const response = await fetch(
-      `${API_BASE_URL}/api/v1/reviews/${reviewId}`,
-      {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Failed to delete review: ${response.statusText}`);
-    }
+  deleteReview(reviewId: string, token: string): Promise<void> { return request(`/${id(reviewId)}`, token, 'DELETE'); },
+  markReviewHelpful(reviewId: string, token?: string): Promise<void> { return request(`/${id(reviewId)}/helpful`, token, 'POST'); },
+  markReviewUnhelpful(reviewId: string, token?: string): Promise<void> { return request(`/${id(reviewId)}/unhelpful`, token, 'POST'); },
+  addReviewResponse(reviewId: string, body: CreateReviewResponseRequest, token: string): Promise<ReviewResponse> {
+    return request(`/${id(reviewId)}/response`, token, 'POST', body);
   },
-
-  // Mark review as helpful
-  async markReviewHelpful(reviewId: string, token?: string): Promise<void> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-
-    const response = await fetch(
-      `${API_BASE_URL}/api/v1/reviews/${reviewId}/helpful`,
-      {
-        method: 'POST',
-        headers,
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Failed to mark review helpful: ${response.statusText}`);
-    }
+  getReviewResponse(reviewId: string): Promise<ReviewResponse | null> {
+    return request(`/${id(reviewId)}/response`, undefined, 'GET', undefined, true);
   },
-
-  // Mark review as unhelpful
-  async markReviewUnhelpful(reviewId: string, token?: string): Promise<void> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-
-    const response = await fetch(
-      `${API_BASE_URL}/api/v1/reviews/${reviewId}/unhelpful`,
-      {
-        method: 'POST',
-        headers,
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Failed to mark review unhelpful: ${response.statusText}`);
-    }
+  updateReviewResponse(responseId: string, body: CreateReviewResponseRequest, token: string): Promise<ReviewResponse> {
+    return request(`/response/${id(responseId)}`, token, 'PUT', body);
   },
-
-  // Add response to review (owner)
-  async addReviewResponse(reviewId: string, request: CreateReviewResponseRequest, token: string): Promise<ReviewResponse> {
-    // Build headers with required X-User-Id
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    };
-
-    try {
-      const payloadBase64 = token.split('.')[1];
-      const decodedPayload = JSON.parse(atob(payloadBase64));
-      const ownerId = decodedPayload.userId || decodedPayload.sub;
-      if (ownerId) {
-        headers['X-User-Id'] = ownerId;
-      }
-    } catch (e) {
-      // Ignore token decode errors; backend will reject without header
-    }
-
-    const response = await fetch(
-      `${API_BASE_URL}/api/v1/reviews/${reviewId}/response`,
-      {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(request),
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Failed to add response: ${response.statusText}`);
-    }
-
-    return response.json();
+  deleteReviewResponse(responseId: string, token: string): Promise<void> { return request(`/response/${id(responseId)}`, token, 'DELETE'); },
+  getOwnerReviews(token: string, page = 0, size = 10): Promise<ReviewPage> {
+    return reviewPage(`/owner/all?page=${page}&size=${size}`, token);
   },
-
-  // Get response for a review
-  async getReviewResponse(reviewId: string): Promise<ReviewResponse | null> {
-    const response = await fetch(
-      `${API_BASE_URL}/api/v1/reviews/${reviewId}/response`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const data = await response.json();
-    return data || null;
-  },
-
-  // Update response
-  async updateReviewResponse(responseId: string, request: CreateReviewResponseRequest, token: string): Promise<ReviewResponse> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    };
-
-    try {
-      const payloadBase64 = token.split('.')[1];
-      const decodedPayload = JSON.parse(atob(payloadBase64));
-      const ownerId = decodedPayload.userId || decodedPayload.sub;
-      if (ownerId) headers['X-User-Id'] = ownerId;
-    } catch (e) {
-      // ignore token decode errors
-    }
-
-    const response = await fetch(
-      `${API_BASE_URL}/api/v1/reviews/response/${responseId}`,
-      {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify(request),
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Failed to update response: ${response.statusText}`);
-    }
-
-    return response.json();
-  },
-
-  // Delete response
-  async deleteReviewResponse(responseId: string, token: string): Promise<void> {
-    const headers: Record<string, string> = {
-      'Authorization': `Bearer ${token}`,
-    };
-
-    try {
-      const payloadBase64 = token.split('.')[1];
-      const decodedPayload = JSON.parse(atob(payloadBase64));
-      const ownerId = decodedPayload.userId || decodedPayload.sub;
-      if (ownerId) headers['X-User-Id'] = ownerId;
-    } catch (e) {
-      // ignore token decode errors
-    }
-
-    const response = await fetch(
-      `${API_BASE_URL}/api/v1/reviews/response/${responseId}`,
-      {
-        method: 'DELETE',
-        headers,
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Failed to delete response: ${response.statusText}`);
-    }
-  },
-
-  // ==========================================
-  // HOTEL OWNER ENDPOINTS
-  // ==========================================
-
-  // Get all reviews for hotels owned by the authenticated owner
-  async getOwnerReviews(token: string, page: number = 0, size: number = 10): Promise<{
-    content: Review[];
-    totalPages: number;
-    totalElements: number;
-  }> {
-    // Decode JWT to get userId (ownerId)
-    const payloadBase64 = token.split('.')[1];
-    const decodedPayload = JSON.parse(atob(payloadBase64));
-    const ownerId = decodedPayload.userId || decodedPayload.sub;
-
-    const response = await fetch(
-      `${API_BASE_URL}/api/v1/reviews/owner/all?page=${page}&size=${size}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'X-User-Id': ownerId,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => null);
-      throw new Error(errorData?.message || errorData?.error || 'Không thể tải đánh giá');
-    }
-
-    const data = await response.json();
-    return {
-      ...data,
-      content: data.content.map(normalizeReviewRatings),
-    };
-  },
-
-  // Get reviews for a specific hotel owned by the authenticated owner
-  async getOwnerHotelReviews(hotelId: string, token: string, page: number = 0, size: number = 10): Promise<{
-    content: Review[];
-    totalPages: number;
-    totalElements: number;
-  }> {
-    // Decode JWT to get userId (ownerId)
-    const payloadBase64 = token.split('.')[1];
-    const decodedPayload = JSON.parse(atob(payloadBase64));
-    const ownerId = decodedPayload.userId || decodedPayload.sub;
-
-    const response = await fetch(
-      `${API_BASE_URL}/api/v1/reviews/owner/hotel/${hotelId}?page=${page}&size=${size}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'X-User-Id': ownerId,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => null);
-      throw new Error(errorData?.message || errorData?.error || 'Không thể tải đánh giá');
-    }
-
-    const data = await response.json();
-    return {
-      ...data,
-      content: data.content.map(normalizeReviewRatings),
-    };
+  getOwnerHotelReviews(hotelId: string, token: string, page = 0, size = 10): Promise<ReviewPage> {
+    return reviewPage(`/owner/hotel/${id(hotelId)}?page=${page}&size=${size}`, token);
   },
 };

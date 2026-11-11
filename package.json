@@ -11,9 +11,9 @@
     "test:payments": "node --experimental-strip-types --test tests/payment-state.test.mjs",
     "test:reviews": "node --experimental-strip-types --test tests/review-auth.test.mjs",
     "test:points": "node --experimental-strip-types --test tests/points-quote.test.mjs",
-    "test:regression": "node --experimental-strip-types --test tests/review-auth.test.mjs tests/revenue-auth.test.mjs tests/payment-state.test.mjs tests/search-inventory.test.mjs tests/points-quote.test.mjs tests/hotel-publication.test.mjs tests/search-errors.test.mjs tests/search-filters.test.mjs tests/accommodation-type.test.mjs tests/auth-session.test.mjs tests/api-errors.test.mjs tests/review-summaries.test.mjs tests/search-pagination.test.mjs tests/canonical-text.test.mjs tests/room-facts.test.mjs tests/inventory-review.test.mjs tests/revenue-consistency.test.mjs tests/regulation-consistency.test.mjs tests/document-boundary.test.mjs",
+    "test:regression": "node --experimental-strip-types --test tests/review-auth.test.mjs tests/review-consistency.test.mjs tests/revenue-auth.test.mjs tests/payment-state.test.mjs tests/search-inventory.test.mjs tests/points-quote.test.mjs tests/hotel-publication.test.mjs tests/search-errors.test.mjs tests/search-filters.test.mjs tests/accommodation-type.test.mjs tests/auth-session.test.mjs tests/api-errors.test.mjs tests/review-summaries.test.mjs tests/search-pagination.test.mjs tests/canonical-text.test.mjs tests/room-facts.test.mjs tests/inventory-review.test.mjs tests/revenue-consistency.test.mjs tests/regulation-consistency.test.mjs tests/document-boundary.test.mjs",
     "test:browser": "playwright test",
-    "test:auth": "node --experimental-strip-types --test tests/review-auth.test.mjs tests/revenue-auth.test.mjs"
+    "test:auth": "node --experimental-strip-types --test tests/review-auth.test.mjs tests/review-consistency.test.mjs tests/revenue-auth.test.mjs"
   },
   "dependencies": {
     "@types/leaflet": "^1.9.22",
