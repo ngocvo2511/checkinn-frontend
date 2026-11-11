@@ -306,3 +306,23 @@ browser tests passed using Webpack development mode and synthetic APIs. Standard
 typecheck retains the known place-owned showDistance mismatch; no bypass or
 production-build pass. Earlier PostgreSQL/native counts are historical checkpoint
 evidence, not rerun/certified in this review. Logs and IDE files are excluded.
+
+
+## Media client write consistency — 11/11/2026
+
+See [MEDIA_CLIENT_2026-11-11.md](MEDIA_CLIENT_2026-11-11.md) and root plan73.
+
+```powershell
+npm run test:regression
+npx playwright test --config=playwright.media-write.config.ts
+npx playwright test --config=playwright.content-webpack.config.ts
+npx playwright test --config=playwright.amenities.config.ts
+npx tsc --noEmit
+```
+
+Node211 and new media browser13 PASS; content8 +amenities7 compatibility PASS. The gallery tests use real components in
+Next Webpack dev and intercepted APIs on port3316; no provider/database write.
+Unknown results require an explicit validated private-preview GET and preserve
+unsaved form fields. Wizard partial uploads cannot restart or send approval.
+Typecheck retains the existing place-owned showDistance mismatch. Compatibility
+rerun details and local log paths are in the checkpoint/root plan.

@@ -1,5 +1,6 @@
 'use client';
 
+import {MediaUploadBatch} from '@/lib/api/media-upload-batch';
 import {preparePolicies,prepareQuestions,prepareAmenities} from '@/lib/api/hotel-content';
 import type { ChangeEvent, FormEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -67,7 +68,6 @@ type PreviewFile = {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080';
 // Media uses the hotel gateway prefix without the /hotels resource segment.
-const MEDIA_UPLOAD_URL = `${API_BASE_URL}/api/hotel/medias`;
 
 const initialForm: FormState = {
   accommodationType: '',
@@ -130,6 +130,8 @@ export default function HostCreateHotelPage() {
   const [createdHotelId, setCreatedHotelId] = useState<string | null>(null);
   const [docsUploaded, setDocsUploaded] = useState(false);
   const [mediaUploaded, setMediaUploaded] = useState(false);
+  const mediaUploads=useRef(new MediaUploadBatch());
+  const [mediaRecoveryRequired,setMediaRecoveryRequired]=useState(false);
   const { modalState, closeModal, showSuccess, showError, showWarning } = useNotificationModal();
 
   useEffect(() => {
@@ -401,47 +403,19 @@ export default function HostCreateHotelPage() {
     return missing;
   };
 
-  const uploadMediaAssets = async (hotelId: string, token: string) => {
-    const uploadSingle = async (file: File, isThumbnail: boolean, sortOrder: number) => {
-      const formData = new FormData();
-      formData.append('targetId', hotelId);
-      formData.append('targetType', 'HOTEL');
-      formData.append('isThumbnail', String(isThumbnail));
-      formData.append('sortOrder', String(sortOrder));
-      formData.append('file', file);
-
-      const res = await fetch(MEDIA_UPLOAD_URL, {
-        method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        body: formData,
+  const uploadMediaAssets = async (hotelId:string) => {
+    const entries=[...(thumbnail?[{file:thumbnail.file,thumbnail:true}]:[]),...gallery.map(item=>({file:item.file,thumbnail:false}))];
+    try{
+      await mediaUploads.current.run(entries,async(entry,index)=>{
+        setStatusMessage('Đang tải hình ảnh khách sạn...');
+        return hotelApi.uploadMedia(hotelId,'HOTEL',entry.file,entry.thumbnail,index);
       });
-
-      if (!res.ok) {
-        const text = await res.text();
-        let msg = text;
-        try {
-          const parsed = JSON.parse(text);
-          msg = parsed.message || parsed.error || text;
-        } catch (_) {}
-        throw new Error(msg || 'Không tải được ảnh lên server');
-      }
-    };
-
-    if (thumbnail) {
-      setStatusMessage('Dang tai anh thumbnail...');
-      await uploadSingle(thumbnail.file, true, 0);
-    }
-
-    if (gallery.length > 0) {
-      setStatusMessage('Dang tai bo anh khach san...');
-      for (let i = 0; i < gallery.length; i += 1) {
-        await uploadSingle(gallery[i].file, false, i + 1);
-      }
-    }
+    }catch(error){setMediaRecoveryRequired(true);throw error;}
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if(submitting || mediaRecoveryRequired)return;
     setSubmitError(null);
     setStatusMessage(null);
 
@@ -489,8 +463,9 @@ export default function HostCreateHotelPage() {
       amenityCategories,
     };
 
+    let persistedHotelId=createdHotelId;
+    setSubmitting(true);
     try {
-      setSubmitting(true);
       let hotelId = createdHotelId;
 
       if (!hotelId) {
@@ -512,6 +487,7 @@ export default function HostCreateHotelPage() {
         const data = await response.json();
         hotelId = data.id;
         setCreatedHotelId(data.id);
+        persistedHotelId=data.id;
       }
 
       // Upload private verification documents if selected and not yet uploaded
@@ -528,7 +504,7 @@ export default function HostCreateHotelPage() {
       }
 
       if (!mediaUploaded && (thumbnail || gallery.length)) {
-        await uploadMediaAssets(hotelId!, token);
+        await uploadMediaAssets(hotelId!);
         setMediaUploaded(true);
       }
 
@@ -546,12 +522,12 @@ export default function HostCreateHotelPage() {
         const parsed = JSON.parse(rawMsg);
         rawMsg = parsed.message || parsed.error || rawMsg;
       } catch (_) {}
-      if (createdHotelId) {
+      if (persistedHotelId) {
         showWarning(
           'Lưu bản nháp thành công - Chưa gửi duyệt',
           `${rawMsg}
 
-Khách sạn đã được lưu tạm dạng Bản nháp (DRAFT). Bạn có thể tiếp tục bổ sung các thông tin còn thiếu và bấm "Tiếp tục gửi duyệt".`
+${mediaUploads.current.blocked ? 'Ảnh có thể đã được lưu một phần. Hãy mở bản nháp để kiểm tra và hoàn thiện trước khi gửi duyệt.' : 'Khách sạn đã được lưu tạm dạng Bản nháp (DRAFT). Bạn có thể tiếp tục bổ sung các thông tin còn thiếu và gửi duyệt.'}`
         );
       } else {
         showError('Không thể tạo khách sạn', rawMsg);
@@ -577,7 +553,13 @@ Khách sạn đã được lưu tạm dạng Bản nháp (DRAFT). Bạn có th�
             </div>
 
             {/* Synchronized Draft Status Banner */}
-            {createdHotelId && (
+          {mediaRecoveryRequired && createdHotelId && (
+          <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
+            <p>Đã dừng tải ảnh để tránh gửi trùng. Hãy kiểm tra ảnh trong bản nháp trước khi bổ sung hoặc gửi duyệt.</p>
+            <button type="button" className="mt-2 underline" onClick={()=>router.push(`/host/hotels/${createdHotelId}`)}>Mở bản nháp để kiểm tra ảnh</button>
+          </div>
+        )}
+          {createdHotelId && (
               <div className="rounded-2xl bg-[#EBF3FF] border border-[#0057FF]/20 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
                 <div className="flex items-start gap-3.5">
                   <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#0057FF]/10 flex items-center justify-center text-[#0057FF] mt-0.5">
@@ -1185,6 +1167,7 @@ Khách sạn đã được lưu tạm dạng Bản nháp (DRAFT). Bạn có th�
                       type="file"
                       accept="image/*"
                       onChange={handleThumbnailChange}
+                      disabled={submitting || mediaUploaded || mediaRecoveryRequired}
                       className="w-full rounded-xl border border-dashed border-[#C6CCE2] px-4 py-3 text-base text-[#1F2226] focus:border-[#0057FF] focus:outline-none"
                     />
                     {thumbnail ? (
@@ -1193,6 +1176,7 @@ Khách sạn đã được lưu tạm dạng Bản nháp (DRAFT). Bạn có th�
                         <button
                           type="button"
                           onClick={() => setThumbnail(null)}
+                      disabled={submitting || mediaUploaded || mediaRecoveryRequired}
                           className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-1 text-sm font-semibold text-red-600 shadow"
                         >
                           Xóa
@@ -1208,13 +1192,16 @@ Khách sạn đã được lưu tạm dạng Bản nháp (DRAFT). Bạn có th�
                     <input
                       type="file"
                       accept="image/*"
+                      multiple
                       ref={galleryInputRef}
                       onChange={handleGalleryChange}
+                      disabled={submitting || mediaUploaded || mediaRecoveryRequired}
                       className="hidden"
                     />
                     <button
                       type="button"
                       onClick={() => galleryInputRef.current?.click()}
+                      disabled={submitting || mediaUploaded || mediaRecoveryRequired}
                       className="w-full rounded-xl border border-dashed border-[#C6CCE2] px-4 py-3 text-base text-[#1F2226] hover:border-[#0057FF] focus:border-[#0057FF] focus:outline-none"
                     >
                       Chọn ảnh để thêm vào thư viện
@@ -1227,6 +1214,7 @@ Khách sạn đã được lưu tạm dạng Bản nháp (DRAFT). Bạn có th�
                             <button
                               type="button"
                               onClick={() => removeGalleryItem(idx)}
+                      disabled={submitting || mediaUploaded || mediaRecoveryRequired}
                               className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-1 text-sm font-semibold text-red-600 shadow"
                             >
                               Xóa
@@ -1247,7 +1235,7 @@ Khách sạn đã được lưu tạm dạng Bản nháp (DRAFT). Bạn có th�
               <div className="flex items-center gap-3">
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || mediaRecoveryRequired}
                   className="inline-flex items-center gap-2 rounded-xl bg-[#0057FF] px-6 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-[#0046CC] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {submitting ? (
