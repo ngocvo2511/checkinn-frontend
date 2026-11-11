@@ -1,6 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import MediaWriteNotice from '@/components/host/MediaWriteNotice';
+import {appendMedia,selectMedia,removeMedia,nextMediaOrder,mediaNeedsReload,mediaErrorMessage} from '@/lib/api/media-state';
+
+
+import { useCallback, useEffect, useRef, useState } from "react";
 import RoomInventoryReview from '@/components/host/RoomInventoryReview';
 import type {InventoryState} from '@/lib/api/inventory-review';
 import { useParams, useRouter } from "next/navigation";
@@ -24,6 +28,11 @@ export default function EditRoomPage() {
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [newAmenityInput, setNewAmenityInput] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [mediaBusy,setMediaBusy]=useState(false);
+  const [mediaReloadRequired,setMediaReloadRequired]=useState(false);
+  const [mediaError,setMediaError]=useState<string|null>(null);
+  const mediaWritePending=useRef(false);
+
   const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
   const [initialRoomAmount, setInitialRoomAmount] = useState<number|null>(null);
   const [inventoryManaged,setInventoryManaged]=useState(true);
@@ -63,99 +72,71 @@ export default function EditRoomPage() {
     setSelectedAmenities(selectedAmenities.filter((_, i) => i !== index));
   };
 
-  const handleUploadImage = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !room) return;
-
-    if (!file.type.startsWith('image/')) {
-      alert('Vui lòng chọn tập tin hình ảnh');
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Kích thước file không được vượt quá 5MB');
-      return;
-    }
-
+  const beginMediaWrite = () => {
+    if (!room || mediaWritePending.current || mediaReloadRequired || saving || toggling) return false;
+    mediaWritePending.current=true;setMediaBusy(true);setMediaError(null);setSuccessMessage(null);
+    return true;
+  };
+  const finishMediaWrite = () => {mediaWritePending.current=false;setMediaBusy(false);};
+  const failMediaWrite = (error:unknown,prefix='') => {
+    setMediaError(prefix+mediaErrorMessage(error));
+    if(mediaNeedsReload(error))setMediaReloadRequired(true);
+  };
+  const refreshMedia = async () => {
+    if(mediaWritePending.current || !room)return;
+    mediaWritePending.current=true;setMediaBusy(true);
+    try{
+      const assets=await hotelApi.getMediaPreview(roomId,'ROOM_TYPE');
+      setRoom(previous=>previous?.id===room.id?{...previous,mediaAssets:assets}:previous);
+      setMediaReloadRequired(false);setMediaError(null);
+    }catch(error){setMediaError(mediaErrorMessage(error));setMediaReloadRequired(true);}
+    finally{finishMediaWrite();}
+  };
+  const handleUploadImage = async (event:React.ChangeEvent<HTMLInputElement>) => {
+    const input=event.target,file=input.files?.[0];
+    if(!file || !room)return;
+    if(!file.type.startsWith('image/')){setMediaError('Vui lòng chọn tập tin hình ảnh');return;}
+    if(file.size>5*1024*1024){setMediaError('Kích thước file không được vượt quá 5MB');return;}
+    if(!beginMediaWrite())return;
     setUploading(true);
-    setError(null);
-
-    try {
-      const currentImages = room.mediaAssets || [];
-      const nextSortOrder = currentImages.length;
-      const isFirstImage = currentImages.length === 0;
-      const newMedia = await hotelApi.uploadMedia(roomId, 'ROOM_TYPE', file, isFirstImage, nextSortOrder);
-
-      setRoom({
-        ...room,
-        mediaAssets: [...currentImages, newMedia]
-      });
-      setSuccessMessage(`Đã tải lên hình ảnh thành công!${isFirstImage ? ' (Đã đặt làm ảnh đại diện)' : ''}`);
-      setTimeout(() => setSuccessMessage(null), 3000);
-      event.target.value = '';
-    } catch (err: any) {
-      setError(err?.message || 'Không thể tải lên hình ảnh');
-    } finally {
-      setUploading(false);
-    }
+    try{
+      const current=room.mediaAssets||[];
+      const ack=await hotelApi.uploadMedia(roomId,'ROOM_TYPE',file,current.length===0,nextMediaOrder(current));
+      setRoom(previous=>previous?.id===room.id?{...previous,mediaAssets:appendMedia(previous.mediaAssets||[],ack)}:previous);
+      setSuccessMessage('Đã tải lên hình ảnh thành công!');
+    }catch(error){failMediaWrite(error);}
+    finally{input.value='';setUploading(false);finishMediaWrite();}
   };
 
-  const handleDeleteImage = async (mediaId: string, isThumbnail: boolean = false) => {
-    if (!room) return;
-    if (!confirm('Bạn có chắc chắn muốn xóa hình ảnh này?')) return;
-
+  const handleDeleteImage = async (mediaId:string) => {
+    if(!room || mediaWritePending.current || mediaReloadRequired)return;
+    if(!confirm('Bạn có chắc chắn muốn xóa hình ảnh này?') || !beginMediaWrite())return;
     setDeletingImageId(mediaId);
-    setError(null);
-
-    try {
+    try{
+      const current=room.mediaAssets||[],deleted=current.find(asset=>asset.id===mediaId);
       await hotelApi.deleteMedia(mediaId);
-      const updatedImages = (room.mediaAssets || []).filter(m => m.id !== mediaId);
-
-      if (isThumbnail && updatedImages.length > 0) {
-        try {
-          await hotelApi.setThumbnail(updatedImages[0].id);
-          updatedImages[0] = { ...updatedImages[0], isThumbnail: true };
-          setSuccessMessage('Đã xóa hình ảnh và đặt ảnh đại diện mới!');
-        } catch (err) {
-          setSuccessMessage('Đã xóa hình ảnh (lỗi khi đặt ảnh đại diện mới)');
-        }
-      } else {
-        setSuccessMessage('Đã xóa hình ảnh thành công!');
+      const remaining=removeMedia(current,mediaId);
+      setRoom(previous=>previous?.id===room.id?{...previous,mediaAssets:removeMedia(previous.mediaAssets||[],mediaId)}:previous);
+      if(deleted?.isThumbnail && remaining.length>0){
+        try{
+          const ack=await hotelApi.setThumbnail(remaining[0].id,{targetId:roomId,targetType:'ROOM_TYPE'});
+          setRoom(previous=>previous?.id===room.id?{...previous,mediaAssets:selectMedia(previous.mediaAssets||[],ack)}:previous);
+        }catch(error){failMediaWrite(error,'Ảnh đã được xóa; chưa thể xác nhận ảnh đại diện mới. ');return;}
       }
-
-      setRoom({
-        ...room,
-        mediaAssets: updatedImages
-      });
-      setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (err: any) {
-      setError(err?.message || 'Không thể xóa hình ảnh');
-    } finally {
-      setDeletingImageId(null);
-    }
+      setSuccessMessage('Đã xóa hình ảnh thành công!');
+    }catch(error){failMediaWrite(error);}
+    finally{setDeletingImageId(null);finishMediaWrite();}
   };
 
-  const handleSetThumbnail = async (mediaId: string) => {
-    if (!room) return;
-    if (!confirm('Bạn có muốn đặt hình ảnh này làm ảnh đại diện?')) return;
-
-    setError(null);
-
-    try {
-      await hotelApi.setThumbnail(mediaId);
-      const updatedImages = (room.mediaAssets || []).map(m => ({
-        ...m,
-        isThumbnail: m.id === mediaId
-      }));
-      setRoom({
-        ...room,
-        mediaAssets: updatedImages
-      });
+  const handleSetThumbnail = async (mediaId:string) => {
+    if(!room || mediaWritePending.current || mediaReloadRequired)return;
+    if(!confirm('Bạn có muốn đặt hình ảnh này làm ảnh đại diện?') || !beginMediaWrite())return;
+    try{
+      const ack=await hotelApi.setThumbnail(mediaId,{targetId:roomId,targetType:'ROOM_TYPE'});
+      setRoom(previous=>previous?.id===room.id?{...previous,mediaAssets:selectMedia(previous.mediaAssets||[],ack)}:previous);
       setSuccessMessage('Đã đặt ảnh đại diện mới!');
-      setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (err: any) {
-      setError(err?.message || 'Không thể đặt ảnh đại diện');
-    }
+    }catch(error){failMediaWrite(error);}
+    finally{finishMediaWrite();}
   };
 
   useEffect(() => {
@@ -193,6 +174,7 @@ export default function EditRoomPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if(mediaWritePending.current)return;
 
     if(!room)return;
     let patch:ReturnType<typeof roomUpdatePatch>;
@@ -233,7 +215,7 @@ export default function EditRoomPage() {
   };
 
   const handleToggleActive = async () => {
-    if (!room) return;
+    if (!room || mediaWritePending.current) return;
 
     const action = room.isActive ? "vô hiệu hóa" : "kích hoạt";
     const confirmMessage = room.isActive
@@ -253,7 +235,7 @@ export default function EditRoomPage() {
         await hotelApi.activateRoomType(roomId);
       }
 
-      setRoom({ ...room, isActive: !room.isActive });
+      setRoom(previous=>previous?.id===room.id?{...previous,isActive:!room.isActive}:previous);
       setSuccessMessage(`Đã ${action} phòng thành công!`);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
@@ -319,7 +301,7 @@ export default function EditRoomPage() {
               {room && (
                 <button
                   onClick={handleToggleActive}
-                  disabled={toggling}
+                  disabled={toggling || mediaBusy}
                   className={`rounded-lg px-4 py-2 font-semibold transition disabled:opacity-50 ${
                     room.isActive
                       ? 'bg-[#FFE8E6] text-[#9C1F23] hover:bg-[#FCD2CF]'
@@ -347,6 +329,8 @@ export default function EditRoomPage() {
             <RoomInventoryReview roomId={roomId} onState={inventoryStateChanged}/>
             <form onSubmit={handleSave} className="space-y-6">
               {/* Image Upload Section */}
+              <MediaWriteNotice message={mediaError} needsReload={mediaReloadRequired} loading={mediaBusy} onReload={refreshMedia}/>
+              <fieldset disabled={mediaBusy || mediaReloadRequired || saving || toggling} className="contents">
               <div className="rounded-xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
                 <h2 className="text-lg font-semibold text-[#0F172A] mb-4">Hình ảnh phòng</h2>
                 
@@ -393,7 +377,7 @@ export default function EditRoomPage() {
                             )}
                             <button
                               type="button"
-                              onClick={() => handleDeleteImage(img.id, img.isThumbnail)}
+                              onClick={() => handleDeleteImage(img.id)}
                               disabled={deletingImageId === img.id}
                               className="rounded-full bg-red-600 p-1.5 text-white shadow-lg hover:bg-red-700 disabled:opacity-50"
                               title="Xóa hình ảnh"
@@ -418,6 +402,8 @@ export default function EditRoomPage() {
                   )}
                 </div>
               </div>
+
+              </fieldset>
 
               <div className="rounded-xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
                 <h2 className="text-lg font-semibold text-[#0F172A] mb-4">Thông tin cơ bản</h2>
@@ -661,7 +647,7 @@ export default function EditRoomPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || mediaBusy}
                   className="px-6 py-2 rounded-lg bg-[#0057FF] text-white font-semibold hover:bg-[#0046CC] transition disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
                 >
                   {saving ? (

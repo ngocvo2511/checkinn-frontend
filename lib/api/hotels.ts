@@ -1,3 +1,4 @@
+import {uploadMedia as writeMedia,deleteMedia as removeMedia,selectThumbnail,deleteDraft,previewMedia} from './media-write.ts';
 import {updateHotelContent} from './hotel-content.ts';
 import {getHotelVerificationDocuments,uploadHotelVerificationDocuments} from './hotel-documents.ts';
 import { readJson, readArray, ReadApiError } from './read-request.ts';
@@ -104,7 +105,9 @@ export type { City } from './cities';
 export interface MediaAsset {
   id: string;
   url: string;
-  type: string;
+  type?: string;
+  targetId?: string;
+  targetType?: 'HOTEL'|'ROOM_TYPE';
   isThumbnail?: boolean;
   sortOrder?: number;
   displayOrder?: number;
@@ -580,34 +583,8 @@ export const hotelApi = {
   },
 
   // Upload media (image) for hotel or room
-  uploadMedia: async (targetId: string, targetType: 'HOTEL' | 'ROOM_TYPE', file: File, isThumbnail: boolean = false, sortOrder: number = 0): Promise<MediaAsset> => {
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('targetId', targetId);
-      formData.append('targetType', targetType);
-      formData.append('isThumbnail', String(isThumbnail));
-      formData.append('sortOrder', String(sortOrder));
-
-      const response = await fetch(`${API_BASE_URL}/api/hotel/medias`, {
-        method: 'POST',
-        headers: {
-          ...authHeaders(),
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to upload media: ${response.status} ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      return result;
-    } catch (error) {
-      console.error('Error uploading media:', error);
-      throw error;
-    }
-  },
+  uploadMedia: async (targetId:string,targetType:'HOTEL'|'ROOM_TYPE',file:File,isThumbnail=false,sortOrder=0):Promise<MediaAsset> =>
+    writeMedia({targetId,targetType},file,isThumbnail,sortOrder,authHeaders()),
 
   // Private document requests share a deadline and never expose upstream errors.
   uploadHotelDocuments: async (hotelId: string, formData: FormData): Promise<any> =>
@@ -650,77 +627,15 @@ export const hotelApi = {
   },
 
   // Delete draft hotel (DRAFT only)
-  deleteDraftHotel: async (hotelId: string): Promise<void> => {
-    try {
-      let response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/draft`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders(),
-        },
-      });
+  deleteDraftHotel: async (hotelId:string):Promise<void> => deleteDraft(hotelId,authHeaders()),
 
-      if (!response.ok && response.status === 404) {
-        response = await fetch(`${API_BASE_URL}/hotels/${hotelId}/draft`, {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-            ...authHeaders(),
-          },
-        });
-      }
+  getMediaPreview: async (targetId:string,targetType:'HOTEL'|'ROOM_TYPE'):Promise<MediaAsset[]> =>
+    previewMedia({targetId,targetType},authHeaders()),
 
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(extractErrorMessage(text, `Lỗi khi xóa bản nháp: ${response.status}`));
-      }
-    } catch (error) {
-      console.error('Error deleting draft hotel:', error);
-      throw error;
-    }
-  },
+  deleteMedia: async (mediaId:string):Promise<void> => removeMedia(mediaId,authHeaders()),
 
-  // Delete media by ID
-  deleteMedia: async (mediaId: string): Promise<void> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/hotel/medias/${mediaId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders(),
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to delete media: ${response.status} ${response.statusText}`);
-      }
-    } catch (error) {
-      console.error('Error deleting media:', error);
-      throw error;
-    }
-  },
-
-  // Set media as thumbnail
-  setThumbnail: async (mediaId: string): Promise<MediaAsset> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/hotel/medias/${mediaId}/thumbnail`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders(),
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to set thumbnail: ${response.status} ${response.statusText}`);
-      }
-
-      return response.json();
-    } catch (error) {
-      console.error('Error setting thumbnail:', error);
-      throw error;
-    }
-  },
+  setThumbnail: async (mediaId:string,target?:{targetId:string;targetType:'HOTEL'|'ROOM_TYPE'}):Promise<MediaAsset> =>
+    selectThumbnail(mediaId,authHeaders(),target),
 
   async getRoomTypePreview(roomTypeId: string, token: string): Promise<RoomType> {
     if (!token?.trim()) throw new Error('Vui lòng đăng nhập để xem loại phòng.');

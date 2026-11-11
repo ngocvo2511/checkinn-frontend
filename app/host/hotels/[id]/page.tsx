@@ -1,5 +1,9 @@
 "use client";
 
+import MediaWriteNotice from '@/components/host/MediaWriteNotice';
+import {orderMedia,appendMedia,selectMedia,removeMedia,nextMediaOrder,mediaNeedsReload,mediaErrorMessage} from '@/lib/api/media-state';
+
+
 import {HotelAmenityMappings} from '@/components/HotelAmenityMappings';
 import {HotelAccommodationEditor} from '@/components/HotelAccommodationEditor';
 
@@ -123,8 +127,13 @@ export default function HostHotelDetailPage() {
   const [activeSection, setActiveSection] = useState("overview");
   const [showAllImages, setShowAllImages] = useState(false);
   const [toggling, setToggling] = useState(false);
+  const [lifecycleSaving,setLifecycleSaving]=useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [mediaBusy,setMediaBusy]=useState(false);
+  const [mediaReloadRequired,setMediaReloadRequired]=useState(false);
+  const [mediaError,setMediaError]=useState<string|null>(null);
+
   const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
@@ -190,13 +199,15 @@ export default function HostHotelDetailPage() {
   const { modalState, closeModal, showSuccess, showError, showWarning, showConfirm } = useNotificationModal();
 
   const handleSubmitApprovalClick = () => {
-    if (!hotel) return;
+    if (!hotel || contentWritePending.current) return;
     showConfirm({
       title: 'Gửi hồ sơ xét duyệt?',
       message: 'Hồ sơ khách sạn sẽ được chuyển tới Ban quản trị để phê duyệt (trạng thái Chờ duyệt). Hãy chắc chắn bạn đã tải lên đầy đủ ảnh đại diện và giấy tờ pháp lý.',
       confirmText: 'Gửi duyệt ngay',
       cancelText: 'Kiểm tra lại',
       onConfirm: async () => {
+        if(contentWritePending.current)return;
+        contentWritePending.current=true;setLifecycleSaving(true);
         try {
           await hotelApi.submitHotelApproval(hotel.id);
           showSuccess(
@@ -209,13 +220,13 @@ export default function HostHotelDetailPage() {
             'Chưa thể gửi duyệt',
             err?.message || 'Vui lòng kiểm tra lại giấy tờ pháp lý và ảnh đại diện của khách sạn.'
           );
-        }
+        } finally {contentWritePending.current=false;setLifecycleSaving(false);}
       },
     });
   };
 
   const handleDeleteDraftClick = () => {
-    if (!hotel) return;
+    if (!hotel || contentWritePending.current) return;
     showConfirm({
       title: 'Xóa bản nháp khách sạn?',
       message: `Bạn có chắc chắn muốn xóa bản nháp "${hotel.name}"? Mọi thông tin và giấy tờ liên quan sẽ bị xóa vĩnh viễn và không thể khôi phục.`,
@@ -223,6 +234,8 @@ export default function HostHotelDetailPage() {
       confirmText: 'Xóa bản nháp',
       cancelText: 'Hủy',
       onConfirm: async () => {
+        if(contentWritePending.current)return;
+        contentWritePending.current=true;setLifecycleSaving(true);
         try {
           await hotelApi.deleteDraftHotel(hotel.id);
           showSuccess(
@@ -235,7 +248,7 @@ export default function HostHotelDetailPage() {
             'Không thể xóa bản nháp',
             err?.message || 'Có lỗi xảy ra khi xóa bản nháp.'
           );
-        }
+        } finally {contentWritePending.current=false;setLifecycleSaving(false);}
       },
     });
   };
@@ -412,29 +425,7 @@ export default function HostHotelDetailPage() {
     if (!showAmenityModal) setOpenAmenityPicker(null);
   }, [showAmenityModal]);
 
-  const heroImages: MediaAsset[] = useMemo(() => {
-    if (!hotel) return [];
-    // Chỉ lấy hình ảnh của khách sạn, không bao gồm hình ảnh phòng
-    const hotelImages = hotel.mediaAssets || [];
-    const sorted = hotelImages.sort((a, b) => {
-      // Sort by thumbnail first (thumbnail comes first), then by sortOrder
-      if (a.isThumbnail && !b.isThumbnail) return -1;
-      if (!a.isThumbnail && b.isThumbnail) return 1;
-      const orderA = Number(a.sortOrder) || 0;
-      const orderB = Number(b.sortOrder) || 0;
-      return orderA - orderB;
-    });
-    
-    // Debug logging
-    console.log('Sorted images:', sorted.map(img => ({
-      id: img.id,
-      url: img.url.substring(img.url.lastIndexOf('/') + 1),
-      isThumbnail: img.isThumbnail,
-      sortOrder: img.sortOrder
-    })));
-    
-    return sorted;
-  }, [hotel]);
+  const heroImages: MediaAsset[] = useMemo(() => orderMedia(hotel?.mediaAssets||[]),[hotel]);
 
   const amenityCategories = useMemo(() => {
     return hotel?.amenityCategories || hotel?.amenities || [];
@@ -460,7 +451,7 @@ export default function HostHotelDetailPage() {
   );
 
   const handleToggleActive = async () => {
-    if (!hotel) return;
+    if (!hotel || contentWritePending.current) return;
 
     const action = hotel.isActive ? "tắt hoạt động" : "kích hoạt";
     const confirmMessage = hotel.isActive
@@ -481,7 +472,7 @@ export default function HostHotelDetailPage() {
       }
 
       // Update local state
-      setHotel({ ...hotel, isActive: !hotel.isActive });
+      setHotel(previous=>previous?.id===hotel.id?{...previous,isActive:!hotel.isActive}:previous);
       setSuccessMessage(`Đã ${action} khách sạn thành công!`);
 
       // Clear success message after 3 seconds
@@ -493,134 +484,75 @@ export default function HostHotelDetailPage() {
     }
   };
 
-  const handleUploadImage = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !hotel) return;
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      showWarning('Định dạng không hợp lệ', 'Vui lòng chọn tập tin hình ảnh (JPG, PNG, WebP).');
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      showWarning('Tệp quá lớn', 'Kích thước file không được vượt quá 5MB.');
-      return;
-    }
-
+  const beginMediaWrite = () => {
+    if (!hotel || contentWritePending.current || mediaReloadRequired || editLoading || docSaving || toggling || lifecycleSaving) return false;
+    contentWritePending.current=true;setMediaBusy(true);setMediaError(null);setSuccessMessage(null);
+    return true;
+  };
+  const finishMediaWrite = () => {contentWritePending.current=false;setMediaBusy(false);};
+  const failMediaWrite = (error:unknown,prefix='') => {
+    setMediaError(prefix+mediaErrorMessage(error));
+    if(mediaNeedsReload(error))setMediaReloadRequired(true);
+  };
+  const refreshMedia = async () => {
+    if(contentWritePending.current || !hotel)return;
+    contentWritePending.current=true;setMediaBusy(true);
+    try{
+      const assets=await hotelApi.getMediaPreview(hotelId,'HOTEL');
+      setHotel(previous=>previous?.id===hotel.id?{...previous,mediaAssets:assets}:previous);
+      setMediaReloadRequired(false);setMediaError(null);
+    }catch(error){setMediaError(mediaErrorMessage(error));setMediaReloadRequired(true);}
+    finally{finishMediaWrite();}
+  };
+  const handleUploadImage = async (event:React.ChangeEvent<HTMLInputElement>) => {
+    const input=event.target,file=input.files?.[0];
+    if(!file || !hotel)return;
+    if(!file.type.startsWith('image/')){setMediaError('Vui lòng chọn tập tin hình ảnh');return;}
+    if(file.size>5*1024*1024){setMediaError('Kích thước file không được vượt quá 5MB');return;}
+    if(!beginMediaWrite())return;
     setUploading(true);
-    setError(null);
-    setSuccessMessage(null);
-
-    try {
-      const nextSortOrder = hotel.mediaAssets ? hotel.mediaAssets.length : 0;
-      // If this is the first image, set it as thumbnail
-      const isFirstImage = !hotel.mediaAssets || hotel.mediaAssets.length === 0;
-      const newMedia = await hotelApi.uploadMedia(hotelId, 'HOTEL', file, isFirstImage, nextSortOrder);
-
-      // Update local state - create completely new array to ensure re-render
-      const updatedMediaAssets = [...(hotel.mediaAssets || []), newMedia];
-      setHotel({
-        ...hotel,
-        mediaAssets: [...updatedMediaAssets]
-      });
-      setSuccessMessage(`Đã tải lên hình ảnh thành công!${isFirstImage ? ' (Đã đặt làm ảnh đại diện)' : ''}`);
-
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccessMessage(null), 3000);
-
-      // Reset input
-      event.target.value = '';
-    } catch (err: any) {
-      setError(err?.message || 'Không thể tải lên hình ảnh');
-    } finally {
-      setUploading(false);
-    }
+    try{
+      const current=hotel.mediaAssets||[];
+      const ack=await hotelApi.uploadMedia(hotelId,'HOTEL',file,current.length===0,nextMediaOrder(current));
+      setHotel(previous=>previous?.id===hotel.id?{...previous,mediaAssets:appendMedia(previous.mediaAssets||[],ack)}:previous);
+      setSuccessMessage('Đã tải lên hình ảnh thành công!');
+    }catch(error){failMediaWrite(error);}
+    finally{input.value='';setUploading(false);finishMediaWrite();}
   };
 
-  const handleDeleteImage = async (mediaId: string) => {
-    if (!hotel) return;
-
-    const imageToDelete = (hotel.mediaAssets || []).find(m => m.id === mediaId);
-    const isThumbnail = imageToDelete?.isThumbnail;
-
-    if (!confirm('Bạn có chắc chắn muốn xóa hình ảnh này?')) return;
-
+  const handleDeleteImage = async (mediaId:string) => {
+    if(!hotel || contentWritePending.current || mediaReloadRequired)return;
+    if(!confirm('Bạn có chắc chắn muốn xóa hình ảnh này?') || !beginMediaWrite())return;
     setDeletingImageId(mediaId);
-    setError(null);
-    setSuccessMessage(null);
-
-    try {
+    try{
+      const current=hotel.mediaAssets||[],deleted=current.find(asset=>asset.id===mediaId);
       await hotelApi.deleteMedia(mediaId);
-
-      // Update local state
-      const updatedMediaAssets = (hotel.mediaAssets || []).filter(m => m.id !== mediaId);
-      
-      // If deleted image was thumbnail and there are remaining images, set the first one as new thumbnail
-      if (isThumbnail && updatedMediaAssets.length > 0) {
-        try {
-          const newThumbnail = await hotelApi.setThumbnail(updatedMediaAssets[0].id);
-          // Update the thumbnail flag in local state
-          updatedMediaAssets[0] = { ...updatedMediaAssets[0], isThumbnail: true };
-          setSuccessMessage('Đã xóa hình ảnh và đặt ảnh đại diện mới!');
-        } catch (err) {
-          console.error('Failed to set new thumbnail:', err);
-          setSuccessMessage('Đã xóa hình ảnh (lỗi khi đặt ảnh đại diện mới)');
-        }
-      } else {
-        setSuccessMessage('Đã xóa hình ảnh thành công!');
+      const remaining=removeMedia(current,mediaId);
+      setHotel(previous=>previous?.id===hotel.id?{...previous,mediaAssets:removeMedia(previous.mediaAssets||[],mediaId)}:previous);
+      if(deleted?.isThumbnail && remaining.length>0){
+        try{
+          const ack=await hotelApi.setThumbnail(remaining[0].id,{targetId:hotelId,targetType:'HOTEL'});
+          setHotel(previous=>previous?.id===hotel.id?{...previous,mediaAssets:selectMedia(previous.mediaAssets||[],ack)}:previous);
+        }catch(error){failMediaWrite(error,'Ảnh đã được xóa; chưa thể xác nhận ảnh đại diện mới. ');return;}
       }
-
-      // Create completely new object to ensure re-render
-      setHotel({
-        ...hotel,
-        mediaAssets: [...updatedMediaAssets]
-      });
-
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (err: any) {
-      setError(err?.message || 'Không thể xóa hình ảnh');
-    } finally {
-      setDeletingImageId(null);
-    }
+      setSuccessMessage('Đã xóa hình ảnh thành công!');
+    }catch(error){failMediaWrite(error);}
+    finally{setDeletingImageId(null);finishMediaWrite();}
   };
 
-  const handleSetThumbnail = async (mediaId: string) => {
-    if (!hotel) return;
-
-    if (!confirm('Bạn có muốn đặt hình ảnh này làm ảnh đại diện?')) return;
-
-    setError(null);
-    setSuccessMessage(null);
-
-    try {
-      await hotelApi.setThumbnail(mediaId);
-
-      // Update local state: unset all thumbnails, then set the selected one
-      const updatedMediaAssets = (hotel.mediaAssets || []).map(m => ({
-        ...m,
-        isThumbnail: m.id === mediaId
-      }));
-      
-      // Create completely new object to ensure re-render
-      setHotel({
-        ...hotel,
-        mediaAssets: [...updatedMediaAssets]
-      });
-      
+  const handleSetThumbnail = async (mediaId:string) => {
+    if(!hotel || contentWritePending.current || mediaReloadRequired)return;
+    if(!confirm('Bạn có muốn đặt hình ảnh này làm ảnh đại diện?') || !beginMediaWrite())return;
+    try{
+      const ack=await hotelApi.setThumbnail(mediaId,{targetId:hotelId,targetType:'HOTEL'});
+      setHotel(previous=>previous?.id===hotel.id?{...previous,mediaAssets:selectMedia(previous.mediaAssets||[],ack)}:previous);
       setSuccessMessage('Đã đặt ảnh đại diện mới!');
-
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (err: any) {
-      setError(err?.message || 'Không thể đặt ảnh đại diện');
-    }
+    }catch(error){failMediaWrite(error);}
+    finally{finishMediaWrite();}
   };
 
   const handleEdit = () => {
-    if (!hotel) return;
+    if (!hotel || contentWritePending.current) return;
     
     // Find city name from cityId
     const selectedCity = cities.find(c => c.id === hotel.cityId);
@@ -653,7 +585,7 @@ export default function HostHotelDetailPage() {
   };
 
   const handleEditAmenities = () => {
-    if (!hotel) return;
+    if (!hotel || contentWritePending.current) return;
     const amenities = (hotel.amenityCategories || hotel.amenities || []).map((cat: any) => ({
       title: cat.title || '',
       items: (cat.items || []).map((i: any) => i.title || '')
@@ -664,7 +596,7 @@ export default function HostHotelDetailPage() {
   };
 
   const handleEditPolicies = () => {
-    if (!hotel) return;
+    if (!hotel || contentWritePending.current) return;
     const policies = (hotel.policies || []).map((p: any) => ({
       category: p.category || p.title || '',
       content: p.content || '',
@@ -675,7 +607,7 @@ export default function HostHotelDetailPage() {
   };
 
   const handleEditQuestions = () => {
-    if (!hotel) return;
+    if (!hotel || contentWritePending.current) return;
     const faqs = (hotel.faqs || []).map((q: any) => ({
       question: q.question || '',
       answer: q.answer || '',
@@ -687,6 +619,7 @@ export default function HostHotelDetailPage() {
 
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if(contentWritePending.current)return;
     
     // Validation
     if (!formData.name.trim()) {
@@ -831,6 +764,7 @@ export default function HostHotelDetailPage() {
 
   const handleSaveDocuments = async (e: React.FormEvent) => {
     e.preventDefault();
+    if(contentWritePending.current)return;
     if (!hotel) return;
     setDocSaving(true);
     setDocError(null);
@@ -1424,6 +1358,8 @@ export default function HostHotelDetailPage() {
 
           {/* Photos */}
           <section id="photos" className="mx-auto max-w-5xl px-4 md:px-8 lg:px-12 pb-10">
+            <MediaWriteNotice message={mediaError} needsReload={mediaReloadRequired} loading={mediaBusy} onReload={refreshMedia}/>
+            <fieldset disabled={mediaBusy || mediaReloadRequired || editLoading || docSaving || toggling || lifecycleSaving || amenitySaving || policySaving || questionSaving} className="contents">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-[#0F172A]">Hình ảnh</h2>
               <div className="flex items-center gap-3">
@@ -1580,6 +1516,7 @@ export default function HostHotelDetailPage() {
                 </div>
               )}
             </div>
+            </fieldset>
           </section>
 
           {/* Rooms */}
