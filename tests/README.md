@@ -222,3 +222,87 @@ the unchanged place-owned NearbyPlacesSection.tsx:161 showDistance props; no bui
 bypass, production build pass or place change is claimed. Root plan section68 is
 outside Git; backend `hotel-service/REVIEW_CONTRACT_2026-11-09.md` preserves rollout
 and migration limitations for review/push.
+
+## Hotel policy/FAQ consistency (9 November 2026)
+
+Branch `fix/hotel-content-consistency`: create/edit forms no longer silently drop
+incomplete policy/FAQ rows. Complete or explicitly remove each row;[] remains a
+valid explicit empty collection. Modal failures keep the draft visible. The two
+content SDK writes validate input and returned hotel/collection identity, share a
+15s total request/body deadline, preserve safe errors and never auto-replay writes.
+
+```powershell
+npm run test:regression
+npx playwright test --config=playwright.content.config.ts
+npx tsc --noEmit
+```
+
+Node145 PASS; actual Next development browser6 PASS: invalid blank rows, retained
+draft on503, and successful acknowledgement for each content type. APIs in browser
+tests are intercepted. Separate backend evidence: PostgreSQL/JPA7 and rebuilt hotel
+native HTTP24 assertions passed. No new migration; deploy backend before frontend.
+Typecheck remains blocked only by the unchanged place-owned showDistance mismatch;
+no build bypass or frontend production build pass. See backend
+`hotel-service/HOTEL_CONTENT_2026-11-09.md` and workspace-root plan section69.
+
+## Amenity writes and bounded dictionary reads (10 November 2026)
+
+Branch `fix/amenity-write-contract` keeps the earlier uncommitted content/RPC work.
+Create/edit no longer silently filter incomplete amenity rows; complete or remove
+them explicitly. Empty optional collections can be cleared. The shared adapter
+uses the existing request wrapper and canonical items response, validates hotel/
+collection identity and applies a15s total mutation budget without auto replay.
+
+Amenity/policy dictionaries load once per modal opening or explicit retry. Empty
+success is distinct from error/malformed data; errors keep drafts/current selection
+and stale completions cannot overwrite the next opening. No loading-state fetch loop.
+
+```powershell
+npm run test:regression
+npx playwright test --config=playwright.amenities.config.ts
+npx playwright test --config=playwright.content-webpack.config.ts
+npx tsc --noEmit
+```
+
+Node162 PASS;6 new browser cases plus6 existing policy/FAQ cases PASS. These runners
+use supported Next Webpack development mode because local Turbopack stalled on
+route compilation/readiness; tests use intercepted APIs and unchanged assertions.
+No force-click/data fabrication/type-validation bypass. Typecheck still fails only
+on the untouched place-owned showDistance mismatch, not because of missing DB.
+No production frontend build or default Turbopack pass is claimed.
+
+Separate backend evidence: hotel360 executed PASS +24 skipped, PostgreSQL7 and
+native HTTP29 assertions PASS. No schema migration or mapping policy change:
+same-label raw replacement does not inherit approval, and audit history remains.
+See backend `hotel-service/AMENITY_WRITES_2026-11-10.md` and root plan section71.
+
+
+## Pending content and amenity request shape — 10/11/2026
+
+On branch `fix/media-metadata-consistency`, run:
+
+```powershell
+npm run test:regression
+npx playwright test --config=playwright.content-webpack.config.ts
+npx playwright test --config=playwright.amenities.config.ts
+npx tsc --noEmit
+```
+
+164 Node tests PASS; content8 and amenities7 browser tests PASS. The three new
+pending-save cases hold an actual intercepted PUT and assert draft inputs/buttons
+are disabled until ACK; no force clicks or weakened checks. Response-only items
+is rejected before fetch rather than clearing children. API browser fixtures are
+synthetic; this is not full-system E2E. Typecheck retains only the pre-existing
+place-owned NearbyPlacesSection.tsx:161 showDistance mismatch. No place changes,
+production build or default Turbopack success claimed. Backend evidence and
+cloud/DB limitations are in root plan72 and MEDIA_METADATA_2026-11-10.md.
+
+
+## Fresh review — 11 November 2026
+
+Fresh selected hotel suite passed (ApplicationTests excluded, opt-in database
+tests skipped). Frontend 164 Node regressions, eight content and seven amenity
+browser tests passed using Webpack development mode and synthetic APIs. Standard
+typecheck retains the known place-owned showDistance mismatch; no bypass or
+production-build pass. Earlier PostgreSQL/native counts are historical checkpoint
+evidence, not rerun/certified in this review. Logs and IDE files are excluded.

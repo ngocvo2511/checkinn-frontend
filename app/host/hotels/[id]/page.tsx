@@ -134,18 +134,26 @@ export default function HostHotelDetailPage() {
   const [citySelected, setCitySelected] = useState(false);
   const [amenityForm, setAmenityForm] = useState<AmenityFormCategory[]>([]);
   const [showAmenityModal, setShowAmenityModal] = useState(false);
+  const contentWritePending=useRef(false);
   const [amenitySaving, setAmenitySaving] = useState(false);
+  const [amenityError, setAmenityError] = useState<string | null>(null);
   const [availableAmenityCategories, setAvailableAmenityCategories] = useState<string[]>([]);
   const [loadingAmenityCategories, setLoadingAmenityCategories] = useState(false);
+  const [amenityCategoryError, setAmenityCategoryError] = useState<string | null>(null);
+  const [amenityCategoryRetry, setAmenityCategoryRetry] = useState(0);
   const [openAmenityPicker, setOpenAmenityPicker] = useState<number | null>(null);
   const [policyForm, setPolicyForm] = useState<PolicyFormItem[]>([]);
   const [showPolicyModal, setShowPolicyModal] = useState(false);
   const [policySaving, setPolicySaving] = useState(false);
+  const [policyError, setPolicyError] = useState<string | null>(null);
   const [policyCategories, setPolicyCategories] = useState<PolicyCategory[]>([]);
   const [loadingPolicyCategories, setLoadingPolicyCategories] = useState(false);
+  const [policyCategoryError, setPolicyCategoryError] = useState<string | null>(null);
+  const [policyCategoryRetry, setPolicyCategoryRetry] = useState(0);
   const [questionForm, setQuestionForm] = useState<QuestionFormItem[]>([]);
   const [showQuestionModal, setShowQuestionModal] = useState(false);
   const [questionSaving, setQuestionSaving] = useState(false);
+  const [questionError, setQuestionError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -381,42 +389,24 @@ export default function HostHotelDetailPage() {
   }, [sectionList]);
 
   useEffect(() => {
-    const fetchPolicyCategories = async () => {
-      if (policyCategories.length > 0 || loadingPolicyCategories || !showPolicyModal) return;
-      setLoadingPolicyCategories(true);
-      try {
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
-        const response = await fetch(`${API_BASE_URL}/hotels/policies/categories`);
-        if (!response.ok) throw new Error('Không thể tải danh sách loại chính sách');
-        const data = await response.json();
-        setPolicyCategories(data.result || data);
-      } catch (err) {
-        console.error('Lỗi tải policy categories:', err);
-      } finally {
-        setLoadingPolicyCategories(false);
-      }
-    };
-
-    if (showPolicyModal) {
-      fetchPolicyCategories();
-    }
-  }, [showPolicyModal, policyCategories.length, loadingPolicyCategories]);
+    if (!showPolicyModal) return;
+    let cancelled = false;
+    setLoadingPolicyCategories(true); setPolicyCategoryError(null); setPolicyCategories([]);
+    void hotelApi.getPolicyCategories().then(categories => { if (!cancelled) setPolicyCategories(categories); })
+      .catch(() => { if (!cancelled) setPolicyCategoryError('Không thể tải danh mục chính sách. Nội dung đang sửa được giữ nguyên.'); })
+      .finally(() => { if (!cancelled) setLoadingPolicyCategories(false); });
+    return () => { cancelled = true; };
+  }, [showPolicyModal, policyCategoryRetry]);
 
   useEffect(() => {
-    const fetchAmenityCategories = async () => {
-      if (availableAmenityCategories.length > 0 || loadingAmenityCategories || !showAmenityModal) return;
-      setLoadingAmenityCategories(true);
-      try {
-        const categories = await hotelApi.getAmenityCategories();
-        setAvailableAmenityCategories(categories.map((c) => c.type));
-      } catch (err) {
-        console.error('Failed to fetch amenity categories:', err);
-      } finally {
-        setLoadingAmenityCategories(false);
-      }
-    };
-    fetchAmenityCategories();
-  }, [showAmenityModal, availableAmenityCategories.length, loadingAmenityCategories]);
+    if (!showAmenityModal) return;
+    let cancelled = false;
+    setLoadingAmenityCategories(true); setAmenityCategoryError(null); setAvailableAmenityCategories([]);
+    void hotelApi.getAmenityCategories().then(categories => { if (!cancelled) setAvailableAmenityCategories(categories.map(category => category.type)); })
+      .catch(() => { if (!cancelled) setAmenityCategoryError('Không thể tải danh mục gợi ý. Bạn vẫn có thể nhập tên tiện ích.'); })
+      .finally(() => { if (!cancelled) setLoadingAmenityCategories(false); });
+    return () => { cancelled = true; };
+  }, [showAmenityModal, amenityCategoryRetry]);
 
   useEffect(() => {
     if (!showAmenityModal) setOpenAmenityPicker(null);
@@ -669,6 +659,7 @@ export default function HostHotelDetailPage() {
       items: (cat.items || []).map((i: any) => i.title || '')
     }));
     setAmenityForm(amenities.length ? amenities : [{ title: '', items: [''] }]);
+    setAmenityError(null);
     setShowAmenityModal(true);
   };
 
@@ -679,6 +670,7 @@ export default function HostHotelDetailPage() {
       content: p.content || '',
     }));
     setPolicyForm(policies.length ? policies : [{ category: '', content: '' }]);
+    setPolicyError(null);
     setShowPolicyModal(true);
   };
 
@@ -689,6 +681,7 @@ export default function HostHotelDetailPage() {
       answer: q.answer || '',
     }));
     setQuestionForm(faqs.length ? faqs : [{ question: '', answer: '' }]);
+    setQuestionError(null);
     setShowQuestionModal(true);
   };
 
@@ -767,98 +760,71 @@ export default function HostHotelDetailPage() {
   };
 
   const handleSaveAmenities = async () => {
-    if (!hotel) return;
+    if (!hotel || contentWritePending.current) return;
+    contentWritePending.current=true;
 
-    const sanitizedAmenities = amenityForm
-      .map(cat => ({
-        title: cat.title.trim(),
-        amenities: cat.items
-          .map(item => item.trim())
-          .filter(Boolean)
-          .map(title => ({ title }))
-      }))
-      .filter(cat => cat.title && cat.amenities.length > 0);
-
-    // Validation: Check if there are any valid amenity categories
-    if (sanitizedAmenities.length === 0) {
-      alert('Vui lòng thêm ít nhất một danh mục tiện ích với tên danh mục và các tiện ích bên trong');
-      return;
-    }
-
-    // Validation: Check each category has a title
-    const hasEmptyTitle = amenityForm.some(cat => !cat.title.trim() && cat.items.some(item => item.trim()));
-    if (hasEmptyTitle) {
-      alert('Vui lòng nhập tên danh mục cho tất cả các danh mục có tiện ích');
-      return;
-    }
 
     setAmenitySaving(true);
-    setError(null);
+    setAmenityError(null);
 
     try {
-      const updated = await hotelApi.updateAmenities(hotelId, sanitizedAmenities);
+    const amenities = amenityForm.map(category => ({title: category.title,
+      amenities: category.items.map(title => ({title}))}));
+
+      const updated = await hotelApi.updateAmenities(hotelId, amenities);
 
       setHotel(updated);
       setShowAmenityModal(false);
       setSuccessMessage('Đã cập nhật tiện ích thành công!');
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
-      setError(err?.message || 'Không thể cập nhật tiện ích');
+      setAmenityError(err?.message || 'Không thể cập nhật tiện ích');
     } finally {
+      contentWritePending.current=false;
       setAmenitySaving(false);
     }
   };
 
   const handleSavePolicies = async () => {
-    if (!hotel) return;
-
-    const sanitizedPolicies = policyForm
-      .map(p => ({
-        category: p.category.trim(),
-        content: p.content.trim(),
-      }))
-      .filter(p => p.category || p.content);
+    if (!hotel || contentWritePending.current) return;
+    contentWritePending.current=true;
 
     setPolicySaving(true);
-    setError(null);
+    setPolicyError(null);
 
     try {
-      const updated = await hotelApi.updatePolicies(hotelId, sanitizedPolicies);
+      const updated = await hotelApi.updatePolicies(hotelId, policyForm);
 
       setHotel(updated);
       setShowPolicyModal(false);
       setSuccessMessage('Đã cập nhật chính sách thành công!');
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
-      setError(err?.message || 'Không thể cập nhật chính sách');
+      setPolicyError(err?.message || 'Không thể cập nhật chính sách');
     } finally {
+      contentWritePending.current=false;
       setPolicySaving(false);
     }
   };
 
   const handleSaveQuestions = async () => {
-    if (!hotel) return;
-
-    const sanitizedQuestions = questionForm
-      .map(q => ({
-        question: q.question.trim(),
-        answer: q.answer.trim(),
-      }))
-      .filter(q => q.question || q.answer);
+    if (!hotel || contentWritePending.current) return;
+    contentWritePending.current=true;
 
     setQuestionSaving(true);
-    setError(null);
+    setQuestionError(null);
 
     try {
-      const updated = await hotelApi.updateQuestions(hotelId, sanitizedQuestions);
+      const updated = await hotelApi.updateQuestions(hotelId, questionForm);
 
       setHotel(updated);
       setShowQuestionModal(false);
       setSuccessMessage('Đã cập nhật FAQ thành công!');
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
-      setError(err?.message || 'Không thể cập nhật FAQ');
+      setQuestionError(err?.message || 'Không thể cập nhật FAQ');
     } finally {
+      contentWritePending.current=false;
       setQuestionSaving(false);
     }
   };
@@ -2094,6 +2060,8 @@ export default function HostHotelDetailPage() {
               <h2 className="text-xl font-bold text-[#0F172A]">Chỉnh sửa tiện ích</h2>
               <button
                 type="button"
+                disabled={amenitySaving}
+                aria-label="Đóng cửa sổ"
                 onClick={() => setShowAmenityModal(false)}
                 className="rounded-full p-2 hover:bg-[#F3F4F6] transition"
               >
@@ -2103,6 +2071,7 @@ export default function HostHotelDetailPage() {
               </button>
             </div>
 
+            <fieldset disabled={amenitySaving} className="contents">
             <div className="px-6 py-6 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-[#0F172A]">Danh mục tiện ích</h3>
@@ -2117,6 +2086,9 @@ export default function HostHotelDetailPage() {
                   Thêm danh mục
                 </button>
               </div>
+
+              {amenityCategoryError && <p role="alert" className="mb-4 text-sm text-red-600">{amenityCategoryError}
+                <button type="button" className="ml-3 underline" onClick={() => setAmenityCategoryRetry(value => value + 1)}>Thử tải lại danh mục tiện ích</button></p>}
 
               {loadingAmenityCategories && (
                 <p className="text-sm text-[#6B7280]">Đang tải danh mục tiện ích sẵn có...</p>
@@ -2262,6 +2234,10 @@ export default function HostHotelDetailPage() {
               </div>
             </div>
 
+            </fieldset>
+
+            {amenityError && <p role="alert" className="mx-6 mb-4 text-sm text-red-600">{amenityError}</p>}
+
             <div className="sticky bottom-0 bg-white border-t border-[#E5E7EB] px-6 py-4 flex items-center justify-end gap-3">
               <button
                 type="button"
@@ -2302,6 +2278,8 @@ export default function HostHotelDetailPage() {
               <h2 className="text-xl font-bold text-[#0F172A]">Chỉnh sửa chính sách</h2>
               <button
                 type="button"
+                disabled={policySaving}
+                aria-label="Đóng cửa sổ"
                 onClick={() => setShowPolicyModal(false)}
                 className="rounded-full p-2 hover:bg-[#F3F4F6] transition"
               >
@@ -2311,6 +2289,7 @@ export default function HostHotelDetailPage() {
               </button>
             </div>
 
+            <fieldset disabled={policySaving} className="contents">
             <div className="px-6 py-6 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-[#0F172A]">Danh sách chính sách</h3>
@@ -2332,6 +2311,9 @@ export default function HostHotelDetailPage() {
                 </div>
               )}
 
+              {policyCategoryError && <p role="alert" className="mb-4 text-sm text-red-600">{policyCategoryError}
+                <button type="button" className="ml-3 underline" onClick={() => setPolicyCategoryRetry(value => value + 1)}>Thử tải lại danh mục chính sách</button></p>}
+
               <div className="space-y-5">
                 {policyForm.map((policy, index) => (
                   <div key={index} className="rounded-xl border border-[#E5E7EB] bg-white p-4 shadow-sm space-y-3">
@@ -2347,6 +2329,7 @@ export default function HostHotelDetailPage() {
                         disabled={loadingPolicyCategories}
                       >
                         <option value="">-- Chọn loại chính sách --</option>
+                        {policy.category && !policyCategories.some(category => category.type === policy.category) && <option value={policy.category}>{policy.category}</option>}
                         {policyCategories.map((cat) => (
                           <option key={cat.type} value={cat.type}>
                             {cat.type}
@@ -2378,6 +2361,10 @@ export default function HostHotelDetailPage() {
                 ))}
               </div>
             </div>
+
+            </fieldset>
+
+            {policyError && <p role="alert" className="mx-6 mb-4 text-sm text-red-600">{policyError}</p>}
 
             <div className="sticky bottom-0 bg-white border-t border-[#E5E7EB] px-6 py-4 flex items-center justify-end gap-3">
               <button
@@ -2419,6 +2406,8 @@ export default function HostHotelDetailPage() {
               <h2 className="text-xl font-bold text-[#0F172A]">Chỉnh sửa FAQ</h2>
               <button
                 type="button"
+                disabled={questionSaving}
+                aria-label="Đóng cửa sổ"
                 onClick={() => setShowQuestionModal(false)}
                 className="rounded-full p-2 hover:bg-[#F3F4F6] transition"
               >
@@ -2428,6 +2417,7 @@ export default function HostHotelDetailPage() {
               </button>
             </div>
 
+            <fieldset disabled={questionSaving} className="contents">
             <div className="px-6 py-6 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-[#0F172A]">Danh sách câu hỏi</h3>
@@ -2492,6 +2482,10 @@ export default function HostHotelDetailPage() {
                 ))}
               </div>
             </div>
+
+            </fieldset>
+
+            {questionError && <p role="alert" className="mx-6 mb-4 text-sm text-red-600">{questionError}</p>}
 
             <div className="sticky bottom-0 bg-white border-t border-[#E5E7EB] px-6 py-4 flex items-center justify-end gap-3">
               <button

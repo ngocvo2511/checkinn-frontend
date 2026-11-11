@@ -1,5 +1,6 @@
 'use client';
 
+import {preparePolicies,prepareQuestions,prepareAmenities} from '@/lib/api/hotel-content';
 import type { ChangeEvent, FormEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -459,6 +460,10 @@ export default function HostCreateHotelPage() {
       return;
     }
 
+    let policies: ReturnType<typeof preparePolicies>, questions: ReturnType<typeof prepareQuestions>, amenityCategories: ReturnType<typeof prepareAmenities>;
+    try { policies = preparePolicies(form.policies); questions = prepareQuestions(form.questions ?? []); amenityCategories = prepareAmenities(form.amenityCategories); }
+    catch (error) { setSubmitError(error instanceof Error ? error.message : 'Nội dung chính sách hoặc FAQ không hợp lệ.'); return; }
+
     const payload = {
       accommodationType: form.accommodationType,
       name: form.name.trim(),
@@ -479,12 +484,9 @@ export default function HostCreateHotelPage() {
       taxId: form.taxId.trim() || null,
       operationLicenseNumber: form.operationLicenseNumber.trim() || null,
       ownerIdentityNumber: form.ownerIdentityNumber.trim(),
-      policies: form.policies.filter(p => p.category.trim() && p.content.trim()),
-      questions: (form.questions ?? []).filter(q => q.question.trim() && q.answer.trim()),
-      amenityCategories: form.amenityCategories.filter(cat => cat.title.trim() && cat.amenities.some(a => a.title.trim())).map(cat => ({
-        title: cat.title.trim(),
-        amenities: cat.amenities.filter(a => a.title.trim())
-      })),
+      policies,
+      questions,
+      amenityCategories,
     };
 
     try {
