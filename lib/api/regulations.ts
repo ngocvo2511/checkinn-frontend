@@ -22,9 +22,9 @@ export const validateRegulationValue = (value: string): ValidationError | null =
   }
 
   const trimmedValue = value.trim();
-  const numValue = parseFloat(trimmedValue);
+  const numValue = Number(trimmedValue);
 
-  if (isNaN(numValue)) {
+  if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(trimmedValue) || !Number.isFinite(numValue)) {
     return { field: 'value', message: 'Giá trị phải là một số hợp lệ' };
   }
 
@@ -68,40 +68,71 @@ const buildHeaders = (token?: string) => {
 
 export const regulationsApi = {
   getRegulations: async (token?: string): Promise<Regulation[]> => {
-    const response = await fetch(`${API_BASE_URL}/api/regulations`, {
+    const response = await request('/api/regulations', {
       headers: buildHeaders(token),
     });
 
-    if (!response.ok) {
-      throw new Error('Unable to fetch regulations');
-    }
-
-    return response.json();
+    const data:unknown=await readJson(response);
+    if(!Array.isArray(data) || !data.every(isRegulation))throw new RegulationApiError(null);
+    return data;
   },
 
   saveRegulation: async (key: string, regulation: Regulation, token?: string): Promise<Regulation> => {
-    const response = await fetch(`${API_BASE_URL}/api/regulations/${encodeURIComponent(key)}`, {
+    if(key!==regulation.regulationKey || validateRegulation(regulation))throw new RegulationApiError(400);
+    const response = await request(`/api/regulations/${encodeURIComponent(key)}`, {
       method: 'PUT',
       headers: buildHeaders(token),
       body: JSON.stringify(regulation),
     });
 
-    if (!response.ok) {
-      throw new Error('Unable to save regulation');
-    }
-
-    return response.json();
+    const data:unknown=await readJson(response);
+    if(!isRegulation(data) || data.regulationKey!==key)throw new RegulationApiError(null);
+    return data;
   },
 
   getSnapshots: async (token?: string): Promise<RegulationSnapshot[]> => {
-    const response = await fetch(`${API_BASE_URL}/api/regulations/snapshots`, {
+    const response = await request('/api/regulations/snapshots', {
       headers: buildHeaders(token),
     });
 
-    if (!response.ok) {
-      throw new Error('Unable to fetch regulation snapshots');
-    }
-
-    return response.json();
+    const data:unknown=await readJson(response);
+    if(!Array.isArray(data) || !data.every(isSnapshot))throw new RegulationApiError(null);
+    return data;
   },
 };
+
+export class RegulationApiError extends Error {
+  readonly status:number|null;
+  constructor(status:number|null) {
+    super(status===409?'Quy định đã được thay đổi. Hãy tải lại dữ liệu trước khi lưu.'
+      :status===401?'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
+      :status===403?'Bạn không có quyền quản lý quy định.'
+      :status===400?'Dữ liệu quy định không hợp lệ.'
+      :'Không thể tải hoặc lưu quy định. Vui lòng thử lại.');
+    this.name='RegulationApiError';this.status=status;
+  }
+}
+async function request(path:string,options:RequestInit):Promise<Response> {
+  try {
+    const response=await fetch(API_BASE_URL+path,{...options,signal:AbortSignal.timeout(15000)});
+    if(!response.ok)throw new RegulationApiError(response.status);
+    return response;
+  }catch(error){throw error instanceof RegulationApiError?error:new RegulationApiError(null);}
+}
+async function readJson(response:Response):Promise<unknown> {
+  try{return await response.json();}catch{throw new RegulationApiError(null);}
+}
+function isRegulation(value:unknown):value is Regulation {
+  if(!value || typeof value!=='object')return false;
+  const row=value as Regulation;
+  return typeof row.regulationKey==='string' && row.regulationKey.length>0 && typeof row.name==='string'
+    && typeof row.value==='string' && typeof row.active==='boolean' && Number.isInteger(row.version) && row.version>0
+    && (row.description==null || typeof row.description==='string');
+}
+function isSnapshot(value:unknown):value is RegulationSnapshot {
+  if(!value || typeof value!=='object')return false;
+  const row=value as RegulationSnapshot;
+  return typeof row.regulationKey==='string' && typeof row.regulationName==='string' && Number.isInteger(row.version)
+    && row.version>0 && typeof row.appliedAt==='string' && typeof row.snapshotData==='string'
+    && (row.sourceUser==null || typeof row.sourceUser==='string');
+}

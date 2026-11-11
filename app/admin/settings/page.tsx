@@ -27,8 +27,7 @@ export default function AdminSettingsPage() {
       try {
         const [data, snapshotData] = await Promise.all([
           regulationsApi.getRegulations(token || undefined),
-          regulationsApi.getSnapshots(token || undefined).catch((error) => {
-            console.error('Không thể tải lịch sử snapshot quy định:', error);
+          regulationsApi.getSnapshots(token || undefined).catch(() => {
             setSnapshotErrorMessage('Không thể tải lịch sử thay đổi quy định. Vui lòng thử lại sau.');
             return [];
           }),
@@ -77,8 +76,7 @@ export default function AdminSettingsPage() {
           setSnapshots(snapshotData);
           setSnapshotErrorMessage(null);
         })
-        .catch((error) => {
-          console.error('Không thể tải lại lịch sử snapshot quy định:', error);
+        .catch(() => {
           setSnapshotErrorMessage('Đã lưu quy định, nhưng không thể tải lại lịch sử thay đổi.');
         });
     } catch (error: unknown) {
@@ -107,7 +105,7 @@ export default function AdminSettingsPage() {
 
           <div className="rounded-2xl border border-[#E8E9F1] bg-white p-6 text-sm text-[#383E48] shadow-[0_14px_30px_rgba(0,0,0,0.08)]">
             <p className="mb-4 text-base text-[#202634]">
-              Tất cả quy định đang được load từ backend. Thay đổi ở đây sẽ được lưu vào dịch vụ regulations-service, tạo snapshot và gửi event cập nhật.
+              Quy định được đọc từ backend. Mỗi lần lưu thành công giữ lại lịch sử thay đổi; các dịch vụ liên quan sẽ nhận cập nhật sau đó.
             </p>
 
             {loading ? (
@@ -136,7 +134,7 @@ export default function AdminSettingsPage() {
                           <button
                             type="button"
                             disabled={
-                              savingKey === regulation.regulationKey ||
+                              savingKey !== null ||
                               validationError !== null
                             }
                             onClick={() => handleSave(regulation)}
@@ -151,6 +149,7 @@ export default function AdminSettingsPage() {
                         <label className="space-y-2 text-sm text-slate-700">
                           <span>Tên quy định</span>
                           <input
+                            disabled={savingKey !== null}
                             value={regulation.name}
                             onChange={(event) => handleFieldChange(regulation.regulationKey, 'name', event.target.value)}
                             className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 outline-none focus:border-[#0B1B3F]"
@@ -165,6 +164,7 @@ export default function AdminSettingsPage() {
                             )}
                           </span>
                           <input
+                            disabled={savingKey !== null}
                             value={regulation.value}
                             onChange={(event) => handleFieldChange(regulation.regulationKey, 'value', event.target.value)}
                             className={`w-full rounded-xl border bg-white px-3 py-2 outline-none focus:border-[#0B1B3F] ${
@@ -182,6 +182,7 @@ export default function AdminSettingsPage() {
                         <label className="space-y-2 text-sm text-slate-700 lg:col-span-2">
                           <span>Mô tả</span>
                           <textarea
+                            disabled={savingKey !== null}
                             value={regulation.description || ''}
                             onChange={(event) => handleFieldChange(regulation.regulationKey, 'description', event.target.value)}
                             rows={3}
@@ -191,6 +192,7 @@ export default function AdminSettingsPage() {
 
                         <label className="flex items-center gap-3 text-sm text-slate-700">
                           <input
+                            disabled={savingKey !== null}
                             type="checkbox"
                             checked={regulation.active}
                             onChange={(event) => handleFieldChange(regulation.regulationKey, 'active', event.target.checked)}

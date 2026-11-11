@@ -1,5 +1,19 @@
 # Regression checks
 
+Regulation checkpoint (07/11/2026), branch `fix/regulation-write-consistency`:
+`npm run test:regression` passes110 tests. `npx playwright test
+--config=playwright.regulations.config.ts` passes3 cases on the actual Next dev
+server with intercepted APIs: complete decimal validation, one in-flight save,
+version-conflict draft retention and explicit history outage. The SDK has a15s
+abort deadline, validates successful shapes and never exposes backend bodies.
+Real PostgreSQL concurrency/rollback and broker restart/return/replay are checked
+separately by backend `docker/regulation-consistency-smoke.py` and its opt-in JPA
+suite. See backend `regulations-service/README.md` for rollout dependencies.
+
+`npx tsc --noEmit` still reports only the existing place-owned `showDistance`
+props mismatch in `NearbyPlacesSection.tsx:161`. No place source, main production
+build configuration or typecheck bypass changed in this checkpoint.
+
 ```powershell
 npm run test:regression
 npx tsc --noEmit
@@ -162,3 +176,13 @@ history returns a reconciliation error, never a fabricated zero chart.
 
 Final revenue review: [REVIEW_REVENUE_2026-11-07.md](REVIEW_REVENUE_2026-11-07.md)
 records current validation and the nonblocking baseline place build issue.
+
+
+## Fresh review — 9 November 2026
+
+Fresh selected User/Regulations unit suites passed; frontend 110 Node regressions
+and three development-server browser cases passed. Typecheck still reports only
+the unchanged place-owned showDistance mismatch. Docker has no running test stack;
+the integration runner stopped at clone verification, so integration/runtime
+checkpoint counts above were NOT rerun or certified by this review. No place code,
+local IDE settings, production schema/data or deployment changed.
