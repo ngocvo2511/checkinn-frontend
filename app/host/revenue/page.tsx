@@ -1,5 +1,7 @@
 'use client';
 
+import {reportMonthRange,reportChartRange,reportMonths,reportMonthKey} from '@/lib/reporting/calendar';
+
 import { useMemo, useState, useEffect } from 'react';
 import HostMenu from '@/components/host/menu/HostMenu';
 import { revenueApi, OwnerSummaryResponse, OwnerRevenueResponse, HotelSummaryItem, GroupBy } from '@/lib/api/revenue';
@@ -11,26 +13,9 @@ export default function HostRevenuePage() {
   const [error, setError] = useState<string | null>(null);
   
   // Date range state (default to current month)
-  const [dateRange, setDateRange] = useState(() => {
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    return {
-      from: firstDay.toISOString().split('T')[0],
-      to: lastDay.toISOString().split('T')[0],
-    };
-  });
-
+  const [dateRange, setDateRange] = useState(() => reportMonthRange());
   // Applied date range state (for actual API calls)
-  const [appliedDateRange, setAppliedDateRange] = useState(() => {
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    return {
-      from: firstDay.toISOString().split('T')[0],
-      to: lastDay.toISOString().split('T')[0],
-    };
-  });
+  const [appliedDateRange, setAppliedDateRange] = useState(() => reportMonthRange());
   
   const [ownerSummary, setOwnerSummary] = useState<OwnerSummaryResponse | null>(null);
   const [ownerRevenue, setOwnerRevenue] = useState<OwnerRevenueResponse | null>(null);
@@ -46,8 +31,7 @@ export default function HostRevenuePage() {
     let user: AuthResponse;
     try {
       user = JSON.parse(storedUser) as AuthResponse;
-    } catch (err) {
-      console.error('Failed to parse user', err);
+    } catch {
       setLoading(false);
       return;
     }
@@ -66,10 +50,7 @@ export default function HostRevenuePage() {
         const ownerId = String(user.userId);
         
         // Tính toán 6 tháng gần nhất cho biểu đồ
-        const now = new Date();
-        const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
-        const chartFrom = sixMonthsAgo.toISOString().split('T')[0];
-        const chartTo = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+        const {from:chartFrom,to:chartTo} = reportChartRange();
         
         const [summaryData, revenueData] = await Promise.all([
           revenueApi.getOwnerSummary(ownerId, appliedDateRange.from, appliedDateRange.to),
@@ -88,9 +69,8 @@ export default function HostRevenuePage() {
         } else {
           setSelectedHotelId(null);
         }
-      } catch (err: any) {
-        console.error('Error fetching revenue data:', err);
-        setError(err?.message || 'Không thể tải dữ liệu doanh thu');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Không thể tải dữ liệu doanh thu');
       } finally {
         setLoading(false);
       }
@@ -114,23 +94,12 @@ export default function HostRevenuePage() {
     if (!selectedHotelRevenue?.revenue.data) return [];
     
     // Tạo 6 tháng gần nhất
-    const now = new Date();
-    const last6Months = [];
-    for (let i = 5; i >= 0; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      last6Months.push({
-        year: date.getFullYear(),
-        month: date.getMonth(),
-        monthKey: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`,
-        monthLabel: date.toLocaleDateString('en-US', { month: 'short' })
-      });
-    }
+    const last6Months = reportMonths();
     
     // Map dữ liệu từ API
     const revenueMap = new Map();
     selectedHotelRevenue.revenue.data.forEach((point) => {
-      const date = new Date(point.periodStart);
-      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const key = reportMonthKey(point.periodStart);
       revenueMap.set(key, point.amount / 1000); // Convert to K
     });
     
@@ -164,12 +133,12 @@ export default function HostRevenuePage() {
   }
 
   const summary = selectedHotel ? [
-    { label: 'Doanh thu', value: `${selectedHotel.totalRevenue.toLocaleString('vi-VN')} VND`, helper: `Từ ${dateRange.from} đến ${dateRange.to}` },
-    { label: 'Doanh thu thực nhận', value: selectedHotel.netRevenue ? `${selectedHotel.netRevenue.toLocaleString('vi-VN')} VND` : 'N/A', helper: 'Sau khi trừ hoa hồng' },
-    { label: 'Hoa hồng nền tảng', value: selectedHotel.platformCommission ? `${selectedHotel.platformCommission.toLocaleString('vi-VN')} VND` : 'N/A', helper: 'Phí dịch vụ (10%)' },
+    { label: 'Doanh thu', value: `${selectedHotel.totalRevenue.toLocaleString('vi-VN')} VND`, helper: `Từ ${appliedDateRange.from} đến ${appliedDateRange.to}` },
+    { label: 'Sau phí dịch vụ (ước tính)', value: selectedHotel.netRevenue != null ? `${selectedHotel.netRevenue.toLocaleString('vi-VN')} VND` : 'N/A', helper: 'Theo tỷ lệ hoa hồng hiện tại' },
+    { label: 'Hoa hồng nền tảng (ước tính)', value: selectedHotel.platformCommission != null ? `${selectedHotel.platformCommission.toLocaleString('vi-VN')} VND` : 'N/A', helper: ownerSummary.commissionRate == null ? 'Chưa có tỷ lệ hoa hồng' : `Phí dịch vụ (${(ownerSummary.commissionRate * 100).toFixed(1)}%)` },
     { label: 'Tỉ lệ lấp đầy', value: `${(selectedHotel.occupancyRate * 100).toFixed(1)}%`, helper: 'Occupancy rate' },
     { label: 'Tỉ lệ hủy', value: `${(selectedHotel.cancellationRate * 100).toFixed(1)}%`, helper: 'Cancellation rate' },
-    { label: 'Doanh thu TB/ngày', value: `${Math.round(selectedHotel.averageRevenue).toLocaleString('vi-VN')} VND`, helper: 'Trung bình theo ngày' },
+    { label: 'Thu ròng TB/booking có thu', value: `${Math.round(selectedHotel.averageRevenue).toLocaleString('vi-VN')} VND`, helper: 'Tổng thu trừ hoàn / booking có thu trong kỳ' },
   ] : [];
 
   return (
@@ -189,6 +158,7 @@ export default function HostRevenuePage() {
               <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#8B94A4]">Chọn khoảng thời gian</p>
+                  <p className="text-sm text-[#656F81]">Thu trừ hoàn theo ngày giao dịch, giờ Việt Nam.</p>
                   <div className="flex gap-2 mt-2 items-end">
                     <div className="flex flex-col gap-1">
                       <input
@@ -209,8 +179,8 @@ export default function HostRevenuePage() {
                     </div>
                     <button
                       onClick={() => {
-                        if (dateRange.from >= dateRange.to) {
-                          alert('Ngày bắt đầu phải nhỏ hơn ngày kết thúc');
+                        if (!dateRange.from || !dateRange.to || dateRange.from > dateRange.to) {
+                          alert('Ngày bắt đầu không được sau ngày kết thúc');
                           return;
                         }
                         setAppliedDateRange(dateRange);
@@ -381,8 +351,9 @@ export default function HostRevenuePage() {
                     const padY = 18;
 
                     const maxValue = Math.max(...monthlyRevenue.map((r) => r.value), 1); // Min 1 to avoid 0 range
-                    const minValue = 0; // Always start from 0 for revenue
+                    const minValue = Math.min(...monthlyRevenue.map((r) => r.value), 0);
                     const valueRange = Math.max(maxValue - minValue, 0.0001);
+                    const zeroY = padY + (1 - (0 - minValue) / valueRange) * (plotHeight - padY * 2);
                     const step = (width - padX * 2) / Math.max(1, monthlyRevenue.length - 1);
 
                     type ChartPoint = { month: string; value: number; x: number; y: number };
@@ -410,7 +381,7 @@ export default function HostRevenuePage() {
                       const d: string[] = [];
                       
                       // Start at bottom-left
-                      d.push(`M ${pts[0].x} ${plotHeight}`);
+                      d.push(`M ${pts[0].x} ${zeroY}`);
                       d.push(`L ${pts[0].x} ${pts[0].y}`);
                       
                       // Draw lines to each point
@@ -419,7 +390,7 @@ export default function HostRevenuePage() {
                       }
                       
                       // Close path back to baseline
-                      d.push(`L ${pts[pts.length - 1].x} ${plotHeight}`);
+                      d.push(`L ${pts[pts.length - 1].x} ${zeroY}`);
                       d.push('Z');
                       
                       return d.join(' ');
@@ -489,7 +460,7 @@ export default function HostRevenuePage() {
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#8B94A4]">Tóm tắt tất cả khách sạn</p>
                   <h3 className="text-xl font-semibold text-[#1F2226]">Chi tiết doanh thu từng khách sạn</h3>
-                  <p className="text-sm text-[#656F81]">Dữ liệu từ {dateRange.from} đến {dateRange.to}</p>
+                  <p className="text-sm text-[#656F81]">Dữ liệu từ {appliedDateRange.from} đến {appliedDateRange.to}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button className="rounded-xl border border-[#E8E9F1] px-3 py-2 text-sm font-semibold text-[#0B2E68] hover:bg-[#F7F8FA]">Tải CSV</button>
