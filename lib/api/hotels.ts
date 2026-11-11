@@ -1,3 +1,4 @@
+import {getHotelVerificationDocuments,uploadHotelVerificationDocuments} from './hotel-documents.ts';
 import { readJson, readArray, ReadApiError } from './read-request.ts';
 import type { City } from './cities';
 
@@ -685,70 +686,12 @@ export const hotelApi = {
     }
   },
 
-  // Upload private hotel verification documents
-  uploadHotelDocuments: async (hotelId: string, formData: FormData): Promise<any> => {
-    try {
-      let response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/documents`, {
-        method: 'POST',
-        headers: {
-          ...authHeaders(),
-        },
-        body: formData,
-      });
+  // Private document requests share a deadline and never expose upstream errors.
+  uploadHotelDocuments: async (hotelId: string, formData: FormData): Promise<any> =>
+    uploadHotelVerificationDocuments(hotelId,formData,authHeaders()),
 
-      if (!response.ok && response.status === 404) {
-        response = await fetch(`${API_BASE_URL}/hotels/${hotelId}/documents`, {
-          method: 'POST',
-          headers: {
-            ...authHeaders(),
-          },
-          body: formData,
-        });
-      }
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(extractErrorMessage(text, `Lỗi khi tải tài liệu xác thực: ${response.status}`));
-      }
-
-      return response.json();
-    } catch (error) {
-      console.error('Error uploading hotel documents:', error);
-      throw error;
-    }
-  },
-
-  // Get private verification documents & signed URLs (for Owner & Admin)
-  getHotelDocuments: async (hotelId: string): Promise<HotelVerificationDocuments> => {
-    try {
-      let response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/documents`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders(),
-        },
-      });
-
-      if (!response.ok && response.status === 404) {
-        response = await fetch(`${API_BASE_URL}/hotels/${hotelId}/documents`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            ...authHeaders(),
-          },
-        });
-      }
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch hotel documents: ${response.status} ${response.statusText}`);
-      }
-
-      return response.json();
-    } catch (error) {
-      console.error('Error fetching hotel documents:', error);
-      throw error;
-    }
-  },
+  getHotelDocuments: async (hotelId: string): Promise<HotelVerificationDocuments> =>
+    getHotelVerificationDocuments(hotelId,authHeaders()),
 
   // Submit hotel for approval (DRAFT -> PENDING)
   submitHotelApproval: async (hotelId: string): Promise<Hotel> => {
