@@ -57,15 +57,18 @@ export function LocationSearch({ onCitySelect, onHotelSelect }: LocationSearchPr
     setFilteredHotels([]);
     if (!searchQuery.trim()) { setLoading(false); return; }
     setLoading(true);
-    Promise.all([cityApi.searchLocations(searchQuery), hotelApi.searchHotelsByName(searchQuery)])
-      .then(([cityResults, hotelResults]) => {
-        if (!current) return;
-        setFilteredCities(cityResults);
-        setFilteredHotels(hotelResults);
-      })
-      .catch(() => { if (current) setError('Không thể tìm kiếm lúc này. Vui lòng thử lại.'); })
-      .finally(() => { if (current) setLoading(false); });
-    return () => { current = false; };
+    // Wait for a pause in typing before consuming the small development DB pool.
+    const timer = setTimeout(() => {
+      Promise.all([cityApi.searchLocations(searchQuery), hotelApi.searchHotelsByName(searchQuery)])
+        .then(([cityResults, hotelResults]) => {
+          if (!current) return;
+          setFilteredCities(cityResults);
+          setFilteredHotels(hotelResults);
+        })
+        .catch(() => { if (current) setError('Không thể tìm kiếm lúc này. Vui lòng thử lại.'); })
+        .finally(() => { if (current) setLoading(false); });
+    }, 300);
+    return () => { current = false; clearTimeout(timer); };
   }, [searchQuery]);
 
   useEffect(() => {

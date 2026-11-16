@@ -44,12 +44,14 @@ export function HotelLocationPicker({ onCitySelect, onHotelSelect, initialHotelN
   useEffect(() => {
     let current = true;
     if (!searchTerm.trim()) return;
-    Promise.all([cityApi.searchLocations(searchTerm), hotelApi.searchHotelsByName(searchTerm)])
-      .then(([cityResults, hotelResults]) => {
-        if (current) setResult({ term: searchTerm, cities: cityResults, hotels: hotelResults, error: '' });
-      })
-      .catch(() => { if (current) setResult({ term: searchTerm, cities: [], hotels: [], error: 'Không thể tìm kiếm lúc này. Vui lòng thử lại.' }); });
-    return () => { current = false; };
+    const timer = setTimeout(() => {
+      Promise.all([cityApi.searchLocations(searchTerm), hotelApi.searchHotelsByName(searchTerm)])
+        .then(([cityResults, hotelResults]) => {
+          if (current) setResult({ term: searchTerm, cities: cityResults, hotels: hotelResults, error: '' });
+        })
+        .catch(() => { if (current) setResult({ term: searchTerm, cities: [], hotels: [], error: 'Không thể tìm kiếm lúc này. Vui lòng thử lại.' }); });
+    }, 300);
+    return () => { current = false; clearTimeout(timer); };
   }, [searchTerm]);
 
   return (
