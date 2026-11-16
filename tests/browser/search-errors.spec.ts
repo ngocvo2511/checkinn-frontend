@@ -117,6 +117,35 @@ test('a rating-filter dependency failure is unknown rather than no matches and c
   await expect(page.getByText('8.5/10',{exact:false})).toBeVisible();
 });
 for (const picker of ['home','search']) {
+  test(`${picker} autocomplete debounces typing and cancels a cleared query`, async ({page}) => {
+    const requests: string[] = [];
+    await mock(page, url => {
+      if (url.pathname.endsWith('/search/locations') || url.pathname.endsWith('/hotels/search')) {
+        requests.push(url.searchParams.get('query') ?? url.searchParams.get('name') ?? '');
+      }
+      return {json:[]};
+    });
+    await page.goto(picker === 'home' ? '/' : '/search?cityName=Fixture');
+    if (picker === 'home') await page.getByRole('button',{name:/Bạn muốn đi đâu/}).click();
+    else await page.getByRole('button',{name:/Fixture/}).first().click();
+    const input = page.getByPlaceholder(picker === 'home' ? 'Tìm điểm đến hoặc khách sạn...' : 'Tìm kiếm địa điểm...');
+    await expect(input).toBeVisible();
+    await page.clock.install();
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
+    await input.fill('Old');
+    await page.clock.runFor(200);
+    await input.fill('Newest');
+    await page.clock.runFor(200);
+    expect(requests).toEqual([]);
+    await page.clock.runFor(150);
+    await expect.poll(() => requests.length).toBe(2);
+    expect(requests).toEqual(['Newest','Newest']);
+    await input.fill('Cleared');
+    await page.clock.runFor(200);
+    await input.fill('');
+    await page.clock.runFor(400);
+    expect(requests).toEqual(['Newest','Newest']);
+  });
   test(`${picker} autocomplete distinguishes failure, clears error on successful replacement`, async ({page}) => {
     let failing = true;
     await mock(page, url => url.pathname.includes('/hotels/search') && failing ? {status:503,json:{}} : {json:[]});
