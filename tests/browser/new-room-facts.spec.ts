@@ -21,6 +21,8 @@ test('new room keeps omitted descriptive metadata unknown without changing expli
  await page.getByRole('button',{name:'Thêm phòng',exact:true}).click();
  await expect.poll(()=>writes.length).toBe(1);
  expect(writes[0].capacity).toEqual({adults:2,children:0,bedType:null,roomSize:null,breakfastIncluded:null,breakfastQuantity:null});
+ await expect(page.getByText('Đã tạo phòng. Phòng chưa thể nhận booking mới cho đến khi ADMIN duyệt số phòng và nguồn xác minh.')).toBeVisible();
+ await expect(page.getByRole('link',{name:'Gửi số phòng và nguồn xác minh để ADMIN duyệt'})).toHaveAttribute('href',`/host/hotels/${hotel}/rooms/22222222-2222-4222-8222-222222222222`);
  expect(writes[0].basePrice).toBe(250000);expect(writes[0].roomAmount).toBe(1);
 });
 
@@ -33,5 +35,7 @@ for(const included of [true,false])test(`new room preserves explicitly supplied 
  if(!included)await page.getByRole('checkbox',{name:'Bao gồm bữa sáng',exact:true}).uncheck();
  await page.getByRole('button',{name:'Thêm phòng',exact:true}).click();await expect.poll(()=>writes.length).toBe(1);
  expect(writes[0].capacity).toEqual({adults:2,children:0,bedType:null,roomSize:0,breakfastIncluded:included,breakfastQuantity:0});
+ await expect(page.getByText('Đã tạo phòng. Phòng chưa thể nhận booking mới cho đến khi ADMIN duyệt số phòng và nguồn xác minh.')).toBeVisible();
+ await expect(page.getByRole('link',{name:'Gửi số phòng và nguồn xác minh để ADMIN duyệt'})).toHaveAttribute('href',`/host/hotels/${hotel}/rooms/22222222-2222-4222-8222-222222222222`);
  expect(writes[0].basePrice).toBe(250000);expect(writes[0].roomAmount).toBe(1);
 });
