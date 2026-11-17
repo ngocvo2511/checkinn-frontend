@@ -26,6 +26,7 @@ export default function RoomInventoryReview({roomId,onState}:{roomId:string;onSt
   {!state&&!error&&<p>Đang tải trạng thái xác minh…</p>}
   {state&&<><p>Số phòng đang lưu: {state.currentQuantity??'Chưa biết'} · {state.verified?'Đã duyệt nguồn xác minh':'Chưa xác minh nguồn'}</p>
    {state.latestRequest&&<p>Đề xuất gần nhất: {state.latestRequest.proposed_quantity} · {state.latestRequest.status} · {state.latestRequest.review_reason||state.latestRequest.source}</p>}
+   {!state.verified&&<p role="status">Phòng chưa thể nhận booking mới. Cần ADMIN phê duyệt số phòng và nguồn xác minh.</p>}
    <form onSubmit={propose}><fieldset disabled={busy} className="space-y-3">
     <label className="block">Số phòng đề xuất <input required type="number" min="1" step="1" value={quantity} onChange={e=>setQuantity(e.target.value)} className="border rounded p-2"/></label>
     <label className="block">Nguồn xác minh số phòng <textarea required maxLength={1000} value={source} onChange={e=>setSource(e.target.value)} className="border rounded p-2"/></label>

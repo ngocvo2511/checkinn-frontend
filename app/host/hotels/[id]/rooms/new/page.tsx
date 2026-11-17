@@ -156,7 +156,7 @@ export default function NewRoomPage() {
       });
 
       setCreatedRoomId(newRoom.id);
-      setSuccessMessage('Đã thêm phòng mới thành công! Bạn có thể thêm hình ảnh hoặc quay lại.');
+      setSuccessMessage('Đã tạo phòng. Phòng chưa thể nhận booking mới cho đến khi ADMIN duyệt số phòng và nguồn xác minh.');
     } catch (err: any) {
       setError(err?.message || 'Không thể thêm phòng mới');
     } finally {
@@ -198,6 +198,10 @@ export default function NewRoomPage() {
             )}
 
             {/* Image Upload Section - Show after room is created */}
+            {createdRoomId && <a className="block mb-6 text-blue-700 underline" href={`/host/hotels/${hotelId}/rooms/${createdRoomId}`}>
+              Gửi số phòng và nguồn xác minh để ADMIN duyệt
+            </a>}
+
             {createdRoomId && (
               <>
               <MediaWriteNotice message={mediaError} needsReload={mediaReloadRequired} loading={mediaBusy} onReload={refreshMedia}/>

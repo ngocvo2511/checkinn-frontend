@@ -35,9 +35,8 @@ export default function EditRoomPage() {
 
   const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
   const [initialRoomAmount, setInitialRoomAmount] = useState<number|null>(null);
-  const [inventoryManaged,setInventoryManaged]=useState(true);
+  const inventoryManaged=true;
   const inventoryStateChanged=useCallback((state:InventoryState|null)=>{
-    setInventoryManaged(state===null||state.managed);
     if(state){
       setInitialRoomAmount(state.currentQuantity);
       setRoom(previous=>previous?{...previous,totalRooms:state.currentQuantity}:previous);
@@ -466,7 +465,7 @@ export default function EditRoomPage() {
                       {initialRoomAmount===null&&<p className="mt-1 text-xs text-amber-800">Số lượng phòng chưa được xác minh. Các thay đổi khác vẫn có thể lưu.</p>}
                       {initialRoomAmount !== null && (
                         <p className="mt-1 text-xs text-[#6B7280]">
-                          Số lượng hiện tại: {initialRoomAmount}. {inventoryManaged?'Cập nhật qua đề xuất số phòng ở trên sau khi tải được trạng thái.':'Chỉ có thể tăng hoặc giữ nguyên qua biểu mẫu này; xác minh nguồn qua đề xuất ở trên.'}
+                          Số lượng hiện tại: {initialRoomAmount}. Cập nhật qua đề xuất số phòng ở trên; ADMIN phải duyệt trước khi áp dụng.
                         </p>
                       )}
                     </div>
