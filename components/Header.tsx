@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Logo from './Logo';
 import { useAuth } from '@/hooks/useAuth';
+import { COMMUNITY_ENABLED } from '@/lib/community/flag';
 
 export default function Header({ onLogin, onSignup, onEditProfile }: { onLogin?: () => void; onSignup?: () => void; onEditProfile?: () => void } = {}) {
   const [showMenu, setShowMenu] = useState(false);
@@ -64,6 +65,14 @@ export default function Header({ onLogin, onSignup, onEditProfile }: { onLogin?:
         <Logo isScrolled={isScrolled} />
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3">
+          {COMMUNITY_ENABLED && (
+            <button
+              className={`hidden rounded-full px-4 py-2 text-sm font-medium md:inline-flex transition-colors ${isScrolled ? 'text-[#2B3037] hover:bg-[#F1F2F3]' : 'text-white hover:bg-white/10'}`}
+              onClick={() => router.push('/community')}
+            >
+              Cộng đồng
+            </button>
+          )}
           {user ? (
             <>
               <button
@@ -108,6 +117,14 @@ export default function Header({ onLogin, onSignup, onEditProfile }: { onLogin?:
                     >
                       Đặt chỗ của tôi
                     </button>
+                    {COMMUNITY_ENABLED && (
+                      <button
+                        onClick={() => { router.push('/community'); setShowMenu(false); }}
+                        className="w-full px-4 py-2 text-left text-sm text-[#2B3037] hover:bg-[#F1F2F3] md:hidden"
+                      >
+                        Cộng đồng
+                      </button>
+                    )}
                     
                     <hr className="my-1 border-[#DDDFE3]" />
                     <button

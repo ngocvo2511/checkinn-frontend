@@ -8,8 +8,8 @@ export default function Footer() {
 
   return (
     <footer className="bg-[#121316] text-white pt-8">
-      <div className="max-w-[1440px] mx-auto px-[104px]">
-        <div className="flex justify-between mb-8">
+      <div className="max-w-[1440px] mx-auto px-4 md:px-10 xl:px-[104px]">
+        <div className="mb-8 flex flex-wrap justify-between gap-x-8 gap-y-6">
           <div className="flex flex-col gap-2">
             <h3 className="text-lg font-semibold leading-6 text-[#99BDFF] mb-2">Khám phá</h3>
             {exploreLinks.map(link => (
