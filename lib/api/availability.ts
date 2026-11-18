@@ -4,6 +4,8 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8
 export interface AvailabilityCheckResponse {
   available: boolean;
   availableRooms: number;
+  /** Server time of the check (ISO-8601 UTC); absent from older servers. Not a hold. */
+  checkedAt?: string;
 }
 
 export const availabilityApi = {
