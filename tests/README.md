@@ -326,3 +326,19 @@ Unknown results require an explicit validated private-preview GET and preserve
 unsaved form fields. Wizard partial uploads cannot restart or send approval.
 Typecheck retains the existing place-owned showDistance mismatch. Compatibility
 rerun details and local log paths are in the checkpoint/root plan.
+
+
+## Travel community — 13/11/2026
+
+```powershell
+npm run test:community
+npx playwright test --config=playwright.community.config.ts
+npx tsc --noEmit
+```
+
+Community Node15 and browser15 PASS (feed, composer, post detail, place page and
+admin queue at 390px and 1280px, with empty and failure states). The browser
+suite runs Next dev on port 3317 with `NEXT_PUBLIC_COMMUNITY_ENABLED=true` and
+intercepted APIs; no backend is needed. Typecheck now passes: `PlaceCard` takes
+`showDistance` again. The shared footer no longer overflows at phone width. The
+`Header` `set-state-in-effect` lint error predates this change.
