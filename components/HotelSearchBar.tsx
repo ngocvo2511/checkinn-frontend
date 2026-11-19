@@ -299,6 +299,11 @@ export function HotelSearchBar({
       alert('Vui lòng chọn ngày nhận và trả phòng');
       return;
     }
+    // Same limit as the server search criteria (F-9B-3).
+    if ((stayNights(checkInDate,checkOutDate) ?? 0) > 30) {
+      alert('Thời gian lưu trú tối đa là 30 đêm');
+      return;
+    }
 
     onSearch?.({
       hotelId: selectedHotel?.id || undefined,

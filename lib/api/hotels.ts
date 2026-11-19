@@ -2,6 +2,7 @@ import {uploadMedia as writeMedia,deleteMedia as removeMedia,selectThumbnail,del
 import {updateHotelContent} from './hotel-content.ts';
 import {getHotelVerificationDocuments,uploadHotelVerificationDocuments} from './hotel-documents.ts';
 import { readJson, readArray, ReadApiError } from './read-request.ts';
+import { ApiRequestError, bookingFetch, responseError, transportError } from './request-error.ts';
 import type { City } from './cities';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
@@ -174,7 +175,8 @@ export interface Hotel {
   accommodationType?: import("./accommodation-types").AccommodationType | null;
   accommodationTypeLabel?: string | null;
   id: string;
-  ownerId: string;
+  /** Absent/null on public catalog responses; present on owner/admin views. */
+  ownerId?: string | null;
   cityId: string;
   name: string;
   description?: string;
@@ -224,15 +226,22 @@ export interface SearchHotelsParams {
   maxPrice?: number;
 }
 
-const extractErrorMessage = (text: string, fallback: string): string => {
-  if (!text) return fallback;
-  try {
-    const parsed = JSON.parse(text);
-    return parsed.message || parsed.error || text;
-  } catch (_) {
-    return text;
+/** One bounded attempt (deadline covers the body); never retried; errors are typed and never echo raw bodies. */
+const hotelRequest = async (url: string, init: RequestInit): Promise<Response> => {
+  const response = await bookingFetch(url, init);
+  if (!response.ok) throw await responseError(response);
+  return response;
+};
+
+const hotelJson = async (response: Response): Promise<unknown> => {
+  try { return await response.json(); }
+  catch (error) {
+    if (error instanceof Error && ['AbortError', 'TimeoutError'].includes(error.name)) throw transportError(error);
+    throw new ApiRequestError(response.status, 'INVALID_RESPONSE', 'Dữ liệu trả về không hợp lệ. Vui lòng thử lại.');
   }
 };
+
+const jsonHeaders = (extra: Record<string, string> = {}): Record<string, string> => ({ 'Content-Type': 'application/json', ...extra });
 
 const validSearchHotel = (h: Hotel): boolean =>
   typeof h.id === 'string' && typeof h.name === 'string' &&
@@ -313,64 +322,28 @@ export const hotelApi = {
   },
 
   /**
-   * Get hotel details by ID
+   * Get hotel details by ID (public read, bounded by readJson)
    */
   async getHotelById(hotelId: string): Promise<Hotel> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to get hotel: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      return cleanHotelData(data);
-    } catch (error) {
-      console.error('Error getting hotel details:', error);
-      throw error;
-    }
+    return cleanHotelData(await readJson(`${API_BASE_URL}/api/hotel/hotels/${hotelId}`));
   },
 
   /** Read unpublished details only through the authenticated preview endpoint. */
   async getHotelPreview(hotelId: string, token: string): Promise<Hotel> {
     if (!token?.trim()) throw new Error('Vui lòng đăng nhập để xem khách sạn.');
-    const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/preview`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      cache: 'no-store',
-    });
+    const response = await bookingFetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/preview`,
+      { method: 'GET', headers: jsonHeaders({ Authorization: `Bearer ${token}` }), cache: 'no-store' });
     if (!response.ok) throw new Error(`Không thể xem khách sạn: ${response.status}`);
-    return cleanHotelData(await response.json());
+    return cleanHotelData(await hotelJson(response));
   },
 
   /**
    * Get hotels by owner (requires authentication)
    */
   async getHotelsByOwner(token: string): Promise<Hotel[]> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/owner`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Không thể tải danh sách khách sạn của chủ khách sạn: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      return data.map((hotel: any) => cleanHotelData(hotel));
-    } catch (error) {
-      console.error('Error getting owner hotels:', error);
-      throw error;
-    }
+    const data = await readJson(`${API_BASE_URL}/api/hotel/hotels/owner`, { headers: jsonHeaders({ Authorization: `Bearer ${token}` }) });
+    if (!Array.isArray(data)) throw new ReadApiError('INVALID_RESPONSE');
+    return data.map((hotel: any) => cleanHotelData(hotel));
   },
 
   /**
@@ -383,127 +356,40 @@ export const hotelApi = {
 
   // Get pending hotels for approval (admin, requires JWT)
   getPendingHotels: async (): Promise<Hotel[]> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/pending`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders(),
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch pending hotels: ${response.status} ${response.statusText}`);
-      }
-
-      return response.json();
-    } catch (error) {
-      console.error('Error fetching pending hotels:', error);
-      throw error;
-    }
+    const data = await readJson(`${API_BASE_URL}/api/hotel/hotels/pending`, { headers: jsonHeaders(authHeaders()) });
+    if (!Array.isArray(data)) throw new ReadApiError('INVALID_RESPONSE');
+    return data as Hotel[];
   },
 
   // Get pending hotel detail
-  getPendingHotelDetail: async (hotelId: string): Promise<PendingHotelDetail> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/pending/${hotelId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders(),
-        },
-      });
+  getPendingHotelDetail: async (hotelId: string): Promise<PendingHotelDetail> =>
+    await readJson(`${API_BASE_URL}/api/hotel/hotels/pending/${hotelId}`, { headers: jsonHeaders(authHeaders()) }) as PendingHotelDetail,
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch pending hotel detail: ${response.status} ${response.statusText}`);
-      }
-
-      return response.json();
-    } catch (error) {
-      console.error('Error fetching pending hotel detail:', error);
-      throw error;
-    }
-  },
-
-  // Approve a hotel
+  // Approve a hotel; callers rely on CONFLICT/FORBIDDEN ReadApiError codes.
   approveHotel: async (hotelId: string, revision: number): Promise<void> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/approve?revision=${revision}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders(),
-        },
-      });
-
-      if (!response.ok) {
-        throw new ReadApiError(response.status===409?'CONFLICT':response.status===403?'FORBIDDEN':'UPSTREAM',response.status);
-      }
-    } catch (error) {
-      console.error('Error approving hotel:', error);
-      throw error;
+    const response = await bookingFetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/approve?revision=${revision}`, {
+      method: 'PUT', headers: jsonHeaders(authHeaders()),
+    });
+    if (!response.ok) {
+      throw new ReadApiError(response.status===409?'CONFLICT':response.status===403?'FORBIDDEN':'UPSTREAM',response.status);
     }
   },
 
   // Reject a hotel
   rejectHotel: async (hotelId: string, note: string): Promise<void> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/reject`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders(),
-        },
-        body: JSON.stringify({ approve: false, note }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to reject hotel: ${response.status} ${response.statusText}`);
-      }
-    } catch (error) {
-      console.error('Error rejecting hotel:', error);
-      throw error;
-    }
+    await hotelRequest(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/reject`, {
+      method: 'POST', headers: jsonHeaders(authHeaders()), body: JSON.stringify({ approve: false, note }),
+    });
   },
 
   // Activate a hotel
   activateHotel: async (hotelId: string): Promise<void> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/activate`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders(),
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to activate hotel: ${response.status} ${response.statusText}`);
-      }
-    } catch (error) {
-      console.error('Error activating hotel:', error);
-      throw error;
-    }
+    await hotelRequest(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/activate`, { method: 'PATCH', headers: jsonHeaders(authHeaders()) });
   },
 
   // Deactivate a hotel
   deactivateHotel: async (hotelId: string): Promise<void> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/deactivate`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders(),
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to deactivate hotel: ${response.status} ${response.statusText}`);
-      }
-    } catch (error) {
-      console.error('Error deactivating hotel:', error);
-      throw error;
-    }
+    await hotelRequest(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/deactivate`, { method: 'PUT', headers: jsonHeaders(authHeaders()) });
   },
 
   // Update hotel information
@@ -520,26 +406,10 @@ export const hotelApi = {
     operationLicenseNumber?: string;
     ownerIdentityNumber?: string;
   }): Promise<Hotel> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders(),
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to update hotel: ${response.status} ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      return cleanHotelData(result);
-    } catch (error) {
-      console.error('Error updating hotel:', error);
-      throw error;
-    }
+    const response = await hotelRequest(`${API_BASE_URL}/api/hotel/hotels/${hotelId}`, {
+      method: 'PUT', headers: jsonHeaders(authHeaders()), body: JSON.stringify(data),
+    });
+    return cleanHotelData(await hotelJson(response));
   },
 
   updateAmenities: async (hotelId: string, amenityCategories: any[]): Promise<Hotel> =>
@@ -563,23 +433,9 @@ export const hotelApi = {
 
   // Get all cities
   getCities: async (): Promise<City[]> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/hotel/cities`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to get cities: ${response.status} ${response.statusText}`);
-      }
-
-      return response.json();
-    } catch (error) {
-      console.error('Error getting cities:', error);
-      throw error;
-    }
+    const data = await readJson(`${API_BASE_URL}/api/hotel/cities`);
+    if (!Array.isArray(data)) throw new ReadApiError('INVALID_RESPONSE');
+    return data as City[];
   },
 
   // Upload media (image) for hotel or room
@@ -593,37 +449,14 @@ export const hotelApi = {
   getHotelDocuments: async (hotelId: string): Promise<HotelVerificationDocuments> =>
     getHotelVerificationDocuments(hotelId,authHeaders()),
 
-  // Submit hotel for approval (DRAFT -> PENDING)
+  // Submit hotel for approval (DRAFT -> PENDING). The legacy direct route is tried only when the
+  // Gateway route is absent (404), never after a timeout or an ambiguous failure.
   submitHotelApproval: async (hotelId: string): Promise<Hotel> => {
-    try {
-      let response = await fetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/submit-approval`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders(),
-        },
-      });
-
-      if (!response.ok && response.status === 404) {
-        response = await fetch(`${API_BASE_URL}/hotels/${hotelId}/submit-approval`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...authHeaders(),
-          },
-        });
-      }
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(extractErrorMessage(text, `Lỗi khi gửi duyệt: ${response.status}`));
-      }
-
-      return response.json();
-    } catch (error) {
-      console.error('Error submitting hotel for approval:', error);
-      throw error;
-    }
+    // Single attempt: a 404 is a real "hotel not found", never a reason to replay the write on another route.
+    const response = await bookingFetch(`${API_BASE_URL}/api/hotel/hotels/${hotelId}/submit-approval`,
+      { method: 'POST', headers: jsonHeaders(authHeaders()) });
+    if (!response.ok) throw await responseError(response);
+    return await hotelJson(response) as Hotel;
   },
 
   // Delete draft hotel (DRAFT only)
@@ -639,134 +472,52 @@ export const hotelApi = {
 
   async getRoomTypePreview(roomTypeId: string, token: string): Promise<RoomType> {
     if (!token?.trim()) throw new Error('Vui lòng đăng nhập để xem loại phòng.');
-    const response = await fetch(`${API_BASE_URL}/api/hotel/api/v1/${roomTypeId}/preview`, {
-      headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
-    });
+    const response = await bookingFetch(`${API_BASE_URL}/api/hotel/api/v1/${roomTypeId}/preview`,
+      { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
     if (!response.ok) throw new Error(`Không thể xem loại phòng: ${response.status}`);
-    return cleanRoomTypeData(await response.json());
+    return cleanRoomTypeData(await hotelJson(response));
   },
 
   // Room Type APIs
-  getRoomTypeById: async (roomTypeId: string): Promise<RoomType> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/hotel/api/v1/${roomTypeId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders(),
-        },
-      });
+  getRoomTypeById: async (roomTypeId: string): Promise<RoomType> =>
+    cleanRoomTypeData(await readJson(`${API_BASE_URL}/api/hotel/api/v1/${roomTypeId}`, { headers: jsonHeaders(authHeaders()) })),
 
-      if (!response.ok) {
-        throw new Error(`Failed to get room type: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      return cleanRoomTypeData(data);
-    } catch (error) {
-      console.error('Error getting room type:', error);
-      throw error;
-    }
+  createRoomType: async (data: {
+    hotelId: string;
+    name: string;
+    basePrice: number;
+    capacity: CapacityDto;
+    roomAmount: number;
+    description?: string;
+    amenities?: string[];
+  }): Promise<RoomType> => {
+    const response = await hotelRequest(`${API_BASE_URL}/api/hotel/api/v1`, {
+      method: 'POST', headers: jsonHeaders(authHeaders()), body: JSON.stringify(data),
+    });
+    return cleanRoomTypeData(await hotelJson(response));
   },
 
-    createRoomType: async (data: {
-      hotelId: string;
-      name: string;
-      basePrice: number;
-      capacity: CapacityDto;
-      roomAmount: number;
-      description?: string;
-      amenities?: string[];
-    }): Promise<RoomType> => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/hotel/api/v1`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...authHeaders(),
-          },
-          body: JSON.stringify(data),
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to create room type: ${response.status} ${response.statusText}`);
-        }
-
-        const result = await response.json();
-        return cleanRoomTypeData(result);
-      } catch (error) {
-        console.error('Error creating room type:', error);
-        throw error;
-      }
-    },
-
-    updateRoomType: async (roomTypeId: string, data: {
-      name?: string;
-      basePrice?: number;
-      capacity?: CapacityDto;
-      amenities?: string[];
-      isActive?: boolean;
-      roomAmount?: number;
-      description?: string;
-    }): Promise<RoomType> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/hotel/api/v1/${roomTypeId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders(),
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to update room type: ${response.status} ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      return cleanRoomTypeData(result);
-    } catch (error) {
-      console.error('Error updating room type:', error);
-      throw error;
-    }
+  updateRoomType: async (roomTypeId: string, data: {
+    name?: string;
+    basePrice?: number;
+    capacity?: CapacityDto;
+    amenities?: string[];
+    isActive?: boolean;
+    roomAmount?: number;
+    description?: string;
+  }): Promise<RoomType> => {
+    const response = await hotelRequest(`${API_BASE_URL}/api/hotel/api/v1/${roomTypeId}`, {
+      method: 'PUT', headers: jsonHeaders(authHeaders()), body: JSON.stringify(data),
+    });
+    return cleanRoomTypeData(await hotelJson(response));
   },
 
   activateRoomType: async (roomTypeId: string): Promise<void> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/hotel/api/v1/${roomTypeId}/activate`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders(),
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to activate room type: ${response.status} ${response.statusText}`);
-      }
-    } catch (error) {
-      console.error('Error activating room type:', error);
-      throw error;
-    }
+    await hotelRequest(`${API_BASE_URL}/api/hotel/api/v1/${roomTypeId}/activate`, { method: 'PUT', headers: jsonHeaders(authHeaders()) });
   },
 
   deactivateRoomType: async (roomTypeId: string): Promise<void> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/hotel/api/v1/${roomTypeId}/deactivate`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders(),
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to deactivate room type: ${response.status} ${response.statusText}`);
-      }
-    } catch (error) {
-      console.error('Error deactivating room type:', error);
-      throw error;
-    }
+    await hotelRequest(`${API_BASE_URL}/api/hotel/api/v1/${roomTypeId}/deactivate`, { method: 'PUT', headers: jsonHeaders(authHeaders()) });
   },
 };
 
