@@ -1,3 +1,5 @@
+import { COMMUNITY_ENABLED } from '@/lib/community/flag';
+
 export interface AdminMenuItem {
   label: string;
   href: string;
@@ -5,7 +7,12 @@ export interface AdminMenuItem {
   badge?: string;
 }
 
+const communityItems: AdminMenuItem[] = COMMUNITY_ENABLED
+  ? [{label:'Báo cáo cộng đồng',href:'/admin/community-reports',iconPath:'M4 4H20V16H8L4 20V4ZM7 8V10H17V8H7ZM7 12V14H14V12H7Z'}]
+  : [];
+
 export const adminMenuItems: AdminMenuItem[] = [
+  ...communityItems,
   {label:'Xác minh số phòng',href:'/admin/inventory-reviews',iconPath:'M4 4H20V20H4V4ZM8 8H16V10H8V8Z'},
   {label:'Catalog tiện nghi',href:'/admin/amenities',iconPath:'M4 4H20V20H4V4ZM8 8H16V10H8V8Z'},
   {

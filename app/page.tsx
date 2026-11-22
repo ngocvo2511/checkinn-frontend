@@ -1,9 +1,9 @@
 "use client";
 
 import { errorMessage } from '@/lib/error-message';
-
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { safeNext } from "@/lib/community/login";
 import { authApi } from "@/lib/api/auth";
 import { LocationSearch } from "@/components/LocationSearch";
 import { DateRangePicker } from "@/components/DateRangePicker";
@@ -197,6 +197,26 @@ export default function Home() {
   const [showLogin, setShowLogin] = useState(false);
   const [showSignup, setShowSignup] = useState(false);
   const [signupVariant, setSignupVariant] = useState<'user' | 'host'>('user');
+  // Pages that send signed-out visitors here to log in use `/?login=1&next=/community/...`. Read once;
+  // nothing renders until auth has loaded, so reading the URL here cannot cause a hydration mismatch.
+  const [loginRequest] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    const params = new URLSearchParams(window.location.search);
+    return params.get('login') === '1' ? { next: safeNext(params.get('next')) } : null;
+  });
+  const [loginRequestDismissed, setLoginRequestDismissed] = useState(false);
+  const loginRequestHandled = useRef(false);
+  const loginOpen = showLogin || (loginRequest !== null && !loginRequestDismissed && !user);
+
+  useEffect(() => {
+    // Only on first load: after a sign-in from the modal, LoginModal decides where to go.
+    if (isLoading || loginRequestHandled.current) return;
+    loginRequestHandled.current = true;
+    // Already signed in: go straight back to where the visitor came from.
+    if (user && loginRequest?.next) router.replace(loginRequest.next);
+  }, [isLoading, user, router, loginRequest]);
+
+  const closeLogin = () => { setShowLogin(false); setLoginRequestDismissed(true); };
 
   const handleEditProfile = () => {
     router.push("/personal-data");
@@ -213,11 +233,12 @@ export default function Home() {
         onEditProfile={handleEditProfile}
       />
       <Hero />
-      {showLogin ? (
+      {loginOpen ? (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/35 px-4 py-10 sm:py-16">
           <LoginModal
-            onClose={() => setShowLogin(false)}
-            onOpenHostSignup={() => { setShowLogin(false); setSignupVariant('host'); setShowSignup(true); }}
+            next={loginRequest?.next ?? null}
+            onClose={closeLogin}
+            onOpenHostSignup={() => { closeLogin(); setSignupVariant('host'); setShowSignup(true); }}
           />
         </div>
       ) : null}
@@ -360,7 +381,7 @@ function Hero() {
   );
 }
 
-function LoginModal({ onClose, onOpenHostSignup }: { onClose: () => void; onOpenHostSignup: () => void }) {
+function LoginModal({ onClose, onOpenHostSignup, next = null }: { onClose: () => void; onOpenHostSignup: () => void; next?: string | null }) {
   const router = useRouter();
   const { login } = useAuth();
   const [email, setEmail] = useState("");
@@ -393,8 +414,9 @@ function LoginModal({ onClose, onOpenHostSignup }: { onClose: () => void; onOpen
       } else if (role.includes("owner") || role.includes("host")) {
         router.push("/host/dashboard");
       } else {
-        // Reload page to update UI
-        location.reload();
+        // Full page load to update the UI: back to the page that asked for sign-in, or reload here.
+        if (next) location.assign(next);
+        else location.reload();
       }
     } catch (err: unknown) {
       setError(errorMessage(err) || "Đăng nhập thất bại");

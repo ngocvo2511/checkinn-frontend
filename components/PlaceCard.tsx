@@ -1,8 +1,10 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { Star, MapPin, Clock, MessageSquare, Image as ImageIcon, ExternalLink, Car, Navigation } from "lucide-react";
 import { NearbyPlace } from "@/types/place";
+import { COMMUNITY_ENABLED } from "@/lib/community/flag";
 
 interface PlaceCardProps {
   place: NearbyPlace;
@@ -144,6 +146,16 @@ export default function PlaceCard({ place, onSelect, hotelLat, hotelLng, showDis
               >
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
+            )}
+            {COMMUNITY_ENABLED && place.id && (
+              <Link
+                href={`/places/${place.id}`}
+                onClick={(e) => e.stopPropagation()}
+                className="text-xs font-semibold text-gray-600 hover:text-blue-700"
+                title="Xem bài viết của cộng đồng về địa điểm này"
+              >
+                Cộng đồng
+              </Link>
             )}
             <button 
               type="button"
