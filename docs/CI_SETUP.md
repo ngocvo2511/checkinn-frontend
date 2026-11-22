@@ -1,5 +1,8 @@
 # GitHub Actions CI
 
+Kết quả mới nhất sau tích hợp community nằm ở mục cuối tài liệu; các mục
+remediation trước đó giữ số liệu tại thời điểm kiểm chứng tương ứng.
+
 ## Tổng quan và triggers
 
 Workflow [ci.yml](../.github/workflows/ci.yml) chạy khi `push` vào `main`
@@ -22,6 +25,7 @@ hoặc typecheck riêng; gọi trực tiếp TypeScript đã khóa trong lockfil
 | `Typecheck` | `npx --no-install tsc --noEmit --incremental false` | 15 phút |
 | `Node regression` | Toàn bộ `npm run test:regression` hiện có | 15 phút |
 | `Production build and browser` | Build standalone bằng Webpack theo Dockerfile, cài Edge rồi chạy `npm run test:browser` | 30 phút |
+| `Community browser` | Chạy đủ community specs bằng config riêng: Next Webpack dev, port 3317, feature flag bật trong harness | 15 phút |
 
 Các check chạy độc lập; matrix không fail-fast. Build giữ nguyên kiểm tra
 TypeScript của Next. Nếu build lỗi, các bước cài Edge/browser chưa chạy;
@@ -42,6 +46,7 @@ npm run test:regression
 npm run build -- --webpack
 npx --no-install playwright install --with-deps msedge
 npm run test:browser
+npx --no-install playwright test --config=playwright.community.config.ts
 ```
 
 Đặt `NEXT_TELEMETRY_DISABLED` và `NEXT_PUBLIC_API_BASE_URL` như workflow trước
@@ -57,6 +62,7 @@ Tên biến do workflow hoặc browser harness cấu hình:
 
 - `NEXT_TELEMETRY_DISABLED`
 - `NEXT_PUBLIC_API_BASE_URL`
+- `NEXT_PUBLIC_COMMUNITY_ENABLED`
 - `API_INTERNAL_URL`
 - `NEXTAUTH_SECRET`
 - `NEXTAUTH_URL`
@@ -79,15 +85,15 @@ Sau khi workflow được push bằng quy trình review thông thường:
 1. Bật Actions và cho phép các actions đã pin trong repository/organization.
 2. Chạy một PR vào `main` để GitHub ghi nhận các tên check ở bảng trên.
 3. Settings → Branches / Rulesets → quy tắc cho `main`: bật yêu cầu PR và
-   status checks, chọn cả bốn tên check. Nên yêu cầu nhánh cập nhật với `main`
+   status checks, chọn cả năm tên check. Nên yêu cầu nhánh cập nhật với `main`
    và hạn chế quyền bypass theo chính sách nhóm.
 4. Xác nhận một PR fork được chạy sau approval và lỗi check thực sự chặn merge.
 
 ## Phạm vi và hạn chế
 
 - Các config `playwright.<area>.config.ts` có server/port riêng và không nằm
-  trong lệnh browser mặc định: chưa cấu hình trong CI này. Không xóa hoặc
-  thay đổi testIgnore/assertions hiện có. Xem [tests/README.md](../tests/README.md)
+  trong lệnh browser mặc định. Community có job riêng; các area khác chưa cấu
+  hình trong CI này. Không xóa hoặc làm yếu assertions. Xem [tests/README.md](../tests/README.md)
   và từng config để chạy riêng; có thể bổ sung matrix sau khi xác nhận thời gian
   chạy và điều kiện readiness.
 - `playwright.live.config.ts` cần disposable canonical backend và
@@ -246,3 +252,37 @@ protection. Timeout cũ vẫn là rủi ro ổn định chưa xác định root 
 các lần pass sau là bằng chứng đã sửa nó. Chưa sẵn sàng chứng nhận phát hành an
 toàn vì critical/high dependency advisories chưa được khắc phục. Area browser,
 live backend integration và security gate chưa cấu hình trong workflow này.
+
+## Sửa routing community sau merge main — 22/11/2026
+
+[Run 44987628269](https://github.com/ngocvo2511/checkinn-frontend/actions/runs/44987628269)
+trên commit `82bb764` có lint/typecheck/regression/build PASS nhưng browser
+105 PASS + 15 FAIL. Toàn bộ lỗi thuộc `community.spec.ts`: fixture chỉ cho phép
+frontend origin `127.0.0.1:3317`, còn default config chạy `127.0.0.1:3300`, nên
+route mock abort chính navigation với `net::ERR_FAILED`. Đây là lỗi ghép suite
+vào sai runner, không phải timeout accommodation-type trước đó.
+
+Đã phân bổ community ra khỏi default discovery và thêm job bắt buộc
+`Community browser`, chạy đúng `playwright.community.config.ts`. Job có cùng
+Node 22/npm ci/cache/permissions/pinned actions, cài Edge rồi chạy đủ 15 cases.
+Config giữ port 3317, timeout 180s, synthetic auth và feature flag true cho dev
+server; chọn Webpack để nhất quán với bundler đã dùng trong production build
+và các area dev harness. Default production build giữ feature mặc định tắt.
+Không sửa assertions, test bodies, business logic, tăng timeout hoặc thêm retry.
+Đây là community UI test trên development server với intercepted APIs;
+không chứng minh community production-enabled hoặc backend/live acceptance.
+
+| Kiểm chứng local sau sửa routing | Kết quả |
+| --- | --- |
+| Discovery default + community | PASS: 105 + 15, không mất 15 community cases |
+| `npm run lint` | PASS: 0 errors, 149 warnings |
+| Typecheck | PASS |
+| `npm run test:regression` | PASS: 240/240, không skip |
+| Community browser đúng config | PASS: 15/15 (1,8 phút), không skip/retry |
+| Webpack build + default browser | PASS: build chuẩn + 105/105 browser (2,4 phút), không skip/retry |
+| YAML/actionlint | PASS |
+| GitHub run sau sửa routing | Chưa push bản sửa tại thời điểm kiểm chứng local |
+
+Branch Protection cần thêm `Community browser` cùng bốn checks cũ (tổng 5).
+Nếu thêm area suite mới có port/flag riêng, phải cấu hình runner riêng và chạy
+suite đó trong CI cùng lúc tách khỏi default; không chỉ thêm testIgnore.
