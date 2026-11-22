@@ -1,5 +1,7 @@
 "use client";
 
+import { errorMessage } from '@/lib/error-message';
+
 import MediaWriteNotice from '@/components/host/MediaWriteNotice';
 import {orderMedia,appendMedia,selectMedia,removeMedia,nextMediaOrder,mediaNeedsReload,mediaErrorMessage} from '@/lib/api/media-state';
 
@@ -11,7 +13,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {VerificationDocumentBoundary} from '@/components/VerificationDocumentBoundary';
 import HostMenu from "@/components/host/menu/HostMenu";
-import { hotelApi, Hotel as ApiHotel, RoomType, MediaAsset, HotelVerificationDocuments } from "@/lib/api/hotels";
+import { hotelApi, type City, Hotel as ApiHotel, RoomType, MediaAsset, HotelVerificationDocuments } from "@/lib/api/hotels";
 import NotificationModal, { useNotificationModal } from "@/components/NotificationModal";
 
 type AmenityFormCategory = {
@@ -40,7 +42,7 @@ const formatPrice = (value?: number) => {
 
 const formatAddress = (address?: ApiHotel['address']) => {
   if (!address) return '';
-  return [address.street, (address as any).district, address.city, address.country].filter(Boolean).join(', ');
+  return [address.street, ('district' in address ? address.district : undefined), address.city, address.country].filter(Boolean).join(', ');
 };
 
 const formatStatus = (status?: string) => {
@@ -137,7 +139,7 @@ export default function HostHotelDetailPage() {
   const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
-  const [cities, setCities] = useState<any[]>([]);
+  const [cities, setCities] = useState<City[]>([]);
   const [cityInput, setCityInput] = useState('');
   const [showCitySuggestions, setShowCitySuggestions] = useState(false);
   const [citySelected, setCitySelected] = useState(false);
@@ -215,10 +217,10 @@ export default function HostHotelDetailPage() {
             'Hồ sơ khách sạn đã được gửi tới Ban quản trị kiểm duyệt thành công. Ban quản trị sẽ thẩm định hồ sơ trong vòng 24-48 giờ.',
             () => window.location.reload()
           );
-        } catch (err: any) {
+        } catch (err: unknown) {
           showError(
             'Chưa thể gửi duyệt',
-            err?.message || 'Vui lòng kiểm tra lại giấy tờ pháp lý và ảnh đại diện của khách sạn.'
+            errorMessage(err) || 'Vui lòng kiểm tra lại giấy tờ pháp lý và ảnh đại diện của khách sạn.'
           );
         } finally {contentWritePending.current=false;setLifecycleSaving(false);}
       },
@@ -243,10 +245,10 @@ export default function HostHotelDetailPage() {
             `Bản nháp "${hotel.name}" đã được xóa thành công.`,
             () => router.push('/host/hotels')
           );
-        } catch (err: any) {
+        } catch (err: unknown) {
           showError(
             'Không thể xóa bản nháp',
-            err?.message || 'Có lỗi xảy ra khi xóa bản nháp.'
+            errorMessage(err) || 'Có lỗi xảy ra khi xóa bản nháp.'
           );
         } finally {contentWritePending.current=false;setLifecycleSaving(false);}
       },
@@ -324,8 +326,8 @@ export default function HostHotelDetailPage() {
         setHotel(data);
 
         await loadVerificationDocuments();
-      } catch (err: any) {
-        if(active)setError(err?.message || "Không thể tải thông tin khách sạn");
+      } catch (err: unknown) {
+        if(active)setError(errorMessage(err) || "Không thể tải thông tin khách sạn");
       } finally {
         if(active)setLoading(false);
       }
@@ -477,8 +479,8 @@ export default function HostHotelDetailPage() {
 
       // Clear success message after 3 seconds
       setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (err: any) {
-      setError(err?.message || `Không thể ${action} khách sạn`);
+    } catch (err: unknown) {
+      setError(errorMessage(err) || `Không thể ${action} khách sạn`);
     } finally {
       setToggling(false);
     }
@@ -557,9 +559,9 @@ export default function HostHotelDetailPage() {
     // Find city name from cityId
     const selectedCity = cities.find(c => c.id === hotel.cityId);
     const cityName = selectedCity?.name || hotel.city?.name || hotel.address?.city || '';
-    const amenities = (hotel.amenityCategories || hotel.amenities || []).map((cat: any) => ({
+    const amenities = (hotel.amenityCategories || hotel.amenities || []).map((cat) => ({
       title: cat.title || '',
-      items: (cat.items || []).map((i: any) => i.title || '')
+      items: (cat.items || []).map((i) => i.title || '')
     }));
     
     setFormData({
@@ -586,9 +588,9 @@ export default function HostHotelDetailPage() {
 
   const handleEditAmenities = () => {
     if (!hotel || contentWritePending.current) return;
-    const amenities = (hotel.amenityCategories || hotel.amenities || []).map((cat: any) => ({
+    const amenities = (hotel.amenityCategories || hotel.amenities || []).map((cat) => ({
       title: cat.title || '',
-      items: (cat.items || []).map((i: any) => i.title || '')
+      items: (cat.items || []).map((i) => i.title || '')
     }));
     setAmenityForm(amenities.length ? amenities : [{ title: '', items: [''] }]);
     setAmenityError(null);
@@ -597,7 +599,7 @@ export default function HostHotelDetailPage() {
 
   const handleEditPolicies = () => {
     if (!hotel || contentWritePending.current) return;
-    const policies = (hotel.policies || []).map((p: any) => ({
+    const policies = (hotel.policies || []).map((p) => ({
       category: p.category || p.title || '',
       content: p.content || '',
     }));
@@ -608,7 +610,7 @@ export default function HostHotelDetailPage() {
 
   const handleEditQuestions = () => {
     if (!hotel || contentWritePending.current) return;
-    const faqs = (hotel.faqs || []).map((q: any) => ({
+    const faqs = (hotel.faqs || []).map((q) => ({
       question: q.question || '',
       answer: q.answer || '',
     }));
@@ -685,8 +687,8 @@ export default function HostHotelDetailPage() {
       setShowEditModal(false);
       setSuccessMessage('Đã cập nhật thông tin khách sạn thành công!');
       setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (err: any) {
-      setError(err?.message || 'Không thể cập nhật thông tin');
+    } catch (err: unknown) {
+      setError(errorMessage(err) || 'Không thể cập nhật thông tin');
     } finally {
       setEditLoading(false);
     }
@@ -710,8 +712,8 @@ export default function HostHotelDetailPage() {
       setShowAmenityModal(false);
       setSuccessMessage('Đã cập nhật tiện ích thành công!');
       setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (err: any) {
-      setAmenityError(err?.message || 'Không thể cập nhật tiện ích');
+    } catch (err: unknown) {
+      setAmenityError(errorMessage(err) || 'Không thể cập nhật tiện ích');
     } finally {
       contentWritePending.current=false;
       setAmenitySaving(false);
@@ -732,8 +734,8 @@ export default function HostHotelDetailPage() {
       setShowPolicyModal(false);
       setSuccessMessage('Đã cập nhật chính sách thành công!');
       setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (err: any) {
-      setPolicyError(err?.message || 'Không thể cập nhật chính sách');
+    } catch (err: unknown) {
+      setPolicyError(errorMessage(err) || 'Không thể cập nhật chính sách');
     } finally {
       contentWritePending.current=false;
       setPolicySaving(false);
@@ -754,8 +756,8 @@ export default function HostHotelDetailPage() {
       setShowQuestionModal(false);
       setSuccessMessage('Đã cập nhật FAQ thành công!');
       setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (err: any) {
-      setQuestionError(err?.message || 'Không thể cập nhật FAQ');
+    } catch (err: unknown) {
+      setQuestionError(errorMessage(err) || 'Không thể cập nhật FAQ');
     } finally {
       contentWritePending.current=false;
       setQuestionSaving(false);
@@ -814,10 +816,10 @@ export default function HostHotelDetailPage() {
       const updatedHotel=await hotelApi.getHotelPreview(hotel.id,token);
       setHotel(updatedHotel);
       await loadVerificationDocuments();
-    } catch (err: any) {
+    } catch (err: unknown) {
       setVerificationDocs(null);
       setVerificationDocsError('Không thể xác nhận hồ sơ sau cập nhật. Vui lòng tải lại.');
-      setDocError(err?.message || 'Có lỗi xảy ra khi cập nhật tài liệu.');
+      setDocError(errorMessage(err) || 'Có lỗi xảy ra khi cập nhật tài liệu.');
     } finally {
       setDocSaving(false);
     }
@@ -2033,7 +2035,7 @@ export default function HostHotelDetailPage() {
 
               {amenityForm.length === 0 && (
                 <div className="rounded-xl border border-dashed border-[#E5E7EB] bg-white p-4 text-sm text-[#6B7280]">
-                  Chưa có tiện ích. Nhấn "Thêm danh mục" để bắt đầu.
+                  Chưa có tiện ích. Nhấn &quot;Thêm danh mục&quot; để bắt đầu.
                 </div>
               )}
 
@@ -2244,7 +2246,7 @@ export default function HostHotelDetailPage() {
 
               {policyForm.length === 0 && (
                 <div className="rounded-xl border border-dashed border-[#E5E7EB] bg-white p-4 text-sm text-[#6B7280]">
-                  Chưa có chính sách. Nhấn "Thêm chính sách" để bắt đầu.
+                  Chưa có chính sách. Nhấn &quot;Thêm chính sách&quot; để bắt đầu.
                 </div>
               )}
 
@@ -2372,7 +2374,7 @@ export default function HostHotelDetailPage() {
 
               {questionForm.length === 0 && (
                 <div className="rounded-xl border border-dashed border-[#E5E7EB] bg-white p-4 text-sm text-[#6B7280]">
-                  Chưa có câu hỏi. Nhấn "Thêm câu hỏi" để bắt đầu.
+                  Chưa có câu hỏi. Nhấn &quot;Thêm câu hỏi&quot; để bắt đầu.
                 </div>
               )}
 

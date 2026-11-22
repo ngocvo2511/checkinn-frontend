@@ -1,5 +1,7 @@
 'use client';
 
+import { errorMessage } from '@/lib/error-message';
+
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
@@ -49,8 +51,8 @@ export default function HostLoginPage() {
       setTimeout(() => {
         router.push('/host/dashboard');
       }, 500);
-    } catch (err: any) {
-      setError(err.message || 'Đăng nhập thất bại. Vui lòng thử lại.');
+    } catch (err: unknown) {
+      setError(errorMessage(err) || 'Đăng nhập thất bại. Vui lòng thử lại.');
       setLoading(false);
     }
   };

@@ -18,7 +18,7 @@ export default function HelpCenter() {
                 Help and feedback
               </h1>
               <p className="text-lg font-normal leading-6 text-[#8B94A4]">
-                Have questions or feedback for us? We're listening
+                Have questions or feedback for us? We&#39;re listening
               </p>
             </div>
 

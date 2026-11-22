@@ -1,4 +1,6 @@
 "use client";
+
+import { errorMessage } from '@/lib/error-message';
 import { canStartPayment, holdSecondsRemaining } from "@/lib/booking/payment-state";
 
 import { useSearchParams, useRouter } from "next/navigation";
@@ -128,7 +130,7 @@ export default function PaymentPage() {
       .then((data) => { if (active) setBooking(data); })
       .catch((err) => {
         if (!active) return;
-        const msg = err?.message || "Không lấy được thông tin đặt phòng";
+        const msg = errorMessage(err) || "Không lấy được thông tin đặt phòng";
         setError(msg);
         // If backend enforces auth and we hit 401/403, send user to login instead of showing booking info
         if (msg.includes("401") || msg.toLowerCase().includes("unauthorized") || msg.includes("403")) {
@@ -224,8 +226,8 @@ export default function PaymentPage() {
         const resp = await bookingApi.initVnPay(bookingId);
         window.location.href = resp.redirectUrl;
       }
-    } catch (err: any) {
-      setError(err?.message || "Thanh toán thất bại");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Thanh toán thất bại");
     } finally {
       setLoading(false);
     }

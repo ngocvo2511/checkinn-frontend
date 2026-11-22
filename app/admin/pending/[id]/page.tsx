@@ -428,24 +428,24 @@ export default function AdminPendingHotelDetailPage() {
                   {hotel.mediaAssets && hotel.mediaAssets.length > 0 ? (
                     <div className="space-y-4">
                       {/* Thumbnail */}
-                      {hotel.mediaAssets.find((asset: any) => asset.isThumbnail) && (
+                      {hotel.mediaAssets.find((asset) => asset.isThumbnail) && (
                         <div>
                           <label className="block text-base font-medium text-gray-700 mb-2">Ảnh đại diện</label>
                           <img
-                            src={hotel.mediaAssets.find((asset: any) => asset.isThumbnail).url}
+                            src={hotel.mediaAssets.find((asset) => asset.isThumbnail)?.url}
                             alt="Hotel thumbnail"
                             className="w-full max-w-md h-48 object-cover rounded-lg border"
                           />
                         </div>
                       )}
                       {/* Additional images */}
-                      {hotel.mediaAssets.filter((asset: any) => !asset.isThumbnail).length > 0 && (
+                      {hotel.mediaAssets.filter((asset) => !asset.isThumbnail).length > 0 && (
                         <div>
                           <label className="block text-base font-medium text-gray-700 mb-2">Ảnh bổ sung</label>
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                             {hotel.mediaAssets
-                              .filter((asset: any) => !asset.isThumbnail)
-                              .map((asset: any, index: number) => (
+                              .filter((asset) => !asset.isThumbnail)
+                              .map((asset, index: number) => (
                                 <img
                                   key={asset.id || index}
                                   src={asset.url}
@@ -466,7 +466,7 @@ export default function AdminPendingHotelDetailPage() {
                   <h2 className="text-lg font-semibold mb-4">Chính sách</h2>
                   {hotel.policies && hotel.policies.length > 0 ? (
                     <div className="space-y-4">
-                      {hotel.policies.map((policy: any, index: number) => (
+                      {hotel.policies.map((policy, index: number) => (
                         <div key={index} className="border-b pb-4 last:border-b-0 flex gap-3">
                           <PolicyIcon category={policy.category || policy.title} />
                           <div className="flex-1">
@@ -485,7 +485,7 @@ export default function AdminPendingHotelDetailPage() {
                   <h2 className="text-lg font-semibold mb-4">Câu hỏi thường gặp</h2>
                   {hotel.faqs && hotel.faqs.length > 0 ? (
                     <div className="space-y-4">
-                      {hotel.faqs.map((faq: any, index: number) => (
+                      {hotel.faqs.map((faq, index: number) => (
                         <div key={faq.id || index} className="border-b pb-4 last:border-b-0">
                           <h3 className="font-semibold text-gray-900">{faq.question}</h3>
                           <p className="text-gray-700 mt-1 text-base whitespace-pre-line">{faq.answer}</p>
@@ -501,12 +501,12 @@ export default function AdminPendingHotelDetailPage() {
                   <h2 className="text-lg font-semibold mb-4">Tiện nghi</h2>
                   {hotel.amenityCategories && hotel.amenityCategories.length > 0 ? (
                     <div className="space-y-4">
-                      {hotel.amenityCategories.map((category: any, index: number) => (
+                      {hotel.amenityCategories.map((category, index: number) => (
                         <div key={category.id || index} className="border-b pb-4 last:border-b-0">
                           <h3 className="font-medium text-gray-900">{category.title}</h3>
                           {category.items && category.items.length > 0 ? (
                             <ul className="list-disc list-inside text-gray-700 mt-2 space-y-1 text-base">
-                              {category.items.map((item: any, itemIndex: number) => (
+                              {category.items.map((item, itemIndex: number) => (
                                 <li key={item.id || itemIndex}>{item.title}</li>
                               ))}
                             </ul>

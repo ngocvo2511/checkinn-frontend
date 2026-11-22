@@ -3,6 +3,14 @@ import assert from 'node:assert/strict';
 import {bookingApi} from '../lib/api/booking.ts';
 import {bookingFetch} from '../lib/api/request-error.ts';
 import {createServer} from 'node:http';
+import {errorMessage} from '../lib/error-message.ts';
+
+test('error messages preserve Error and object messages while rejecting non-string thrown values',()=>{
+ assert.equal(errorMessage(new Error('Thông báo an toàn')), 'Thông báo an toàn');
+ assert.equal(errorMessage({message:'Thông báo từ adapter'}), 'Thông báo từ adapter');
+ assert.equal(errorMessage({message:''}), '');
+ for(const value of [null,undefined,'failure',42,{message:42},{}]) assert.equal(errorMessage(value),undefined);
+});
 
 test('booking API preserves status code request id and safe field errors without showing raw JSON',async()=>{
  const previous=globalThis.fetch;

@@ -20,14 +20,14 @@ interface HotelDetailHeaderProps {
   checkIn?: string;
   checkOut?: string;
   adults?: string;
-  children?: string;
+  childCount?: string;
   rooms?: string;
   onSearchClick?: () => void;
   onLogin?: () => void;
   onSignup?: () => void;
 }
 
-export default function HotelDetailHeader({ sections, activeSection, onSectionClick, hotelId, hotelName, checkIn, checkOut, adults, children, rooms, onSearchClick, onLogin, onSignup }: HotelDetailHeaderProps) {
+export default function HotelDetailHeader({ sections, activeSection, onSectionClick, hotelId, hotelName, checkIn, checkOut, adults, childCount, rooms, onSearchClick, onLogin, onSignup }: HotelDetailHeaderProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [headerOffset, setHeaderOffset] = useState(0);
   const [lastScrollY, setLastScrollY] = useState(0);
@@ -179,12 +179,12 @@ export default function HotelDetailHeader({ sections, activeSection, onSectionCl
         <div className="bg-white border-b border-[#E5E7EB]">
           <div className="mx-auto max-w-screen-xl px-4 md:px-8 lg:px-12 py-4">
             <HotelSearchBar
-              key={JSON.stringify([hotelId,checkIn,checkOut,adults,children,rooms])}
+              key={JSON.stringify([hotelId,checkIn,checkOut,adults,childCount,rooms])}
               initialHotelName={hotelName}
               initialCheckIn={checkIn}
               initialCheckOut={checkOut}
               initialAdults={adults}
-              initialChildren={children}
+              initialChildren={childCount}
               initialRooms={rooms}
               onSearch={(data) => {
                 const formatDateLocal = (date: Date) => {

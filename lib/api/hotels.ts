@@ -27,8 +27,10 @@ const mapperText=<T>(value:T,encoding:unknown):T|string|null=>{
   return value;
 };
 
-// Clean hotel data from backend
-const cleanHotelData = (hotel: any): Hotel => {
+// Legacy wire mapping; read callers retain their existing payload checks.
+// Assertions here describe the existing DTO boundary, not runtime validation.
+const cleanHotelData = (value: unknown): Hotel => {
+  const hotel = value as Hotel;
   let cleanedAddress = legacyAddressObject(hotel.address);
   if (cleanedAddress && typeof cleanedAddress === 'object' && !Array.isArray(cleanedAddress)) {
     cleanedAddress = {
@@ -50,36 +52,37 @@ const cleanHotelData = (hotel: any): Hotel => {
       name: mapperText(hotel.city.name,hotel.textEncoding),
       parentName: mapperText(hotel.city.parentName,hotel.textEncoding),
     } : undefined,
-    policies: hotel.policies?.map((p: any) => ({
+    policies: hotel.policies?.map((p) => ({
       ...p,
       title: p.title,
       category: p.category,
       content: p.content,
     })),
-    faqs: hotel.faqs?.map((f: any) => ({
+    faqs: hotel.faqs?.map((f) => ({
       ...f,
       question: f.question,
       answer: f.answer,
     })),
-    amenityCategories: hotel.amenityCategories?.map((cat: any) => ({
+    amenityCategories: hotel.amenityCategories?.map((cat) => ({
       ...cat,
       title: cat.title,
-      items: cat.items?.map((item: any) => ({
+      items: cat.items?.map((item) => ({
         ...item,
         title: item.title,
       })),
     })),
-    roomTypes: hotel.roomTypes?.map((rt: any) => ({
+    roomTypes: hotel.roomTypes?.map((rt) => ({
       ...rt,
       name: mapperText(rt.name,rt.textEncoding),
       description: typeof rt.description === "string" ? rt.description : undefined,
       bedType: rt.bedType,
     })),
-  };
+  } as Hotel;
 };
 
-// Clean room type data from backend
-const cleanRoomTypeData = (roomType: any): RoomType => {
+// Preserve legacy room text normalization without changing response acceptance.
+const cleanRoomTypeData = (value: unknown): RoomType => {
+  const roomType = value as RoomType;
   return {
     ...roomType,
     name: mapperText(roomType.name,roomType.textEncoding),
@@ -89,7 +92,7 @@ const cleanRoomTypeData = (roomType: any): RoomType => {
       ...roomType.capacity,
       bedType: roomType.capacity.bedType,
     } : undefined,
-  };
+  } as RoomType;
 };
 
 export interface HotelAddress {
@@ -343,7 +346,7 @@ export const hotelApi = {
   async getHotelsByOwner(token: string): Promise<Hotel[]> {
     const data = await readJson(`${API_BASE_URL}/api/hotel/hotels/owner`, { headers: jsonHeaders({ Authorization: `Bearer ${token}` }) });
     if (!Array.isArray(data)) throw new ReadApiError('INVALID_RESPONSE');
-    return data.map((hotel: any) => cleanHotelData(hotel));
+    return data.map((hotel) => cleanHotelData(hotel));
   },
 
   /**
@@ -412,7 +415,7 @@ export const hotelApi = {
     return cleanHotelData(await hotelJson(response));
   },
 
-  updateAmenities: async (hotelId: string, amenityCategories: any[]): Promise<Hotel> =>
+  updateAmenities: async (hotelId: string, amenityCategories: unknown[]): Promise<Hotel> =>
     cleanHotelData(await updateHotelContent(hotelId,'amenities',amenityCategories,authHeaders())),
 
   getAmenityCategories: async (): Promise<AmenityCategoryOption[]> => {
@@ -443,7 +446,7 @@ export const hotelApi = {
     writeMedia({targetId,targetType},file,isThumbnail,sortOrder,authHeaders()),
 
   // Private document requests share a deadline and never expose upstream errors.
-  uploadHotelDocuments: async (hotelId: string, formData: FormData): Promise<any> =>
+  uploadHotelDocuments: async (hotelId: string, formData: FormData): Promise<Record<string, unknown>> =>
     uploadHotelVerificationDocuments(hotelId,formData,authHeaders()),
 
   getHotelDocuments: async (hotelId: string): Promise<HotelVerificationDocuments> =>
@@ -582,10 +585,10 @@ export interface PendingHotelDetail {
   operationLicenseUrl?: string;
   ownerIdentityFrontUrl?: string;
   ownerIdentityBackUrl?: string;
-  policies?: any[]; // Define properly if needed
-  amenityCategories?: any[];
-  faqs?: any[];
-  mediaAssets?: any[];
+  policies?: PolicyResponse[];
+  amenityCategories?: AmenityResponse[];
+  faqs?: Array<QuestionResponse & { id?: string }>;
+  mediaAssets?: MediaAsset[];
 }
 
 export interface HotelVerificationDocuments {

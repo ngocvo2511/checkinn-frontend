@@ -13,11 +13,10 @@ interface PlaceReviewsModalProps {
 }
 
 export default function PlaceReviewsModal({ place, isOpen, onClose, hotelLat, hotelLng }: PlaceReviewsModalProps) {
-  const [activePhotoIndex, setActivePhotoIndex] = useState(0);
-
-  useEffect(() => {
-    setActivePhotoIndex(0);
-  }, [place]);
+  const [photo, setPhoto] = useState({ place, index: 0 });
+  // Reset together with the selected place, before its photos are rendered.
+  if (photo.place !== place) setPhoto({ place, index: 0 });
+  const activePhotoIndex = photo.place === place ? photo.index : 0;
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -47,12 +46,12 @@ export default function PlaceReviewsModal({ place, isOpen, onClose, hotelLat, ho
 
   const handlePrevPhoto = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setActivePhotoIndex((prev) => (prev > 0 ? prev - 1 : photos.length - 1));
+    setPhoto({ place, index: activePhotoIndex > 0 ? activePhotoIndex - 1 : photos.length - 1 });
   };
 
   const handleNextPhoto = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setActivePhotoIndex((prev) => (prev < photos.length - 1 ? prev + 1 : 0));
+    setPhoto({ place, index: activePhotoIndex < photos.length - 1 ? activePhotoIndex + 1 : 0 });
   };
 
   return (
@@ -163,7 +162,7 @@ export default function PlaceReviewsModal({ place, isOpen, onClose, hotelLat, ho
                   {photos.map((url, idx) => (
                     <button
                       key={idx}
-                      onClick={() => setActivePhotoIndex(idx)}
+                      onClick={() => setPhoto({ place, index: idx })}
                       className={`relative h-16 w-24 shrink-0 overflow-hidden rounded-lg border-2 transition ${
                         idx === activePhotoIndex ? "border-blue-600 ring-2 ring-blue-100" : "border-transparent opacity-70 hover:opacity-100"
                       }`}

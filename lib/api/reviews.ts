@@ -5,7 +5,8 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8
 // ==========================================
 
 // Transform flat rating fields from API into nested ratings object
-function normalizeReviewRatings(review: any): Review {
+type FlatRatings = Partial<Record<'staffRating' | 'amenitiesRating' | 'cleanlinessRating' | 'comfortRating' | 'valueForMoneyRating' | 'locationRating', number>>;
+function normalizeReviewRatings(review: Review & FlatRatings): Review {
   if (!review.ratings && (review.staffRating || review.amenitiesRating || review.cleanlinessRating || review.comfortRating || review.valueForMoneyRating || review.locationRating)) {
     return {
       ...review,
@@ -16,7 +17,7 @@ function normalizeReviewRatings(review: any): Review {
         comfort: review.comfortRating,
         valueForMoney: review.valueForMoneyRating,
         location: review.locationRating,
-      },
+      } as ReviewRatings,
     };
   }
   return review;
@@ -35,7 +36,8 @@ export interface ReviewRatings {
   location: number;        // Địa điểm
 }
 
-export interface Review {
+export interface Review extends FlatRatings {
+  name?: string; // Legacy guest display name.
   id: string;
   hotelId: string;
   guestId: string;

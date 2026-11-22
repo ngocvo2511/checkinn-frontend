@@ -17,15 +17,22 @@ for (const outcome of ['SETTLED', 'REVIEW_REQUIRED']) {
   test(`booking details refreshes pending points to ${outcome} without changing the paid receipt`, async ({ page }) => {
     await setup(page, route => route.fulfill({ json: cappedQuote }));
     let loyaltyStatus = 'PENDING';
-    await page.route('**/api/bookings/00000000-0000-4000-8000-0000000000e4', route => route.fulfill({ headers: cors, json: {
+    let releaseRefresh: () => void = () => {};
+    const refreshPending = new Promise<void>(resolve => { releaseRefresh = resolve; });
+    await page.route('**/api/bookings/00000000-0000-4000-8000-0000000000e4', async route => {
+      if (loyaltyStatus !== 'PENDING') await refreshPending;
+      return route.fulfill({ headers: cors, json: {
       id: '00000000-0000-4000-8000-0000000000e4', hotelName: 'Synthetic Hotel', status: 'CONFIRMED', loyaltyStatus,
       totalAmount: 500000, paidAmount: 500000, checkInDate: '2027-01-01', checkOutDate: '2027-01-02', adults: 2, children: 0,
       contactName: 'Synthetic Guest', contactEmail: 'fixture@example.invalid', contactPhone: '0000000000', items: [],
-    } }));
+    } });
+    });
     await page.goto('/booking/00000000-0000-4000-8000-0000000000e4');
     await expect(page.getByRole('status')).toContainText('Điểm thưởng đang được xử lý');
     loyaltyStatus = outcome;
     await page.getByRole('button', { name: 'Cập nhật trạng thái điểm' }).click();
+    await expect(page.getByRole('main').getByText('Đang tải...', { exact: true })).toBeVisible();
+    releaseRefresh();
     if (outcome === 'SETTLED') await expect(page.getByRole('status')).toHaveCount(0);
     else await expect(page.getByRole('status')).toContainText('cần được đối soát');
     await expect(page.getByText('CONFIRMED', { exact: true })).toBeVisible();

@@ -342,3 +342,9 @@ suite runs Next dev on port 3317 with `NEXT_PUBLIC_COMMUNITY_ENABLED=true` and
 intercepted APIs; no backend is needed. Typecheck now passes: `PlaceCard` takes
 `showDistance` again. The shared footer no longer overflows at phone width. The
 `Header` `set-state-in-effect` lint error predates this change.
+
+CI routing update (22/11/2026): default `npm run test:browser` runs the 105
+port-3300 standalone cases. The `Community browser` CI job runs all 15 community
+cases via `playwright.community.config.ts` on port 3317 with the flag enabled.
+Its Next dev server explicitly uses Webpack. Both commands are required for
+the combined 120 cases; the separation does not remove or skip community tests.

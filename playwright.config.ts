@@ -4,7 +4,7 @@ export default defineConfig({
   testDir: './tests/browser',
   // Area specs need their own dev server/port (playwright.<area>.config.ts); they abort under this server.
   testIgnore: ['amenity-write.spec.ts', 'hotel-content.spec.ts', 'document-boundary.spec.ts', 'media-write.spec.ts',
-    'regulation-consistency.spec.ts', 'revenue-consistency.spec.ts', 'review-history.spec.ts'],
+    'regulation-consistency.spec.ts', 'revenue-consistency.spec.ts', 'review-history.spec.ts', 'community.spec.ts'],
   outputDir: 'test-results',
   workers: 1,
   fullyParallel: false,

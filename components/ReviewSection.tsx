@@ -43,7 +43,7 @@ export default function ReviewSection({
 
         // Fetch paginated reviews
         const reviewsData = await reviewApi.getHotelReviews(hotelId, currentPage, 10);
-        let sortedReviews = [...reviewsData.content];
+        const sortedReviews = [...reviewsData.content];
 
         // Apply sorting
         if (sortBy === 'helpful') {

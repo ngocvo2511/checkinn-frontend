@@ -1,5 +1,7 @@
 'use client';
 
+import { errorMessage } from '@/lib/error-message';
+
 import {MediaUploadBatch} from '@/lib/api/media-upload-batch';
 import {preparePolicies,prepareQuestions,prepareAmenities} from '@/lib/api/hotel-content';
 import type { ChangeEvent, FormEvent } from 'react';
@@ -141,8 +143,8 @@ export default function HostCreateHotelPage() {
         setLoadingCities(true);
         const results = await cityApi.getAllCities();
         setCities(results);
-      } catch (err: any) {
-        setCitiesError(err?.message || 'Khong tai duoc danh sach thanh pho.');
+      } catch (err: unknown) {
+        setCitiesError(errorMessage(err) || 'Khong tai duoc danh sach thanh pho.');
       } finally {
         setLoadingCities(false);
       }
@@ -155,7 +157,7 @@ export default function HostCreateHotelPage() {
         if (!response.ok) throw new Error('Không thể tải danh sách loại chính sách');
         const data = await response.json();
         setPolicyCategories(data.result || data);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Lỗi tải policy categories:', err);
       } finally {
         setLoadingPolicyCategories(false);
@@ -517,8 +519,8 @@ export default function HostCreateHotelPage() {
         'Hồ sơ khách sạn đã được gửi tới Ban quản trị kiểm duyệt. Bạn có thể theo dõi tiến độ duyệt tại danh sách khách sạn.',
         () => router.push('/host/hotels')
       );
-    } catch (err: any) {
-      let rawMsg = err?.message || 'Có lỗi xảy ra, vui lòng thử lại.';
+    } catch (err: unknown) {
+      let rawMsg = errorMessage(err) || 'Có lỗi xảy ra, vui lòng thử lại.';
       try {
         const parsed = JSON.parse(rawMsg);
         rawMsg = parsed.message || parsed.error || rawMsg;
@@ -752,7 +754,7 @@ ${mediaUploads.current.blocked ? 'Ảnh có thể đã được lưu một phầ
                               className="flex w-full items-center justify-between px-4 py-2 text-left text-base hover:bg-[#F7F8FA] transition"
                             >
                               <span className="font-semibold">{city.name}</span>
-                              <span className="text-sm text-[#656F81]">{city.parentName || (city as any).parentCode || 'Vietnam'}</span>
+                              <span className="text-sm text-[#656F81]">{city.parentName || ('parentCode' in city ? city.parentCode as string : undefined) || 'Vietnam'}</span>
                             </button>
                           ))}
                         </div>
@@ -1016,7 +1018,7 @@ ${mediaUploads.current.blocked ? 'Ảnh có thể đã được lưu một phầ
                     </div>
                   ))}
                   {form.policies.length === 0 && (
-                    <p className="text-base text-[#656F81] text-center py-4">Chưa có chính sách nào. Click "Thêm chính sách" để thêm.</p>
+                    <p className="text-base text-[#656F81] text-center py-4">Chưa có chính sách nào. Click &quot;Thêm chính sách&quot; để thêm.</p>
                   )}
                 </div>
               </div>
@@ -1070,7 +1072,7 @@ ${mediaUploads.current.blocked ? 'Ảnh có thể đã được lưu một phầ
                     </div>
                   ))}
                   {(form.questions ?? []).length === 0 && (
-                    <p className="text-base text-[#656F81] text-center py-4">Chưa có FAQ nào. Click "Thêm câu hỏi" để thêm.</p>
+                    <p className="text-base text-[#656F81] text-center py-4">Chưa có FAQ nào. Click &quot;Thêm câu hỏi&quot; để thêm.</p>
                   )}
                 </div>
               </div>
@@ -1148,7 +1150,7 @@ ${mediaUploads.current.blocked ? 'Ảnh có thể đã được lưu một phầ
                     </div>
                   ))}
                   {form.amenityCategories.length === 0 && (
-                    <p className="text-base text-[#656F81] text-center py-4">Chưa có danh mục tiện ích nào. Click "Thêm danh mục tiện ích" để thêm.</p>
+                    <p className="text-base text-[#656F81] text-center py-4">Chưa có danh mục tiện ích nào. Click &quot;Thêm danh mục tiện ích&quot; để thêm.</p>
                   )}
                 </div>
               </div>

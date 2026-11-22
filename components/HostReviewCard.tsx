@@ -1,5 +1,7 @@
 'use client';
 
+import { errorMessage } from '@/lib/error-message';
+
 import { useState } from 'react';
 import { Review, reviewApi } from '@/lib/api/reviews';
 import { Star, User, MessageSquare, Send, Edit2, Trash2, Check, X } from 'lucide-react';
@@ -60,9 +62,9 @@ export function HostReviewCard({ review, onResponseAdded }: HostReviewCardProps)
       setResponseContent('');
       setShowResponseForm(false);
       onResponseAdded();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error submitting response:', err);
-      setError(err.message || 'Không thể gửi phản hồi');
+      setError(errorMessage(err) || 'Không thể gửi phản hồi');
     } finally {
       setIsSubmitting(false);
     }
@@ -92,9 +94,9 @@ export function HostReviewCard({ review, onResponseAdded }: HostReviewCardProps)
 
       setIsEditing(false);
       onResponseAdded();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error updating response:', err);
-      setError(err.message || 'Không thể cập nhật phản hồi');
+      setError(errorMessage(err) || 'Không thể cập nhật phản hồi');
     } finally {
       setIsSubmitting(false);
     }
@@ -117,9 +119,9 @@ export function HostReviewCard({ review, onResponseAdded }: HostReviewCardProps)
 
       await reviewApi.deleteReviewResponse(review.ownerResponse.id, token);
       onResponseAdded();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error deleting response:', err);
-      setError(err.message || 'Không thể xóa phản hồi');
+      setError(errorMessage(err) || 'Không thể xóa phản hồi');
     } finally {
       setIsSubmitting(false);
     }

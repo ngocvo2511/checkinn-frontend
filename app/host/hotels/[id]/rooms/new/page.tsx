@@ -1,5 +1,7 @@
 "use client";
 
+import { errorMessage } from '@/lib/error-message';
+
 import MediaWriteNotice from '@/components/host/MediaWriteNotice';
 import {appendMedia,selectMedia,removeMedia,nextMediaOrder,mediaNeedsReload,mediaErrorMessage} from '@/lib/api/media-state';
 import { useRef, useState } from "react";
@@ -157,8 +159,8 @@ export default function NewRoomPage() {
 
       setCreatedRoomId(newRoom.id);
       setSuccessMessage('Đã tạo phòng. Phòng chưa thể nhận booking mới cho đến khi ADMIN duyệt số phòng và nguồn xác minh.');
-    } catch (err: any) {
-      setError(err?.message || 'Không thể thêm phòng mới');
+    } catch (err: unknown) {
+      setError(errorMessage(err) || 'Không thể thêm phòng mới');
     } finally {
       setSaving(false);
     }

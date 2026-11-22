@@ -7,16 +7,16 @@ const hotel={textEncoding:'PLAIN_V1',id,name:'Synthetic amenity hotel',descripti
 const cors={'access-control-allow-origin':'http://127.0.0.1:3315','access-control-allow-headers':'authorization,content-type,accept','access-control-allow-methods':'GET,PUT,OPTIONS'};
 async function prepare(page:Page,fail=false,recover=false,kind:'amenities'|'policies'='amenities',pending?:Promise<void>){
  let categoryReads=0;
- const writes:any[]=[];const logs:string[]=[];page.on('console',message=>logs.push(message.text()));
+ const writes:unknown[]=[];const logs:string[]=[];page.on('console',message=>logs.push(message.text()));
  await page.addInitScript(({owner})=>{localStorage.setItem('token','synthetic-amenity-token');localStorage.setItem('user',JSON.stringify({userId:owner,fullName:'Synthetic owner',role:'OWNER'}));},{owner});
  await page.route('**/*',async route=>{
   const url=new URL(route.request().url());
   if(url.port==='8080'){
    if(route.request().method()==='OPTIONS')return route.fulfill({status:204,headers:cors});
    if(url.pathname.endsWith('/amenities')&&route.request().method()==='PUT'){
-    const payload=route.request().postDataJSON();writes.push(payload);if(pending)await pending;
+    const payload=route.request().postDataJSON() as {amenityCategories: import("@/lib/api/hotel-content").AmenityInput[]};writes.push(payload);if(pending)await pending;
     if(fail)return route.fulfill({status:503,headers:cors,json:{message:marker}});
-    return route.fulfill({headers:cors,json:{...hotel,amenityCategories:payload.amenityCategories.map((category:any,n:number)=>({id:'new-category-'+n,title:category.title,items:category.amenities.map((item:any,m:number)=>({id:'new-item-'+m,title:item.title,verifiedCodes:[]}))}))}});
+    return route.fulfill({headers:cors,json:{...hotel,amenityCategories:payload.amenityCategories.map((category,n:number)=>({id:'new-category-'+n,title:category.title,items:category.amenities.map((item,m:number)=>({id:'new-item-'+m,title:item.title,verifiedCodes:[]}))}))}});
    }
    if(url.pathname.endsWith('/'+kind+'/categories')){
     categoryReads++;
