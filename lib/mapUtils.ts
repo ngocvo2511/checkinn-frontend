@@ -77,6 +77,8 @@ export async function geocodeAddress(
         'Accept-Language': 'vi,en',
         'User-Agent': 'Checkinn-Platform/1.0',
       },
+      // Third-party geocoder: bounded; a timeout is handled like any failure (no coordinates).
+      signal: AbortSignal.timeout(10000),
     });
 
     if (!res.ok) return null;

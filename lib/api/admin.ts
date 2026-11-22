@@ -1,3 +1,4 @@
+import { bookingFetch } from './request-error.ts';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
 
 export interface AdminDashboardStats {
@@ -13,25 +14,25 @@ export const adminApi = {
     try {
       // Fetch all data in parallel for better performance
       const [pendingResponse, hotelsResponse, usersResponse, todayBookingsResponse] = await Promise.all([
-        fetch(`${API_BASE_URL}/hotels/pending`, {
+        bookingFetch(`${API_BASE_URL}/hotels/pending`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
         }),
-        fetch(`${API_BASE_URL}/hotels`, {
+        bookingFetch(`${API_BASE_URL}/hotels`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
         }),
-        fetch(`${API_BASE_URL}/api/user/count`, {
+        bookingFetch(`${API_BASE_URL}/api/user/count`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
         }),
-        fetch(`${API_BASE_URL}/api/bookings/count/today`, {
+        bookingFetch(`${API_BASE_URL}/api/bookings/count/today`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,

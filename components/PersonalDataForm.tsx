@@ -8,6 +8,7 @@ import UserSidebar from './UserSidebar';
 import { authApi } from '@/lib/api/auth';
 import { loyaltyApi } from '@/lib/api/booking';
 import 'react-datepicker/dist/react-datepicker.css';
+import { bookingFetch } from '@/lib/api/request-error';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
 const MIN_PASSWORD_LENGTH = 12;
@@ -89,7 +90,7 @@ export default function PersonalDataForm() {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/user/profile`, {
+      const response = await bookingFetch(`${API_BASE_URL}/api/user/profile`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -153,7 +154,7 @@ export default function PersonalDataForm() {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/user/profile`, {
+      const response = await bookingFetch(`${API_BASE_URL}/api/user/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

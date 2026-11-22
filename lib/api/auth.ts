@@ -1,3 +1,4 @@
+import { bookingFetch } from './request-error.ts';
 const API_ROOT = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
 const API_BASE_URL = `${API_ROOT}/api/auth`;
 
@@ -24,7 +25,7 @@ export interface LoginData {
 
 export const authApi = {
   register: async (data: RegisterData): Promise<AuthResponse> => {
-    const response = await fetch(`${API_BASE_URL}/register`, {
+    const response = await bookingFetch(`${API_BASE_URL}/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -49,7 +50,7 @@ export const authApi = {
   },
 
   registerOwner: async (data: RegisterData): Promise<AuthResponse> => {
-    const response = await fetch(`${API_BASE_URL}/register-owner`, {
+    const response = await bookingFetch(`${API_BASE_URL}/register-owner`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -74,7 +75,7 @@ export const authApi = {
   },
 
   login: async (data: LoginData): Promise<AuthResponse> => {
-    const response = await fetch(`${API_BASE_URL}/login`, {
+    const response = await bookingFetch(`${API_BASE_URL}/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -101,7 +102,7 @@ export const authApi = {
   },
 
   logout: async (token: string): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/logout`, {
+    const response = await bookingFetch(`${API_BASE_URL}/logout`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -123,7 +124,7 @@ export const authApi = {
   },
 
   changePassword: async (currentPassword: string, newPassword: string, token: string): Promise<void> => {
-      const response = await fetch(`${API_ROOT}/api/user/change-password`, {
+      const response = await bookingFetch(`${API_ROOT}/api/user/change-password`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -142,7 +143,7 @@ export const authApi = {
   },
 
   verifyOtp: async (email: string, otpCode: string): Promise<{ verified: boolean; message: string; email: string }> => {
-    const response = await fetch(`${API_BASE_URL}/otp/verify`, {
+    const response = await bookingFetch(`${API_BASE_URL}/otp/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -167,7 +168,7 @@ export const authApi = {
   },
 
   resendOtp: async (email: string): Promise<{ success: boolean; message: string }> => {
-    const response = await fetch(`${API_BASE_URL}/otp/resend?email=${encodeURIComponent(email)}`, {
+    const response = await bookingFetch(`${API_BASE_URL}/otp/resend?email=${encodeURIComponent(email)}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -191,7 +192,7 @@ export const authApi = {
   },
 
   forgotPassword: async (email: string): Promise<{ success: boolean; message: string }> => {
-    const response = await fetch(`${API_BASE_URL}/forgot-password?email=${encodeURIComponent(email)}`, {
+    const response = await bookingFetch(`${API_BASE_URL}/forgot-password?email=${encodeURIComponent(email)}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -215,7 +216,7 @@ export const authApi = {
   },
 
   resetPassword: async (email: string, otpCode: string, newPassword: string): Promise<{ success: boolean; message: string }> => {
-    const response = await fetch(`${API_BASE_URL}/reset-password`, {
+    const response = await bookingFetch(`${API_BASE_URL}/reset-password`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -1,4 +1,5 @@
 import { readJson, readArray } from './read-request.ts';
+import { bookingFetch } from './request-error.ts';
 const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080'}/cities`;
 
 export interface City {
@@ -35,7 +36,7 @@ export const cityApi = {
   // Get city by ID
   getCityById: async (cityId: string): Promise<City> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/${cityId}`, {
+      const response = await bookingFetch(`${API_BASE_URL}/${cityId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -56,7 +57,7 @@ export const cityApi = {
   // Get city by name
   getCityByName: async (name: string): Promise<City> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/search/by-name?name=${encodeURIComponent(name)}`, {
+      const response = await bookingFetch(`${API_BASE_URL}/search/by-name?name=${encodeURIComponent(name)}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -77,7 +78,7 @@ export const cityApi = {
   // Get city by code
   getCityByCode: async (code: string): Promise<City> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/search/by-code?code=${encodeURIComponent(code)}`, {
+      const response = await bookingFetch(`${API_BASE_URL}/search/by-code?code=${encodeURIComponent(code)}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

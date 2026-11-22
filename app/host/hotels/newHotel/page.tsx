@@ -37,6 +37,7 @@ type AmenityCategory = {
 };
 
 import {AccommodationTypeSelect} from '@/components/AccommodationTypeSelect';
+import { bookingFetch } from '@/lib/api/request-error';
 
 type FormState = {
   accommodationType: string;
@@ -150,7 +151,7 @@ export default function HostCreateHotelPage() {
     const fetchPolicyCategories = async () => {
       try {
         setLoadingPolicyCategories(true);
-        const response = await fetch(`${API_BASE_URL}/hotels/policies/categories`);
+        const response = await bookingFetch(`${API_BASE_URL}/hotels/policies/categories`);
         if (!response.ok) throw new Error('Không thể tải danh sách loại chính sách');
         const data = await response.json();
         setPolicyCategories(data.result || data);
@@ -470,7 +471,7 @@ export default function HostCreateHotelPage() {
 
       if (!hotelId) {
         setStatusMessage('Đang tạo bản nháp khách sạn...');
-        const response = await fetch(`${API_BASE_URL}/hotels`, {
+        const response = await bookingFetch(`${API_BASE_URL}/hotels`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

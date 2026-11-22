@@ -4,22 +4,17 @@ import { canStartPayment, holdSecondsRemaining } from "@/lib/booking/payment-sta
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
-  Ban,
-  BedDouble,
   Building2,
   Clock3,
   Mail,
   MessageCircle,
   Phone,
-  Soup,
-  Wifi,
-  XCircle,
   Info,
   Users,
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { bookingApi, type BookingResponse } from "@/lib/api/booking";
+import { bookingApi, type BookingResponse, type CancellationPolicyDetails } from "@/lib/api/booking";
 import { useAuth } from "@/hooks/useAuth";
 
 const formatPrice = (value?: number) => {
@@ -58,6 +53,17 @@ export default function PaymentPage() {
   const [voucherCode, setVoucherCode] = useState("");
   const [voucherMessage, setVoucherMessage] = useState<string | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+  // F-9E-1: times and cancellation terms come from the server policy; unknown stays unknown.
+  const [cancellationPolicy, setCancellationPolicy] = useState<CancellationPolicyDetails | null>(null);
+  const [policyUnavailable, setPolicyUnavailable] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    bookingApi.getCancellationPolicy()
+      .then((policy) => { if (active) setCancellationPolicy(policy); })
+      .catch(() => { if (active) setPolicyUnavailable(true); });
+    return () => { active = false; };
+  }, []);
   const isPayableStatus = canStartPayment(booking);
 
   const taxAndFees = 0;
@@ -390,12 +396,11 @@ export default function PaymentPage() {
                   <div className="rounded-xl border border-[#E5E7EB] bg-[#F8FAFF] p-3">
                     <p className="text-sm font-semibold text-[#0F172A]">Nhận phòng</p>
                     <p className="text-sm text-[#0F172A] mt-1">{displayCheckIn || "--"}</p>
-                    <p className="text-xs text-[#6B7280]">Từ 14:00</p>
+                    {cancellationPolicy && <p className="text-xs text-[#6B7280]">Từ {cancellationPolicy.checkInTime}</p>}
                   </div>
                   <div className="rounded-xl border border-[#E5E7EB] bg-[#F8FAFF] p-3">
                     <p className="text-sm font-semibold text-[#0F172A]">Trả phòng</p>
                     <p className="text-sm text-[#0F172A] mt-1">{displayCheckOut || "--"}</p>
-                    <p className="text-xs text-[#6B7280]">Trước 12:00</p>
                   </div>
                 </div>
 
@@ -404,9 +409,6 @@ export default function PaymentPage() {
                   <p className="font-semibold">({displayQuantity}x) {displayRoomName || "Hạng phòng"}</p>
                   <ul className="space-y-1 text-[#374151]">
                     <li className="flex items-center gap-2"><Users className="h-4 w-4" /> {displayAdults} khách</li>
-                    <li className="flex items-center gap-2"><BedDouble className="h-4 w-4" /> 1 giường</li>
-                    <li className="flex items-center gap-2"><Soup className="h-4 w-4" /> Bữa sáng cho 2 người</li>
-                    <li className="flex items-center gap-2"><Wifi className="h-4 w-4" /> WiFi miễn phí</li>
                   </ul>
                 </div>
 
@@ -415,12 +417,16 @@ export default function PaymentPage() {
                 <div className="space-y-2 text-sm text-[#0F172A]">
                   <p className="font-semibold">Tên khách</p>
                   <p className="text-[#374151]">{displayGuestInfoName || displayContactName || "--"}</p>
-                  <div className="flex items-center gap-2 text-[#374151]">
-                    <XCircle className="h-4 w-4 text-red-500" /> Không hoàn tiền
-                  </div>
-                  <div className="flex items-center gap-2 text-[#374151]">
-                    <Ban className="h-4 w-4 text-[#9CA3AF]" /> Không đổi lịch
-                  </div>
+                  <p className="font-semibold">Chính sách hủy</p>
+                  {cancellationPolicy ? (
+                    <p className="text-[#374151]">
+                      Nếu đã trả qua VNPay, miễn phí hủy trước giờ nhận phòng ít nhất {cancellationPolicy.freeCancellationHours} giờ
+                      (giờ nhận phòng {cancellationPolicy.checkInTime}, {cancellationPolicy.timeZone}); khoản hoàn tiền cần quản trị viên duyệt.
+                      Chưa thanh toán có thể hủy trước giờ nhận phòng.
+                    </p>
+                  ) : (
+                    <p className="text-[#6B7280]">{policyUnavailable ? "Chưa tải được chính sách hủy. Vui lòng tải lại trang trước khi thanh toán." : "Đang tải chính sách hủy..."}</p>
+                  )}
                 </div>
 
                 {/* Contact */}
