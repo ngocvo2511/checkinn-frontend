@@ -1,5 +1,7 @@
 "use client";
 
+import { errorMessage } from '@/lib/error-message';
+
 import MediaWriteNotice from '@/components/host/MediaWriteNotice';
 import {appendMedia,selectMedia,removeMedia,nextMediaOrder,mediaNeedsReload,mediaErrorMessage} from '@/lib/api/media-state';
 
@@ -161,8 +163,8 @@ export default function EditRoomPage() {
         setSelectedAmenities(data.amenities || []);
         setInitialRoomAmount(roomFacts(data).totalRooms);
         setFormData(roomEditState(data));
-      } catch (err: any) {
-        setError(err?.message || "Không thể tải thông tin phòng");
+      } catch (err: unknown) {
+        setError(errorMessage(err) || "Không thể tải thông tin phòng");
       } finally {
         setLoading(false);
       }
@@ -192,20 +194,16 @@ export default function EditRoomPage() {
       setTimeout(() => {
         router.push(`/host/hotels/${hotelId}`);
       }, 1500);
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Xử lý lỗi từ backend
-      let errorMessage = 'Không thể cập nhật thông tin phòng';
-      
-      if (err?.message) {
-        errorMessage = err.message;
-      }
+      let message = errorMessage(err) || 'Không thể cập nhật thông tin phòng';
       
       // Kiểm tra lỗi cụ thể về số lượng phòng
-      if (errorMessage.includes('Số lượng phòng') || errorMessage.includes('roomAmount')) {
-        errorMessage = 'Số lượng phòng chưa được xác minh hoặc đã thay đổi. Hãy tải lại thông tin phòng.';
+      if (message.includes('Số lượng phòng') || message.includes('roomAmount')) {
+        message = 'Số lượng phòng chưa được xác minh hoặc đã thay đổi. Hãy tải lại thông tin phòng.';
       }
       
-      setError(errorMessage);
+      setError(message);
       // Scroll to top để hiển thị lỗi
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
@@ -237,8 +235,8 @@ export default function EditRoomPage() {
       setRoom(previous=>previous?.id===room.id?{...previous,isActive:!room.isActive}:previous);
       setSuccessMessage(`Đã ${action} phòng thành công!`);
       setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (err: any) {
-      setError(err?.message || `Không thể ${action} phòng`);
+    } catch (err: unknown) {
+      setError(errorMessage(err) || `Không thể ${action} phòng`);
     } finally {
       setToggling(false);
     }

@@ -2,8 +2,8 @@ import {test,expect,type Page} from '@playwright/test';
 const id='11111111-1111-4111-8111-111111111111',roomId='22222222-2222-4222-8222-222222222222',owner='33333333-3333-4333-8333-333333333333';
 const base={textEncoding:'PLAIN_V1',id:roomId,hotelId:id,name:'Synthetic room facts',description:'Original description',isActive:true,basePrice:200000,totalRooms:2,amenities:[],mediaAssets:[],capacity:{adults:2,children:0,bedType:null,roomSize:null,breakfastIncluded:null,breakfastQuantity:null}};
 const cors={'access-control-allow-origin':'*','access-control-allow-headers':'Authorization,Content-Type','access-control-allow-methods':'GET,PUT,OPTIONS'};
-async function mock(page:Page,initial:any,host=false){
- let current={...initial};const writes:any[]=[];
+async function mock(page:Page,initial:Omit<typeof base, "capacity" | "totalRooms"> & {capacity: Partial<Record<keyof typeof base.capacity, number | boolean | string | null>> | null; totalRooms: number | null; availableRooms?: number},host=false){
+ let current={...initial};const writes:Record<string, unknown>[]=[];
  if(host)await page.addInitScript(({owner})=>{localStorage.setItem('token','synthetic-owner-token');localStorage.setItem('user',JSON.stringify({userId:owner,role:'OWNER',fullName:'Synthetic Owner'}));},{owner});
  await page.route('**/*',async route=>{const u=new URL(route.request().url());
   if(u.port==='8080'){
@@ -29,7 +29,7 @@ for(const capacity of [null,{adults:2,children:null},{adults:0,children:0}])test
 test('owner description edit never manufactures unknown breakfast/room metadata or rewrites stock/price',async({page})=>{
  const api=await mock(page,base,true);await page.goto(`/host/hotels/${id}/rooms/${roomId}`);
  await page.getByPlaceholder('Mô tả về phòng...').fill('Description changed only');await page.getByRole('button',{name:'Lưu thay đổi',exact:true}).click();
- await expect.poll(()=>api.writes().length).toBe(1);expect(api.writes()[0]).toEqual({description:'Description changed only'});expect(api.current().capacity.breakfastIncluded).toBeNull();
+ await expect.poll(()=>api.writes().length).toBe(1);expect(api.writes()[0]).toEqual({description:'Description changed only'});expect(api.current().capacity?.breakfastIncluded).toBeNull();
 });
 test('owner unrelated edit preserves unknown configured inventory and capacity instead of using observed availability',async({page})=>{
  const api=await mock(page,{...base,totalRooms:null,availableRooms:5,capacity:null},true);await page.goto(`/host/hotels/${id}/rooms/${roomId}`);

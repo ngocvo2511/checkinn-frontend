@@ -1,5 +1,7 @@
 "use client";
 
+import { errorMessage } from '@/lib/error-message';
+
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { authApi } from "@/lib/api/auth";
@@ -394,8 +396,8 @@ function LoginModal({ onClose, onOpenHostSignup }: { onClose: () => void; onOpen
         // Reload page to update UI
         location.reload();
       }
-    } catch (err: any) {
-      setError(err.message || "Đăng nhập thất bại");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Đăng nhập thất bại");
     } finally {
       setLoading(false);
     }
@@ -541,8 +543,8 @@ function ForgotPasswordModal({ onBack, onClose }: { onBack: () => void; onClose:
         setStep('otp');
         setOtpExpiryTime(Date.now() + 10 * 60 * 1000);
       }
-    } catch (err: any) {
-      setError(err.message || "Không thể gửi yêu cầu đặt lại mật khẩu");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Không thể gửi yêu cầu đặt lại mật khẩu");
     } finally {
       setLoading(false);
     }
@@ -565,8 +567,8 @@ function ForgotPasswordModal({ onBack, onClose }: { onBack: () => void; onClose:
       } else {
         setError(response.message || "Xác thực OTP thất bại");
       }
-    } catch (err: any) {
-      setError(err.message || "Xác thực OTP thất bại");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Xác thực OTP thất bại");
     } finally {
       setLoading(false);
     }
@@ -612,10 +614,10 @@ function ForgotPasswordModal({ onBack, onClose }: { onBack: () => void; onClose:
         setResetSuccess(false);
         setError(response.message || "Không thể đặt lại mật khẩu");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Reset password error:", err);
       setResetSuccess(false);
-      setError(err.message || "Không thể đặt lại mật khẩu");
+      setError(errorMessage(err) || "Không thể đặt lại mật khẩu");
     } finally {
       setLoading(false);
     }
@@ -856,7 +858,7 @@ function SignupModal({ onClose, variant = 'user' }: { onClose: () => void; varia
   const [otpDigits, setOtpDigits] = useState<string[]>(["", "", "", "", "", ""]);
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpError, setOtpError] = useState("");
-  const [authResponse, setAuthResponse] = useState<any>(null);
+  const [authResponse, setAuthResponse] = useState<Awaited<ReturnType<typeof authApi.register>> | null>(null);
   const [otpExpiryTime, setOtpExpiryTime] = useState<number>(0);
   const [otpTimeRemaining, setOtpTimeRemaining] = useState<number>(0);
 
@@ -919,8 +921,8 @@ function SignupModal({ onClose, variant = 'user' }: { onClose: () => void; varia
       setOtpDigits(["", "", "", "", "", ""]);
       setOtpError("");
       setOtpExpiryTime(Date.now() + 10 * 60 * 1000);
-    } catch (err: any) {
-      setError(err.message || "Đăng ký thất bại");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Đăng ký thất bại");
     } finally {
       setLoading(false);
     }
@@ -940,6 +942,7 @@ function SignupModal({ onClose, variant = 'user' }: { onClose: () => void; varia
       const response = await authApi.verifyOtp(registeredEmail, otpValue);
       
       if (response.verified) {
+        if (!authResponse) throw new Error("Vui lòng đăng ký lại trước khi xác thực OTP.");
         localStorage.setItem("token", authResponse.token);
         await login(authResponse);
 
@@ -954,8 +957,8 @@ function SignupModal({ onClose, variant = 'user' }: { onClose: () => void; varia
       } else {
         setOtpError(response.message || "Xác thực OTP thất bại");
       }
-    } catch (err: any) {
-      setOtpError(err.message || "Xác thực OTP thất bại");
+    } catch (err: unknown) {
+      setOtpError(errorMessage(err) || "Xác thực OTP thất bại");
     } finally {
       setOtpLoading(false);
     }
@@ -974,8 +977,8 @@ function SignupModal({ onClose, variant = 'user' }: { onClose: () => void; varia
       } else {
         setOtpError(response.message || "Không thể gửi lại OTP");
       }
-    } catch (err: any) {
-      setOtpError(err.message || "Không thể gửi lại OTP");
+    } catch (err: unknown) {
+      setOtpError(errorMessage(err) || "Không thể gửi lại OTP");
     } finally {
       setOtpLoading(false);
     }
@@ -1701,7 +1704,7 @@ function Testimonials() {
                 <span key={i} className="text-lg">⭐</span>
               ))}
             </div>
-            <p className="text-base font-semibold text-[#121316]">"{item.text}"</p>
+            <p className="text-base font-semibold text-[#121316]">&quot;{item.text}&quot;</p>
             <div className="mt-2 pt-3 border-t border-[#E0E2E7]">
               <p className="font-bold text-[#121316]">{item.name}</p>
               <p className="text-sm text-[#656F81]">{item.location}</p>

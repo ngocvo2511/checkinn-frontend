@@ -1,10 +1,11 @@
 import {test,expect,type Page} from '@playwright/test';
+import type { InventoryState } from '@/lib/api/inventory-review';
 const hotel='f1000000-0000-0000-0000-000000000001',room='f1000000-0000-0000-0000-000000000002',owner='f1000000-0000-0000-0000-000000000003';
-const request={id:'f1000000-0000-0000-0000-000000000004',room_id:room,hotel_id:hotel,previous_quantity:null,proposed_quantity:3,source:'Synthetic room register',requested_by:owner,requested_at:'2026-11-07T00:00:00Z',status:'PENDING',revision:1,reviewed_by:null,reviewed_at:null,review_reason:null};
+const request: NonNullable<InventoryState["latestRequest"]>={id:'f1000000-0000-0000-0000-000000000004',room_id:room,hotel_id:hotel,previous_quantity:null,proposed_quantity:3,source:'Synthetic room register',requested_by:owner,requested_at:'2026-11-07T00:00:00Z',status:'PENDING',revision:1,reviewed_by:null,reviewed_at:null,review_reason:null};
 const initial={revision:0,managed:false,verified:false,currentQuantity:null,latestRequest:null,approvedRequest:null};
 const cors={'access-control-allow-origin':'http://127.0.0.1:3300','access-control-allow-headers':'authorization,content-type','access-control-allow-methods':'GET,POST,PUT,OPTIONS'};
-async function mock(page:Page,admin=false,fail=false,start:any=initial,success=false){
- let state:any=start;let decided=false;const proposals:any[]=[],writes:any[]=[],reviews:any[]=[];
+async function mock(page:Page,admin=false,fail=false,start:InventoryState=initial,success=false){
+ let state:InventoryState=start;let decided=false;const proposals:unknown[]=[],writes:unknown[]=[],reviews:unknown[]=[];
  await page.addInitScript(({owner,admin})=>{localStorage.setItem('token','synthetic-inventory-token');localStorage.setItem('user',JSON.stringify({userId:owner,role:admin?'ADMIN':'OWNER',fullName:'Synthetic inventory actor'}));},{owner,admin});
  await page.route('**/*',async route=>{const url=new URL(route.request().url()),method=route.request().method();
   if(url.port==='8080'){
@@ -59,7 +60,7 @@ for(const approve of [true,false])test(`admin ${approve?'approval':'rejection'} 
 });
 
 test('rejected owner can see reason and submit replacement with current revision',async({page})=>{
- const rejected={...request,status:'REJECTED',revision:2,reviewed_by:owner,reviewed_at:'2026-11-07T00:10:00Z',review_reason:'Evidence incomplete'};
+ const rejected={...request,status:'REJECTED' as const,revision:2,reviewed_by:owner,reviewed_at:'2026-11-07T00:10:00Z',review_reason:'Evidence incomplete'};
  const api=await mock(page,false,false,{...initial,managed:true,revision:2,latestRequest:rejected});
  await page.goto(`/host/hotels/${hotel}/rooms/${room}`);
  await expect(page.getByText('Đề xuất gần nhất: 3 · REJECTED · Evidence incomplete')).toBeVisible();

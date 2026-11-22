@@ -1,5 +1,7 @@
 'use client';
 
+import { errorMessage } from '@/lib/error-message';
+
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import HostMenu from '@/components/host/menu/HostMenu';
@@ -29,10 +31,10 @@ export default function HostHotelsPage() {
             'Gửi duyệt thành công!',
             `Khách sạn "${hotel.name}" đã được chuyển sang trạng thái Chờ duyệt. Ban quản trị sẽ thẩm định hồ sơ.`
           );
-        } catch (err: any) {
+        } catch (err: unknown) {
           showError(
             'Chưa thể gửi duyệt',
-            err?.message || 'Vui lòng kiểm tra lại giấy tờ pháp lý và ảnh đại diện của khách sạn.'
+            errorMessage(err) || 'Vui lòng kiểm tra lại giấy tờ pháp lý và ảnh đại diện của khách sạn.'
           );
         }
       },
@@ -54,10 +56,10 @@ export default function HostHotelsPage() {
             'Đã xóa bản nháp',
             `Bản nháp "${hotel.name}" đã được xóa thành công.`
           );
-        } catch (err: any) {
+        } catch (err: unknown) {
           showError(
             'Không thể xóa bản nháp',
-            err?.message || 'Có lỗi xảy ra khi xóa bản nháp.'
+            errorMessage(err) || 'Có lỗi xảy ra khi xóa bản nháp.'
           );
         }
       },
@@ -76,8 +78,8 @@ export default function HostHotelsPage() {
       try {
         const data = await hotelApi.getHotelsByOwner(token);
         setHotels(Array.isArray(data) ? data : []);
-      } catch (err: any) {
-        setError(err.message || 'Không thể tải danh sách khách sạn.');
+      } catch (err: unknown) {
+        setError(errorMessage(err) || 'Không thể tải danh sách khách sạn.');
       } finally {
         setLoading(false);
       }

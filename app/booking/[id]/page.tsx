@@ -1,5 +1,7 @@
 "use client";
 
+import { errorMessage } from '@/lib/error-message';
+
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
@@ -34,21 +36,26 @@ export default function BookingDetailsPage() {
   const params = useParams();
   const id = Array.isArray(params?.id) ? params?.id[0] : (params?.id as string);
 
-  const [booking, setBooking] = useState<BookingResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [refresh, setRefresh] = useState(0);
+  const requestKey = JSON.stringify([id, refresh]);
+  const [result, setResult] = useState<{
+    key: string; booking: BookingResponse | null; error: string | null;
+  } | null>(null);
+  const loading = Boolean(id) && result?.key !== requestKey;
+  const booking = result?.key === requestKey ? result.booking : null;
+  const error = result?.key === requestKey ? result.error : null;
 
   useEffect(() => {
-    if (!id) { setLoading(false); return; }
-    setLoading(true);
-    setError(null);
+    if (!id) return;
+    let active = true;
     bookingApi
       .getBooking(id)
-      .then((data) => setBooking(data))
-      .catch((err: any) => setError(err?.message || "Không lấy được thông tin đặt phòng"))
-      .finally(() => setLoading(false));
-  }, [id, refresh]);
+      .then((data) => { if (active) setResult({ key: requestKey, booking: data, error: null }); })
+      .catch((err: unknown) => {
+        if (active) setResult({ key: requestKey, booking: null, error: errorMessage(err) || "Không lấy được thông tin đặt phòng" });
+      });
+    return () => { active = false; };
+  }, [id, requestKey]);
 
   const firstItem = useMemo(() => booking?.items?.[0], [booking]);
   const badge = statusColor[booking?.status || ""] || "bg-gray-100 text-gray-700";
@@ -106,7 +113,7 @@ export default function BookingDetailsPage() {
               <div className="rounded-2xl border border-[#E5E7EB] bg-white shadow-sm p-6">
                 <div className="flex items-center gap-2 flex-wrap mb-2">
                   <span className={`px-3 py-1 rounded-full text-xs font-semibold ${badge}`}>{booking.status}</span>
-                  <span className="text-xs text-[#6B7280]">Tạo lúc: {formatDate(booking.createdAt as any)}</span>
+                  <span className="text-xs text-[#6B7280]">Tạo lúc: {formatDate(booking.createdAt)}</span>
                 </div>
                 <h2 className="text-lg font-semibold text-[#0F172A]">{booking.hotelName}</h2>
                 <p className="text-sm text-[#4B5563]">{firstItem?.roomTypeName || "--"}</p>
@@ -117,9 +124,9 @@ export default function BookingDetailsPage() {
                 <div className="rounded-2xl border border-[#E5E7EB] bg-white shadow-sm p-6">
                   <p className="text-sm font-semibold text-[#0F172A]">Thời gian lưu trú</p>
                   <div className="mt-2 text-sm text-[#4B5563] flex flex-wrap gap-2">
-                    <span>Nhận phòng: {formatDate(booking.checkInDate as any)}</span>
+                    <span>Nhận phòng: {formatDate(booking.checkInDate)}</span>
                     <span>·</span>
-                    <span>Trả phòng: {formatDate(booking.checkOutDate as any)}</span>
+                    <span>Trả phòng: {formatDate(booking.checkOutDate)}</span>
                   </div>
                 </div>
                 <div className="rounded-2xl border border-[#E5E7EB] bg-white shadow-sm p-6">

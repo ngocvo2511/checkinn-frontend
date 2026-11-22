@@ -57,7 +57,7 @@ export default function BookingHistoryPage() {
   const [reviewRetry, setReviewRetry] = useState(0);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [reviewedBookings, setReviewedBookings] = useState<Set<string>>(new Set());
-  const [selectedReview, setSelectedReview] = useState<any>(null);
+  const [selectedReview, setSelectedReview] = useState<import('@/lib/api/reviews').Review | null>(null);
   const [hotelImages, setHotelImages] = useState<Record<string, string>>({});
 
   const handleViewReview = async (bookingId: string) => {
@@ -122,7 +122,7 @@ export default function BookingHistoryPage() {
           setReviewedBookings(reviewed);
           setReviewStateKnown(true);
         } catch { if (!cancelled) setReviewError("Chưa thể xác định trạng thái đánh giá. Vui lòng tải lại."); }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!cancelled) setError("Không lấy được lịch sử đặt phòng. Vui lòng thử lại.");
       } finally {
         if (!cancelled) setLoading(false);
@@ -172,7 +172,7 @@ export default function BookingHistoryPage() {
   };
 
   const sorted = useMemo(() => {
-    return [...bookings].sort((a, b) => new Date(b.createdAt as any).getTime() - new Date(a.createdAt as any).getTime());
+    return [...bookings].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [bookings]);
 
   if (!mounted) return null;
@@ -260,13 +260,13 @@ export default function BookingHistoryPage() {
                           <div className="text-sm text-[#0F172A] font-semibold">{booking.hotelName}</div>
                           <div className="text-sm text-[#4B5563]">{firstItem?.roomTypeName || "--"}</div>
                           <div className="text-sm text-[#4B5563] flex flex-wrap gap-2">
-                            <span>Nhận phòng: {formatDate(booking.checkInDate as any)}</span>
+                            <span>Nhận phòng: {formatDate(booking.checkInDate)}</span>
                             <span>·</span>
-                            <span>Trả phòng: {formatDate(booking.checkOutDate as any)}</span>
+                            <span>Trả phòng: {formatDate(booking.checkOutDate)}</span>
                             <span>·</span>
                             <span>Khách: {booking.adults} người lớn, {booking.children} trẻ em</span>
                           </div>
-                          <div className="text-sm text-[#4B5563]">Tạo lúc: {formatDate(booking.createdAt as any)}</div>
+                          <div className="text-sm text-[#4B5563]">Tạo lúc: {formatDate(booking.createdAt)}</div>
                         </div>
 
                         <div className="flex flex-col gap-3 w-full lg:w-auto lg:items-end">

@@ -1,36 +1,27 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useSyncExternalStore } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Logo from './Logo';
 import { useAuth } from '@/hooks/useAuth';
+
+const subscribeScroll = (onChange: () => void) => {
+  window.addEventListener('scroll', onChange);
+  return () => window.removeEventListener('scroll', onChange);
+};
+const scrolledSnapshot = () => window.scrollY > 50;
+const serverScrolledSnapshot = () => false;
 
 export default function Header({ onLogin, onSignup, onEditProfile }: { onLogin?: () => void; onSignup?: () => void; onEditProfile?: () => void } = {}) {
   const [showMenu, setShowMenu] = useState(false);
   const pathname = usePathname();
   const isHome = pathname === '/';
-  const [isScrolled, setIsScrolled] = useState(!isHome);
+  const homeScrolled = useSyncExternalStore(subscribeScroll, scrolledSnapshot, serverScrolledSnapshot);
+  const isScrolled = !isHome || homeScrolled;
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const router = useRouter();
   const { user, logout, isLoading } = useAuth();
-
-  useEffect(() => {
-    if (!isHome) {
-      setIsScrolled(true);
-      return;
-    }
-
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
-    };
-
-    // Check initial scroll position when component mounts
-    handleScroll();
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [isHome]);
 
   // Hide/show header on scroll - only for search and hotel detail pages
   useEffect(() => {

@@ -5,7 +5,7 @@ const catalog=[{code:'WIFI_FREE',label:'Wi-Fi miễn phí',description:'Free acc
 const hotel={id,ownerId:owner,cityId:id,name:'Synthetic amenity property',description:'Synthetic description only',approvedStatus:'APPROVED',isActive:true,starRating:3,accommodationType:'HOTEL',accommodationTypeLabel:'Hotel',address:{street:'Synthetic street',city:'Synthetic city',country:'VN'},roomTypes:[],mediaAssets:[],policies:[],faqs:[],amenityCategories:[{id:'category',title:'Internet',items:[{id:raw,title:'Wi-Fi'}]}]};
 const cors={'access-control-allow-origin':'*','access-control-allow-headers':'Authorization,Content-Type','access-control-allow-methods':'GET,POST,PUT,OPTIONS'};
 async function login(page:Page,role:string){await page.addInitScript(({role,owner})=>{localStorage.setItem('token','synthetic-amenity-token');localStorage.setItem('user',JSON.stringify({userId:owner,role,fullName:'Synthetic User'}));},{role,owner});}
-async function mock(page:Page,respond:(u:URL,method:string,body:any)=>{status?:number;json?:unknown}|undefined){
+async function mock(page:Page,respond:(u:URL,method:string,body:Record<string, unknown> | null)=>{status?:number;json?:unknown}|undefined){
  await page.route('**/*',async route=>{const u=new URL(route.request().url()),method=route.request().method();
   if(u.port==='8080'){
    if(method==='OPTIONS')return route.fulfill({status:204,headers:cors});
@@ -43,7 +43,7 @@ test('catalog failure and inactive URL code stay visible and recover without a f
  await page.getByRole('button',{name:'Xóa bộ lọc mã tiện nghi'}).click();await expect(page).not.toHaveURL(/amenityCodes/);
 });
 test('owner proposes checked codes while literal title and effective mapping stay unchanged until approval',async({page})=>{
- await login(page,'OWNER');let revision=0,proposal:any=null;
+ await login(page,'OWNER');let revision=0,proposal:Record<string, unknown>|null=null;
  await mock(page,(u,method,body)=>{
   if(u.pathname.endsWith('/amenity-mappings'))return {json:[{id:raw,title:'Wi-Fi',revision,approvedCodes:[],latestRequest:proposal?{id:'request',status:'PENDING',codes:proposal.codes}:null}]};
   if(u.pathname.endsWith('/requests')&&method==='POST'){proposal=body;revision++;return {status:201,json:{id:'request'}};}
@@ -53,11 +53,11 @@ test('owner proposes checked codes while literal title and effective mapping sta
  await expect(panel.getByText('Đã duyệt: Chưa có mã')).toBeVisible();
  await panel.getByRole('checkbox',{name:'Wi-Fi miễn phí (WIFI_FREE)',exact:true}).check();
  await panel.getByLabel('Ghi chú mapping').fill('Đã kiểm tra dịch vụ miễn phí');await panel.getByRole('button',{name:'Gửi mapping chờ duyệt'}).click();
- await expect.poll(()=>proposal?.codes).toEqual(['WIFI_FREE']);expect(proposal.revision).toBe(0);
+ await expect.poll(()=>proposal?.codes).toEqual(['WIFI_FREE']);expect((proposal as Record<string, unknown> | null)?.revision).toBe(0);
  await expect(panel.getByText('Yêu cầu gần nhất: PENDING')).toBeVisible();await expect(panel.getByText('Đã duyệt: Chưa có mã')).toBeVisible();
 });
 test('admin creates immutable catalog code and reviews a proposal with a recorded reason',async({page})=>{
- await login(page,'ADMIN');let created:any=null,decision:any=null;
+ await login(page,'ADMIN');let created:Record<string, unknown>|null=null,decision:Record<string, unknown>|null=null;
  const request={id:'request',hotel_id:id,amenity_id:raw,title_snapshot:'Wi-Fi',codes:['WIFI_FREE'],status:'PENDING',revision:1,note:'Inspected synthetic source',review_reason:null};
  await mock(page,(u,method,body)=>{
   if(u.pathname.endsWith('/admin/amenity-catalog')&&method==='POST'){created=body;return {status:201,json:body};}
@@ -65,9 +65,9 @@ test('admin creates immutable catalog code and reviews a proposal with a recorde
   if(u.pathname.endsWith('/review')){decision=body;return {json:{...request,status:'APPROVED'}};}
  });
  await page.goto('/admin/amenities');await page.getByLabel('Mã tiện nghi',{exact:true}).fill('POOL');await page.getByLabel('Tên tiện nghi',{exact:true}).fill('Hồ bơi');await page.getByRole('button',{name:'Lưu tiện nghi',exact:true}).click();
- await expect.poll(()=>created?.code).toBe('POOL');expect(created.revision).toBe(0);
+ await expect.poll(()=>created?.code).toBe('POOL');expect((created as Record<string, unknown> | null)?.revision).toBe(0);
  const panel=page.getByRole('region',{name:'Duyệt Wi-Fi'});await expect(panel.getByRole('button',{name:'Duyệt mapping',exact:true})).toBeDisabled();await panel.getByLabel('Lý do quyết định').fill('Đã kiểm tra dịch vụ và chính sách');await panel.getByRole('button',{name:'Duyệt mapping',exact:true}).click();
- await expect.poll(()=>decision?.approve).toBe(true);expect(decision.revision).toBe(1);expect(decision.reason).toContain('Đã kiểm tra');await expect(page.getByText('Không có yêu cầu ở trang này.')).toBeVisible();
+ await expect.poll(()=>decision?.approve).toBe(true);expect((decision as Record<string, unknown> | null)?.revision).toBe(1);expect((decision as Record<string, unknown> | null)?.reason).toContain('Đã kiểm tra');await expect(page.getByText('Không có yêu cầu ở trang này.')).toBeVisible();
 });
 test('admin stale catalog edits keep entered fields and show explicit retry error',async({page})=>{
  await login(page,'ADMIN');await mock(page,(u,method)=>u.pathname.includes('/admin/amenity-catalog/')&&method==='PUT'?{status:409,json:{message:'Stale'}}:undefined);

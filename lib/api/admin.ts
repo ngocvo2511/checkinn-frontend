@@ -47,7 +47,7 @@ export const adminApi = {
 
       const allHotels = hotelsResponse.ok ? await hotelsResponse.json() : [];
       const approvedCount = Array.isArray(allHotels) 
-        ? allHotels.filter((h: any) => h.approvedStatus === 'APPROVED').length 
+        ? allHotels.filter((h) => h.approvedStatus === 'APPROVED').length
         : 0;
 
       const totalUsers = usersResponse.ok ? await usersResponse.json() : 0;

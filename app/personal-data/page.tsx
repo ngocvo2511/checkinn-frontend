@@ -1,16 +1,21 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import PersonalDataForm from '@/components/PersonalDataForm';
-import { AuthResponse } from '@/lib/api/auth';
 import { CustomerOnlyRoute } from '@/components/CustomerOnlyRoute';
+
+const subscribeStorage = (onChange: () => void) => {
+  window.addEventListener('storage', onChange);
+  return () => window.removeEventListener('storage', onChange);
+};
+const tokenSnapshot = () => Boolean(localStorage.getItem('token'));
+const serverTokenSnapshot = () => false;
 
 export default function PersonalDataPage() {
   const router = useRouter();
-  const [canRender, setCanRender] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const canRender = useSyncExternalStore(subscribeStorage, tokenSnapshot, serverTokenSnapshot);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -19,12 +24,9 @@ export default function PersonalDataPage() {
       router.push('/');
       return;
     }
-    
-    setCanRender(true);
-    setMounted(true);
   }, [router]);
 
-  if (!canRender || !mounted) {
+  if (!canRender) {
     return null;
   }
 

@@ -1,7 +1,7 @@
 import {test,expect,type Page} from '@playwright/test';
 const hotel='11111111-1111-4111-8111-111111111111';
 async function setup(page:Page){
- const writes:any[]=[];
+ const writes:Record<string, unknown>[]=[];
  await page.addInitScript(()=>{localStorage.setItem('token','synthetic-owner-token');localStorage.setItem('user',JSON.stringify({userId:'33333333-3333-4333-8333-333333333333',role:'OWNER',fullName:'Synthetic Owner'}));});
  await page.route('**/*',async route=>{const u=new URL(route.request().url());if(u.port!=='8080')return route.continue();
   const headers={'access-control-allow-origin':'*','access-control-allow-headers':'Authorization,Content-Type','access-control-allow-methods':'GET,POST,OPTIONS'};

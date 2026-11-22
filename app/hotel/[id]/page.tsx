@@ -1,5 +1,7 @@
 "use client";
 
+import { errorMessage } from '@/lib/error-message';
+
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { Ban, BedDouble, MapPin, Phone, Mail, Star, Globe, Clock, ShieldCheck, HelpCircle, Info, ExternalLink } from "lucide-react";
@@ -77,8 +79,8 @@ export default function HotelDetailPage() {
   const [hotel, setHotel] = useState<ApiHotel | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [reviews, setReviews] = useState<any[]>([]);
-  const [reviewStats, setReviewStats] = useState<any>(null);
+  const [reviews, setReviews] = useState<import('@/lib/api/reviews').Review[]>([]);
+  const [reviewStats, setReviewStats] = useState<import('@/lib/api/reviews').ReviewStats | null>(null);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewsError, setReviewsError] = useState(false);
   const [activeSection, setActiveSection] = useState("photos");
@@ -137,8 +139,8 @@ export default function HotelDetailPage() {
       try {
         const data = await hotelApi.getHotelById(hotelId);
         setHotel(data);
-      } catch (err: any) {
-        setError(err?.message || "Không thể tải thông tin khách sạn");
+      } catch (err: unknown) {
+        setError(errorMessage(err) || "Không thể tải thông tin khách sạn");
       } finally {
         setLoading(false);
       }
@@ -305,7 +307,7 @@ export default function HotelDetailPage() {
   const policyList = useMemo(() => {
     if (hotel?.policies && hotel.policies.length > 0) {
       // Handle both old (with title) and new (without title) policy structures
-      return hotel.policies.map((p: any) => {
+      return hotel.policies.map((p) => {
         if (typeof p === 'string') {
           return { category: 'Chính sách chung', content: p };
         }
@@ -562,7 +564,7 @@ export default function HotelDetailPage() {
         checkIn={checkIn}
         checkOut={checkOut}
         adults={adults}
-        children={children}
+        childCount={children}
         rooms={rooms}
         onSearchClick={handleSearchClick}
         onLogin={() => setShowLogin(true)}
@@ -1113,8 +1115,8 @@ export default function HotelDetailPage() {
               </div>
             ) : (
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                {(hotel?.amenities || []).map((a: any, idx: number) => (
-                  <div key={a?.id || a?.title || idx} className="flex items-center gap-2 text-sm text-[#374151]">
+                {(hotel?.amenities || []).map((a: string | { id?: string; title?: string }, idx: number) => (
+                  <div key={typeof a === "object" ? a?.id || a?.title || idx : idx} className="flex items-center gap-2 text-sm text-[#374151]">
                     <span className="h-2 w-2 rounded-full bg-[#2563EB]"></span>
                     {typeof a === "object" ? a.title : a}
                   </div>
@@ -1152,7 +1154,7 @@ export default function HotelDetailPage() {
                 <div>
                   <ul className="space-y-4 mb-4">
                     {policyList.length === 0 && <p className="text-sm text-[#6B7280]">Chưa cung cấp chính sách của cơ sở lưu trú.</p>}
-                    {policyList.slice(0, 3).map((p: any, idx) => (
+                    {policyList.slice(0, 3).map((p, idx) => (
                       <li key={`${idx}-${p.category}-${p.content}`} className="flex items-start gap-3">
                         <PolicyIcon category={p.category} />
                         <div className="flex-1">
@@ -1219,7 +1221,7 @@ export default function HotelDetailPage() {
                     <div className="flex justify-between py-2">
                       <span className="text-[#6B7280]">Bữa sáng</span>
                       <span className="text-[#0F172A] font-medium">
-                        {hotel?.roomTypes?.some((rt: any) => rt.capacity?.breakfastIncluded)
+                        {hotel?.roomTypes?.some((rt) => rt.capacity?.breakfastIncluded)
                           ? "Có, một số hạng phòng có bao gồm bữa sáng"
                           : "Tùy theo điều kiện của từng hạng phòng"}
                       </span>
@@ -1240,7 +1242,7 @@ export default function HotelDetailPage() {
             </h3>
             <div className="space-y-4 divide-y divide-[#F3F4F6]">
               {faqList.length === 0 && <p className="text-sm text-[#6B7280]">Chưa cung cấp câu hỏi thường gặp.</p>}
-              {faqList.map((faq: any, idx: number) => (
+              {faqList.map((faq, idx: number) => (
                 <div key={idx} className="pt-3 first:pt-0">
                   <p className="font-semibold text-base text-[#111827] mb-1">{faq.question}</p>
                   <p className="text-sm text-[#4B5563] leading-relaxed">{faq.answer}</p>
@@ -1267,7 +1269,7 @@ export default function HotelDetailPage() {
               </div>
               <div className="px-6 py-6 overflow-y-auto">
                 <ul className="space-y-4">
-                  {policyList.map((p: any, idx) => (
+                  {policyList.map((p, idx) => (
                     <li key={`${idx}-${p.category}-${p.content}`} className="flex items-start gap-3">
                       <PolicyIcon category={p.category} />
                       <div className="flex-1">
@@ -1377,7 +1379,7 @@ export default function HotelDetailPage() {
                 <div>
                   <h4 className="text-base font-semibold text-[#0F172A] mb-3">Tiện nghi</h4>
                   <div className="flex flex-wrap gap-2 text-xs text-[#374151]">
-                    {(roomModal.room.amenities && roomModal.room.amenities.length > 0 ? roomModal.room.amenities : []).map((a: any, idx: number) => (
+                    {(roomModal.room.amenities && roomModal.room.amenities.length > 0 ? roomModal.room.amenities : []).map((a: string | { id?: string; title?: string }, idx: number) => (
                       <span key={typeof a === 'object' ? (a.id || a.title || idx) : (a || idx)} className="inline-flex items-center gap-1 rounded-full bg-[#F3F4F6] px-3 py-1">
                         {typeof a === 'object' ? a.title : a}
                       </span>
@@ -1671,8 +1673,8 @@ function LoginModal({ onClose, onSwitchToSignup }: { onClose: () => void; onSwit
         // Reload page to update UI
         location.reload();
       }
-    } catch (err: any) {
-      setError(err.message || "Đăng nhập thất bại");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Đăng nhập thất bại");
     } finally {
       setLoading(false);
     }
@@ -1771,7 +1773,7 @@ function SignupModal({ onClose, onSwitchToLogin }: { onClose: () => void; onSwit
   const [otpDigits, setOtpDigits] = useState<string[]>(["", "", "", "", "", ""]);
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpError, setOtpError] = useState("");
-  const [authResponse, setAuthResponse] = useState<any>(null);
+  const [authResponse, setAuthResponse] = useState<Awaited<ReturnType<typeof authApi.register>> | null>(null);
 
   const handleSubmit = async () => {
     if (!fullName || !username || !email || !password || !confirmPassword) {
@@ -1805,8 +1807,8 @@ function SignupModal({ onClose, onSwitchToLogin }: { onClose: () => void; onSwit
       setStep('verify');
       setOtpDigits(["", "", "", "", "", ""]);
       setOtpError("");
-    } catch (err: any) {
-      setError(err.message || "Đăng ký thất bại");
+    } catch (err: unknown) {
+      setError(errorMessage(err) || "Đăng ký thất bại");
     } finally {
       setLoading(false);
     }
@@ -1826,14 +1828,15 @@ function SignupModal({ onClose, onSwitchToLogin }: { onClose: () => void; onSwit
       const response = await authApi.verifyOtp(registeredEmail, otpValue);
       
       if (response.verified) {
+        if (!authResponse) throw new Error("Vui lòng đăng ký lại trước khi xác thực OTP.");
         localStorage.setItem("token", authResponse.token);
         await login(authResponse);
         location.reload();
       } else {
         setOtpError(response.message || "Xác thực OTP thất bại");
       }
-    } catch (err: any) {
-      setOtpError(err.message || "Xác thực OTP thất bại");
+    } catch (err: unknown) {
+      setOtpError(errorMessage(err) || "Xác thực OTP thất bại");
     } finally {
       setOtpLoading(false);
     }
@@ -1851,8 +1854,8 @@ function SignupModal({ onClose, onSwitchToLogin }: { onClose: () => void; onSwit
       } else {
         setOtpError(response.message || "Không thể gửi lại OTP");
       }
-    } catch (err: any) {
-      setOtpError(err.message || "Không thể gửi lại OTP");
+    } catch (err: unknown) {
+      setOtpError(errorMessage(err) || "Không thể gửi lại OTP");
     } finally {
       setOtpLoading(false);
     }
