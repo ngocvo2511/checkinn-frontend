@@ -68,7 +68,11 @@ export default function PlaceCard({ place, onSelect, hotelLat, hotelLng, showDis
           <div className="absolute right-3 top-3">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-black/70 px-2.5 py-0.5 text-xs font-medium text-white backdrop-blur-md shadow-xs">
               <Car className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-              <span>~{place.estimatedTravelTimeMinutes} phút ({place.distanceKm} km đường bộ)</span>
+              <span>
+                {place.distanceEstimated
+                  ? `≈${place.estimatedTravelTimeMinutes} phút (~${place.distanceKm} km, ước tính)`
+                  : `~${place.estimatedTravelTimeMinutes} phút (${place.distanceKm} km đường bộ)`}
+              </span>
             </span>
           </div>
         )}

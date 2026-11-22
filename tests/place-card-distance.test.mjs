@@ -23,3 +23,13 @@ for (const [label, props, expected] of [["default preserves distance", {}, true]
     assert.ok(html.includes("https://www.google.com/maps/dir/"));
   });
 }
+test("estimated distance is labelled as an estimate, not a road distance", () => {
+  const html = renderToStaticMarkup(React.createElement(PlaceCard, { place: { ...place, distanceEstimated: true }, onSelect() {} }));
+  assert.ok(html.includes("ước tính"));
+  assert.ok(!html.includes("km đường bộ"));
+});
+test("routed distance keeps the road distance label", () => {
+  const html = renderToStaticMarkup(React.createElement(PlaceCard, { place: { ...place, distanceEstimated: false }, onSelect() {} }));
+  assert.ok(html.includes("2.5 km đường bộ"));
+  assert.ok(!html.includes("ước tính"));
+});

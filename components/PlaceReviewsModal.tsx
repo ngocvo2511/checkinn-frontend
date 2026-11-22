@@ -72,7 +72,9 @@ export default function PlaceReviewsModal({ place, isOpen, onClose, hotelLat, ho
               </span>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 border border-sky-100 px-2.5 py-0.5 text-xs font-semibold text-sky-700">
                 <Car className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-                ~{place.estimatedTravelTimeMinutes} phút ({place.distanceKm} km đường bộ)
+                {place.distanceEstimated
+                  ? `≈${place.estimatedTravelTimeMinutes} phút (~${place.distanceKm} km, ước tính)`
+                  : `~${place.estimatedTravelTimeMinutes} phút (${place.distanceKm} km đường bộ)`}
               </span>
             </div>
             <h3 className="text-xl font-bold text-gray-900">{place.name}</h3>

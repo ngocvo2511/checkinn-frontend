@@ -29,6 +29,8 @@ export interface NearbyPlace {
   provinceName?: string | null;
   distanceKm: number;
   estimatedTravelTimeMinutes: number;
+  /** True when place-service could not route via OSRM and used a straight-line estimate. */
+  distanceEstimated?: boolean | null;
   isRoadDistance?: boolean;
   originLatitude?: number | null;
   originLongitude?: number | null;
