@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ReviewForm from '@/components/ReviewForm';
 import ReviewSection from '@/components/ReviewSection';
+import { bookingFetch } from '@/lib/api/request-error';
 
 interface Booking {
   id: string;
@@ -41,7 +42,7 @@ export default function MyBookingsPage() {
 
   const fetchMyBookings = async (token: string) => {
     try {
-      const response = await fetch(
+      const response = await bookingFetch(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/bookings/my-bookings`,
         {
           headers: {

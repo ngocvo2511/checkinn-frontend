@@ -28,6 +28,8 @@ export async function GET(
           "Content-Type": "application/json",
           Authorization: authorization,
         },
+        cache: "no-store",
+        signal: AbortSignal.timeout(10000),
       }
     );
 
@@ -38,7 +40,10 @@ export async function GET(
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error("Error fetching loyalty points:", error);
+    if (error instanceof Error && ["TimeoutError", "AbortError"].includes(error.name)) {
+      return NextResponse.json({ error: "Hết thời gian chờ khi lấy điểm tích lũy" }, { status: 504 });
+    }
+    console.error("Error fetching loyalty points:", error instanceof Error ? error.name : "unknown");
     return NextResponse.json(
       { error: "Không thể lấy điểm tích lũy" },
       { status: 500 }

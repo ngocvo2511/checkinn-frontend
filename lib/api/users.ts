@@ -1,3 +1,4 @@
+import { bookingFetch } from './request-error.ts';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
 
 export interface UserResponse {
@@ -36,7 +37,7 @@ export const userApi = {
   // Get users list page
   getUsers: async (token: string, page = 0, size = 10): Promise<UserPageResponse> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/user/admin/users?page=${page}&size=${size}`, {
+      const response = await bookingFetch(`${API_BASE_URL}/api/user/admin/users?page=${page}&size=${size}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -58,7 +59,7 @@ export const userApi = {
   // Get user detail by ID
   getUserDetail: async (token: string, userId: string): Promise<UserDetailResponse> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/user/admin/users/${userId}`, {
+      const response = await bookingFetch(`${API_BASE_URL}/api/user/admin/users/${userId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -80,7 +81,7 @@ export const userApi = {
   // Lock user account
   lockAccount: async (token: string, userId: string): Promise<{ message: string }> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/user/admin/users/${userId}/lock`, {
+      const response = await bookingFetch(`${API_BASE_URL}/api/user/admin/users/${userId}/lock`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -102,7 +103,7 @@ export const userApi = {
   // Unlock user account
   unlockAccount: async (token: string, userId: string): Promise<{ message: string }> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/user/admin/users/${userId}/unlock`, {
+      const response = await bookingFetch(`${API_BASE_URL}/api/user/admin/users/${userId}/unlock`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

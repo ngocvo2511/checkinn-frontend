@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { bookingAttempt, type BookingAttempt } from "@/lib/booking/creation-command";
-import { AlertTriangle, Ban, CheckCircle2, Info, MinusCircle } from "lucide-react";
+import { Ban, CheckCircle2, Info, MinusCircle } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { bookingApi, loyaltyApi, type CreateBookingPayload, type CancellationPolicyDetails } from "@/lib/api/booking";
@@ -585,14 +585,9 @@ Khi nhận phòng, bạn phải mang theo Chứng minh thư. Các tài liệu c�
             {/* Right: Price Summary */}
               <div className="space-y-6">
               <div className="rounded-2xl border border-[#E5E7EB] bg-white shadow-sm p-6 sticky top-20">
-                <div className="mb-4 rounded-lg bg-[#E0F2FE] p-3 text-sm text-[#075985] flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4" />
-                  <span>Đừng khoảnh chừng là 2 giây! Chỉ còn <span className="font-bold">8 phòng</span> có giá thấp nhất này!</span>
-                </div>
-
+                {/* F-9E-1: no stock/scarcity claim here — this page has no live availability source. */}
                 <div className="mb-4">
                   <p className="text-sm font-semibold text-[#0F172A]">({quantity}x) {roomName}</p>
-                  <p className="text-xs text-[#6B7280] mt-1">Chỉ còn 1 phòng</p>
                 </div>
 
                 <div className="space-y-3 border-t border-[#E5E7EB] pt-4">
