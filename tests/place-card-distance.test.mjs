@@ -10,7 +10,8 @@ const require = createRequire(import.meta.url);
 const source = fs.readFileSync(new URL("../components/PlaceCard.tsx", import.meta.url), "utf8");
 const compiled = ts.transpileModule(source, { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, esModuleInterop: true } }).outputText;
 const componentModule = { exports: {} };
-vm.runInNewContext(compiled, { require, module: componentModule, exports: componentModule.exports });
+const componentRequire = (id) => (id === "@/lib/community/flag" ? { COMMUNITY_ENABLED: false } : require(id));
+vm.runInNewContext(compiled, { require: componentRequire, module: componentModule, exports: componentModule.exports });
 const PlaceCard = componentModule.exports.default;
 const place = { id: "place", name: "Fixture", category: "CAFE", latitude: 10, longitude: 106, distanceKm: 2.5, estimatedTravelTimeMinutes: 7 };
 for (const [label, props, expected] of [["default preserves distance", {}, true], ["explicit true shows distance", { showDistance: true }, true], ["false hides distance", { showDistance: false }, false]]) {

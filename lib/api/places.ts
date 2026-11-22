@@ -1,4 +1,5 @@
 import { NearbyPlace, PlaceCategoryFilter } from '@/types/place';
+import { getPlacesByIds, searchPlaces } from './place-catalog.ts';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
 
@@ -11,6 +12,9 @@ export interface GetNearbyPlacesParams {
 }
 
 export const placesApi = {
+  search: searchPlaces,
+  batch: getPlacesByIds,
+
   /**
    * Fetches nearby places strictly calculated by road/spatial metrics from the given coordinates.
    * If coordinates are missing or no places exist within radiusKm, returns an empty list [].
