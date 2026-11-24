@@ -7,6 +7,7 @@ import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { Ban, BedDouble, MapPin, Phone, Mail, Star, Globe, Clock, ShieldCheck, HelpCircle, Info, ExternalLink } from "lucide-react";
 import HotelDetailHeader from "@/components/HotelDetailHeader";
 import NearbyPlacesSection from "@/components/NearbyPlacesSection";
+import HotelCommunitySection from "@/components/community/HotelCommunitySection";
 import HotelLocationMap from "@/components/map/HotelLocationMap";
 import Footer from "@/components/Footer";
 import { hotelApi, hotelCoordinates, Hotel as ApiHotel, RoomType, MediaAsset } from "@/lib/api/hotels";
@@ -1609,6 +1610,8 @@ export default function HotelDetailPage() {
             <div className="text-center py-8 text-[#6B7280]">Không có dữ liệu đánh giá</div>
           )}
         </section>
+
+        {hotel && <HotelCommunitySection hotelId={hotelId} hotelName={hotel.name} />}
       </main>
 
       <Footer />

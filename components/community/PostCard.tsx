@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Heart, MapPin, MessageCircle } from 'lucide-react';
+import { BedDouble, BadgeCheck, Heart, MapPin, MessageCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { socialApi, SocialApiError } from '@/lib/api/social';
 import { authorInitial, authorName, isPlaceReview, relativeTime } from '@/lib/community/rules';
@@ -20,6 +20,17 @@ export function CommunityBadge() {
     <span className="inline-flex items-center rounded-full bg-[#E8EFFC] px-2 py-0.5 text-xs font-medium text-[#0B2E68]"
       title="Nội dung do thành viên chia sẻ, chưa được xác minh qua đặt phòng">
       Cộng đồng · Chưa xác minh
+    </span>
+  );
+}
+
+/** Says the author completed a stay booked through Checkinn; it is not a hotel score. */
+export function VerifiedStayBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800"
+      title="Tác giả đã hoàn tất một kỳ lưu trú đặt qua Checkinn tại khách sạn này" data-testid="verified-stay-badge">
+      <BadgeCheck className="h-3.5 w-3.5" />
+      Đã ở qua Checkinn
     </span>
   );
 }
@@ -66,6 +77,7 @@ export default function PostCard({ post, compact = false, onChange }: PostCardPr
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="text-sm font-semibold text-[#1F2226]">{authorName(post.author)}</span>
             <CommunityBadge />
+            {post.verifiedStay && <VerifiedStayBadge />}
           </div>
           <p className="mt-0.5 text-xs text-[#656F81]">
             <time dateTime={post.createdAt}>{relativeTime(post.createdAt)}</time>
@@ -80,8 +92,17 @@ export default function PostCard({ post, compact = false, onChange }: PostCardPr
         </p>
       )}
 
-      {(post.place || review) && (
+      {(post.place || post.hotel || review) && (
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+          {post.hotel && (
+            <Link href={`/hotel/${post.hotel.id}`} className="inline-flex items-center gap-1 font-medium text-[#0057FF] hover:underline">
+              <BedDouble className="h-4 w-4" />
+              {post.hotel.name}
+              {(post.hotel.cityName || post.hotel.provinceName) && (
+                <span className="font-normal text-[#656F81]">· {post.hotel.cityName || post.hotel.provinceName}</span>
+              )}
+            </Link>
+          )}
           {post.place && (
             <Link href={`/places/${post.place.id}`} className="inline-flex items-center gap-1 font-medium text-[#0057FF] hover:underline">
               <MapPin className="h-4 w-4" />

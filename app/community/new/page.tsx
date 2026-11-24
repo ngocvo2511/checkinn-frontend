@@ -14,6 +14,9 @@ function NewPost() {
   const { user, isLoading } = useAuth();
   const placeId = searchParams.get('placeId');
   const initialPlace = placeId ? { id: placeId, name: searchParams.get('placeName') || 'Địa điểm đã chọn' } : null;
+  const hotelId = searchParams.get('hotelId');
+  const initialHotel = hotelId ? { id: hotelId, name: searchParams.get('hotelName') || 'Khách sạn đã chọn' } : null;
+  const initialStay = hotelId ? searchParams.get('stay') : null;
 
   return (
     <CommunityShell>
@@ -24,7 +27,8 @@ function NewPost() {
         <StateMessage title="Bạn cần đăng nhập để viết bài" detail="Ai cũng có thể đọc, nhưng chỉ thành viên đã đăng nhập mới có thể đăng bài."
           action={<Link href={loginHref(`/community/new${searchParams.size ? `?${searchParams.toString()}` : ''}`)} className={primaryButton}>Đăng nhập</Link>} />
       ) : (
-        <PostComposer token={user.token} initialPlace={initialPlace} onSaved={post => router.push(`/community/posts/${post.id}`)} onCancel={() => router.push('/community')} />
+        <PostComposer token={user.token} userId={user.userId} initialPlace={initialPlace} initialHotel={initialHotel}
+          initialStayBookingId={initialStay} onSaved={post => router.push(`/community/posts/${post.id}`)} onCancel={() => router.push('/community')} />
       )}
     </CommunityShell>
   );

@@ -1,11 +1,13 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ImagePlus, X } from 'lucide-react';
 import { socialApi, SocialApiError } from '@/lib/api/social';
-import { LIMITS, validatePhoto, validatePost, type FieldErrors } from '@/lib/community/rules';
+import { bookingApi } from '@/lib/api/booking';
+import { LIMITS, stayOptions, validatePhoto, validatePost, type FieldErrors, type StayOption } from '@/lib/community/rules';
 import type { PostInput, SocialPost } from '@/types/social';
 import PlacePicker, { type PickedPlace } from './PlacePicker';
+import HotelPicker, { type PickedHotel } from './HotelPicker';
 import { StarsInput } from './Stars';
 import { primaryButton, secondaryButton } from './CommunityShell';
 
@@ -24,21 +26,49 @@ interface PostComposerProps {
   initial?: SocialPost;
   /** Preselects a place for a new post, for example when composing from a place page. */
   initialPlace?: PickedPlace | null;
+  /** Preselects a hotel and, from a stay invitation, the stay to link. */
+  initialHotel?: PickedHotel | null;
+  initialStayBookingId?: string | null;
+  /** Needed to list the signed-in user's own completed stays. */
+  userId?: string | null;
   onSaved: (post: SocialPost) => void;
   onCancel: () => void;
 }
 
-export default function PostComposer({ token, initial, initialPlace = null, onSaved, onCancel }: PostComposerProps) {
+export default function PostComposer({
+  token, initial, initialPlace = null, initialHotel = null, initialStayBookingId = null, userId = null, onSaved, onCancel,
+}: PostComposerProps) {
   const [body, setBody] = useState(initial?.body ?? '');
   const [place, setPlace] = useState<PickedPlace | null>(
     initial?.placeId ? { id: initial.placeId, name: initial.place?.name ?? 'Địa điểm đã chọn', provinceName: initial.place?.provinceName } : initialPlace);
   const [rating, setRating] = useState<number | null>(initial?.rating ?? null);
+  const [hotel, setHotel] = useState<PickedHotel | null>(
+    initial?.hotelId ? { id: initial.hotelId, name: initial.hotel?.name ?? 'Khách sạn đã chọn', cityName: initial.hotel?.cityName } : initialHotel);
+  const [stayBookingId, setStayBookingId] = useState<string | null>(initial ? initial.stayBookingId ?? null : initialStayBookingId);
+  const [stays, setStays] = useState<StayOption[]>([]);
+  const [staysState, setStaysState] = useState<'idle' | 'loading' | 'error' | 'done'>('idle');
+  const [stayUnavailable, setStayUnavailable] = useState(false);
   const [photos, setPhotos] = useState<Photo[]>(
     (initial?.media ?? []).map(media => ({ key: media.id, id: media.id, url: media.url, state: 'ready' as const })));
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+
+  const hotelId = hotel?.id ?? null;
+  useEffect(() => {
+    if (!hotelId || !userId) return;
+    let current = true;
+    setStaysState('loading');
+    bookingApi.getUserBookings(userId)
+      .then(bookings => {
+        if (!current) return;
+        setStays(stayOptions(bookings, hotelId));
+        setStaysState('done');
+      })
+      .catch(() => { if (current) setStaysState('error'); });
+    return () => { current = false; };
+  }, [hotelId, userId]);
 
   const uploading = photos.some(photo => photo.state === 'uploading');
   const remainingSlots = LIMITS.photosPerPost - photos.length;
@@ -71,13 +101,25 @@ export default function PostComposer({ token, initial, initialPlace = null, onSa
     if (!next) setRating(null);
   }
 
-  async function save() {
+  function changeHotel(next: PickedHotel | null) {
+    setHotel(next);
+    setStayBookingId(null);
+    setStays([]);
+    setStaysState('idle');
+    if (next) setRating(null);
+  }
+
+  async function save(withoutStay = false) {
     const input: PostInput = {
       body: body.trim(),
       placeId: place?.id ?? null,
-      rating,
+      rating: hotel ? null : rating,
       mediaIds: photos.filter(photo => photo.state === 'ready' && photo.id).map(photo => photo.id as string),
+      hotelId: hotel?.id ?? null,
+      stayBookingId: withoutStay || !hotel ? null : stayBookingId,
     };
+    if (withoutStay) setStayBookingId(null);
+    setStayUnavailable(false);
     const invalid = validatePost(input);
     setErrors(invalid);
     setFormError('');
@@ -86,7 +128,12 @@ export default function PostComposer({ token, initial, initialPlace = null, onSa
     try {
       onSaved(initial ? await socialApi.updatePost(token, initial.id, input) : await socialApi.createPost(token, input));
     } catch (failure) {
-      if (failure instanceof SocialApiError) {
+      if (failure instanceof SocialApiError && failure.serverCode === 'STAY_ALREADY_SHARED') {
+        setErrors({ stayBookingId: failure.message });
+      } else if (failure instanceof SocialApiError && failure.serverCode === 'BOOKING_SERVICE_UNAVAILABLE') {
+        setStayUnavailable(true);
+        setFormError(failure.message);
+      } else if (failure instanceof SocialApiError) {
         setErrors(failure.fields);
         setFormError(Object.keys(failure.fields).length > 0 ? '' : failure.message);
       } else {
@@ -117,11 +164,45 @@ export default function PostComposer({ token, initial, initialPlace = null, onSa
       </div>
 
       <div>
+        <p className="text-sm font-semibold text-[#1F2226]">Khách sạn <span className="font-normal text-[#656F81]">(không bắt buộc)</span></p>
+        <div className="mt-2"><HotelPicker value={hotel} onChange={changeHotel} disabled={saving} /></div>
+        {errors.hotelId && <p className="mt-1 text-xs text-red-600" role="alert">{errors.hotelId}</p>}
+        {hotel && (
+          <div className="mt-3">
+            <label htmlFor="post-stay" className="text-sm font-medium text-[#1F2226]">Gắn kỳ lưu trú của tôi</label>
+            <select id="post-stay" value={stayBookingId ?? ''} disabled={saving || staysState === 'loading'}
+              onChange={event => setStayBookingId(event.target.value || null)}
+              className="mt-2 w-full rounded-xl border border-[#DDDFE3] bg-white px-3 py-2 text-sm outline-none focus:border-[#0057FF]">
+              <option value="">Không gắn kỳ lưu trú</option>
+              {stayBookingId && !stays.some(stay => stay.bookingId === stayBookingId) && (
+                <option value={stayBookingId}>Kỳ lưu trú đã chọn</option>
+              )}
+              {stays.map(stay => <option key={stay.bookingId} value={stay.bookingId}>{stay.label}</option>)}
+            </select>
+            <p className="mt-1 text-xs text-[#656F81]">
+              {staysState === 'loading' ? 'Đang tải các kỳ lưu trú đã hoàn tất…'
+                : staysState === 'error' ? 'Không tải được kỳ lưu trú. Bạn vẫn có thể đăng bài không gắn kỳ lưu trú.'
+                  : 'Bài viết gắn kỳ lưu trú đã hoàn tất qua Checkinn sẽ có nhãn “Đã ở qua Checkinn”. Mã đặt phòng không hiển thị công khai.'}
+            </p>
+            {errors.stayBookingId && <p className="mt-1 text-xs text-red-600" role="alert">{errors.stayBookingId}</p>}
+          </div>
+        )}
+      </div>
+
+      <div>
         <p className="text-sm font-semibold text-[#1F2226]">Chấm điểm địa điểm <span className="font-normal text-[#656F81]">(không bắt buộc)</span></p>
-        <div className="mt-2"><StarsInput value={rating} onChange={setRating} disabled={saving || !place} /></div>
-        <p className="mt-1 text-xs text-[#656F81]">
-          {place ? 'Điểm của bạn hiển thị là đánh giá cộng đồng, không phải đánh giá đã xác minh qua đặt phòng.' : 'Chọn địa điểm để chấm điểm.'}
-        </p>
+        {hotel ? (
+          <p className="mt-2 text-xs text-[#656F81]" data-testid="rating-hidden-for-hotel">
+            Bài viết gắn khách sạn không có điểm. Điểm khách sạn chỉ đến từ đánh giá đã xác minh qua đặt phòng.
+          </p>
+        ) : (
+          <>
+            <div className="mt-2"><StarsInput value={rating} onChange={setRating} disabled={saving || !place} /></div>
+            <p className="mt-1 text-xs text-[#656F81]">
+              {place ? 'Điểm của bạn hiển thị là đánh giá cộng đồng, không phải đánh giá đã xác minh qua đặt phòng.' : 'Chọn địa điểm để chấm điểm.'}
+            </p>
+          </>
+        )}
         {errors.rating && <p className="mt-1 text-xs text-red-600" role="alert">{errors.rating}</p>}
       </div>
 
@@ -154,7 +235,16 @@ export default function PostComposer({ token, initial, initialPlace = null, onSa
         {errors.mediaIds && <p className="mt-1 text-xs text-red-600" role="alert">{errors.mediaIds}</p>}
       </div>
 
-      {formError && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{formError}</p>}
+      {formError && (
+        <div className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+          <p>{formError}</p>
+          {stayUnavailable && (
+            <button type="button" className="mt-2 font-semibold underline" disabled={saving} onClick={() => void save(true)}>
+              Đăng không gắn kỳ lưu trú
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="flex justify-end gap-2">
         <button type="button" className={secondaryButton} onClick={onCancel} disabled={saving}>Hủy</button>

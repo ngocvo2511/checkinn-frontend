@@ -11,6 +11,7 @@ import { type AuthResponse } from "@/lib/api/auth";
 import { reviewApi } from "@/lib/api/reviews";
 import hotelApi from "@/lib/api/hotels";
 import { CustomerOnlyRoute } from "@/components/CustomerOnlyRoute";
+import StayInvitations from "@/components/community/StayInvitations";
 
 const statusColor: Record<string, string> = {
   PENDING: "bg-amber-100 text-amber-800",
@@ -219,6 +220,7 @@ export default function BookingHistoryPage() {
 
           {user && (
             <div className="space-y-4">
+              <StayInvitations token={user.token} />
               {reviewError && <div role="alert" className="text-red-600">{reviewError}
                 <button className="ml-3 underline" onClick={() => setReviewRetry(value => value + 1)}>Thử tải lại đánh giá</button></div>}
               {loading && <p className="text-sm text-[#6B7280]">Đang tải...</p>}
