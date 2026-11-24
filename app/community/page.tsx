@@ -9,6 +9,7 @@ import { socialApi } from '@/lib/api/social';
 import { loginHref } from '@/lib/community/login';
 import CommunityShell, { StateMessage, primaryButton, secondaryButton } from '@/components/community/CommunityShell';
 import PostFeed from '@/components/community/PostFeed';
+import StayInvitations from '@/components/community/StayInvitations';
 
 function CommunityFeed() {
   const router = useRouter();
@@ -45,6 +46,8 @@ function CommunityFeed() {
           {user ? 'Viết bài' : 'Đăng nhập để viết bài'}
         </Link>
       </div>
+
+      {user && !mine && !query && <div className="mt-5"><StayInvitations token={user.token} /></div>}
 
       <form className="mt-5 flex gap-2" role="search" onSubmit={event => { event.preventDefault(); submitSearch(); }}>
         <label htmlFor="community-search" className="sr-only">Tìm bài viết</label>

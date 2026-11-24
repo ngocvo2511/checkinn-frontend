@@ -17,7 +17,7 @@ export const REPORT_REASONS: { value: ReportReason; label: string }[] = [
   { value: 'OTHER', label: 'Lý do khác' },
 ];
 
-export type FieldErrors = Partial<Record<'body' | 'rating' | 'placeId' | 'mediaIds' | 'note', string>>;
+export type FieldErrors = Partial<Record<'body' | 'rating' | 'placeId' | 'hotelId' | 'stayBookingId' | 'mediaIds' | 'note', string>>;
 
 /** Mirrors the server rules so obvious mistakes are caught before a request; the server still decides. */
 export function validatePost(input: PostInput): FieldErrors {
@@ -29,9 +29,47 @@ export function validatePost(input: PostInput): FieldErrors {
     errors.rating = 'Điểm đánh giá phải từ 1 đến 5.';
   } else if (input.rating !== null && !input.placeId) {
     errors.rating = 'Hãy chọn địa điểm trước khi chấm điểm.';
+  } else if (input.rating !== null && input.hotelId) {
+    errors.rating = 'Bài viết gắn khách sạn không thể chấm điểm. Hãy dùng chức năng đánh giá khách sạn sau kỳ lưu trú.';
   }
+  if (input.stayBookingId && !input.hotelId) errors.stayBookingId = 'Hãy chọn khách sạn của kỳ lưu trú.';
   if (input.mediaIds.length > LIMITS.photosPerPost) errors.mediaIds = `Tối đa ${LIMITS.photosPerPost} ảnh cho mỗi bài.`;
   return errors;
+}
+
+export interface StayOption {
+  bookingId: string;
+  label: string;
+}
+
+/** Only completed stays at the chosen hotel can be linked; the server verifies the choice again. */
+export function stayOptions(
+  bookings: { id: string; hotelId: string; status: string; checkInDate: string; checkOutDate: string }[],
+  hotelId: string | null,
+): StayOption[] {
+  if (!hotelId) return [];
+  return bookings
+    .filter(booking => booking.status === 'CHECKED_OUT' && booking.hotelId === hotelId)
+    .sort((a, b) => b.checkOutDate.localeCompare(a.checkOutDate))
+    .map(booking => ({ bookingId: booking.id, label: `${formatDay(booking.checkInDate)} – ${formatDay(booking.checkOutDate)}` }));
+}
+
+function formatDay(iso: string): string {
+  const [year, month, day] = iso.slice(0, 10).split('-');
+  return year && month && day ? `${day}/${month}/${year}` : iso;
+}
+
+/** `2026-11` → `11/2026`. */
+export function formatMonth(yearMonth: string): string {
+  const [year, month] = yearMonth.split('-');
+  return year && month ? `${month}/${year}` : yearMonth;
+}
+
+/** Composer link that tags the hotel and links the stay of an invitation. */
+export function shareStayHref(invitation: { id: string; hotel: { id: string; name: string } | null }): string | null {
+  if (!invitation.hotel) return null;
+  const params = new URLSearchParams({ hotelId: invitation.hotel.id, hotelName: invitation.hotel.name, stay: invitation.id });
+  return `/community/new?${params.toString()}`;
 }
 
 export function validateComment(body: string): string | null {

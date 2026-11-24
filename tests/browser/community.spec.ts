@@ -130,10 +130,112 @@ for(const viewport of [{name:'mobile',width:390,height:844},{name:'desktop',widt
   await expect(page).toHaveURL(/\/community\/posts\/post-new$/);
 
   const created=api.calls.find(call=>call.method==='POST'&&call.path==='/api/social/posts');
-  expect(created?.body).toEqual({body:'Sunset over the river was wonderful',placeId,rating:4,mediaIds:[]});
+  expect(created?.body).toEqual({body:'Sunset over the river was wonderful',placeId,rating:4,mediaIds:[],hotelId:null,stayBookingId:null});
   expect(created?.auth).toBe('Bearer synthetic-customer-token');
  });
 }
+
+const hotelId='55555555-5555-4555-8555-555555555555',stayId='66666666-6666-4666-8666-666666666666';
+const hotelRef={id:hotelId,name:'Pine Hill',cityName:'Đà Lạt',provinceName:'Lâm Đồng',starRating:4,coverImageUrl:null};
+
+for(const viewport of [{name:'mobile',width:390,height:844},{name:'desktop',width:1280,height:900}]) {
+ test(`a verified stay post shows the badge and hotel link without a hotel score (${viewport.name})`,async({page})=>{
+  await page.setViewportSize(viewport);
+  await mockApi(page,(route,url)=>{
+   if(url.pathname==='/api/social/posts')return json(route,{items:[post(7,{hotelId,hotel:hotelRef,verifiedStay:true})],nextCursor:null});
+   return unexpected(route,url);
+  });
+  await page.goto('/community');
+  await expect(page.getByTestId('verified-stay-badge')).toHaveText('Đã ở qua Checkinn');
+  await expect(page.getByText('Cộng đồng · Chưa xác minh')).toBeVisible();
+  await expect(page.getByRole('link',{name:/Pine Hill/})).toHaveAttribute('href',`/hotel/${hotelId}`);
+  await expect(page.getByText('Đánh giá của cộng đồng')).toHaveCount(0);
+  await expect(page.getByText(stayId)).toHaveCount(0);
+  await noHorizontalScroll(page);
+ });
+}
+
+test('sharing from an invitation links the stay, hides the rating and explains a duplicate share',async({page})=>{
+ await signIn(page,reader,'CUSTOMER');
+ const api=await mockApi(page,(route,url,method)=>{
+  if(url.pathname===`/api/bookings/user/${reader}`)return json(route,[
+   {id:stayId,hotelId,hotelName:'Pine Hill',status:'CHECKED_OUT',checkInDate:'2026-11-01',checkOutDate:'2026-11-03',adults:2,children:0,totalAmount:1,paidAmount:1,items:[]},
+   {id:'other-booking',hotelId,hotelName:'Pine Hill',status:'CONFIRMED',checkInDate:'2026-12-01',checkOutDate:'2026-12-03',adults:2,children:0,totalAmount:1,paidAmount:1,items:[]}]);
+  if(url.pathname==='/api/social/posts'&&method==='POST')return json(route,{status:409,error:'STAY_ALREADY_SHARED',message:'English detail'},409);
+  return unexpected(route,url);
+ });
+ await page.goto(`/community/new?hotelId=${hotelId}&hotelName=Pine%20Hill&stay=${stayId}`);
+ await expect(page.getByText('Pine Hill')).toBeVisible();
+ await expect(page.getByTestId('rating-hidden-for-hotel')).toBeVisible();
+ await expect(page.getByLabel('Gắn kỳ lưu trú của tôi')).toHaveValue(stayId);
+ await expect(page.getByRole('option',{name:'01/11/2026 – 03/11/2026'})).toHaveCount(1);
+ await expect(page.locator('#post-stay option')).toHaveCount(2);
+ await page.getByLabel('Nội dung').fill('Quiet rooms and a great breakfast');
+ await page.getByRole('button',{name:'Đăng bài'}).click();
+ await expect(page.getByText('Kỳ lưu trú này đã được chia sẻ trong một bài viết khác.')).toBeVisible();
+ await expect(page.getByText('English detail')).toHaveCount(0);
+ const created=api.calls.find(call=>call.method==='POST'&&call.path==='/api/social/posts');
+ expect(created?.body).toEqual({body:'Quiet rooms and a great breakfast',placeId:null,rating:null,mediaIds:[],hotelId,stayBookingId:stayId});
+});
+
+test('a booking-service outage offers to publish without the stay link',async({page})=>{
+ await signIn(page,reader,'CUSTOMER');
+ const api=await mockApi(page,(route,url,method)=>{
+  if(url.pathname===`/api/bookings/user/${reader}`)return json(route,[]);
+  if(url.pathname==='/api/social/posts'&&method==='POST'){
+   const body=JSON.parse(route.request().postData()??'{}');
+   if(body.stayBookingId)return json(route,{status:503,error:'BOOKING_SERVICE_UNAVAILABLE'},503);
+   return json(route,{...post(8,{hotelId,hotel:hotelRef}),id:'post-new'},201);
+  }
+  if(url.pathname==='/api/social/posts/post-new')return json(route,post(8,{id:'post-new',hotelId,hotel:hotelRef}));
+  if(url.pathname==='/api/social/posts/post-new/comments')return json(route,{items:[],nextCursor:null});
+  return unexpected(route,url);
+ });
+ await page.goto(`/community/new?hotelId=${hotelId}&hotelName=Pine%20Hill&stay=${stayId}`);
+ await page.getByLabel('Nội dung').fill('Lovely stay');
+ await page.getByRole('button',{name:'Đăng bài'}).click();
+ await page.getByRole('button',{name:'Đăng không gắn kỳ lưu trú'}).click();
+ await expect(page).toHaveURL(/\/community\/posts\/post-new$/);
+ const posts=api.calls.filter(call=>call.method==='POST'&&call.path==='/api/social/posts');
+ expect(posts.map(call=>(call.body as {stayBookingId:string|null}).stayBookingId)).toEqual([stayId,null]);
+});
+
+test('invitations appear on the feed for their owner and can be dismissed',async({page})=>{
+ await signIn(page,reader,'CUSTOMER');
+ let dismissed=false;
+ const api=await mockApi(page,(route,url,method)=>{
+  if(url.pathname==='/api/social/posts')return json(route,{items:[],nextCursor:null});
+  if(url.pathname==='/api/social/me/stay-invitations'&&method==='GET')
+   return json(route,{items:dismissed?[]:[{id:stayId,hotel:hotelRef,checkOutMonth:'2026-11',createdAt:'2026-11-04T00:00:00Z',expiresAt:'2026-12-04T00:00:00Z'}]});
+  if(url.pathname===`/api/social/me/stay-invitations/${stayId}/dismiss`&&method==='POST'){dismissed=true;return route.fulfill({status:204,headers:cors});}
+  return unexpected(route,url);
+ });
+ await page.goto('/community');
+ const card=page.getByTestId('stay-invitation');
+ await expect(card).toContainText('Chuyến đi của bạn tại Pine Hill thế nào?');
+ await expect(card).toContainText('Trả phòng 11/2026');
+ await expect(card.getByRole('link',{name:'Chia sẻ chuyến đi'}))
+  .toHaveAttribute('href',`/community/new?hotelId=${hotelId}&hotelName=Pine+Hill&stay=${stayId}`);
+ await expect(card.getByRole('link',{name:'Đánh giá khách sạn'})).toHaveAttribute('href',`/reviews/new?bookingId=${stayId}&hotelId=${hotelId}`);
+ await card.getByRole('button',{name:'Ẩn lời mời cho Pine Hill'}).click();
+ await expect(card).toHaveCount(0);
+ const invitationCalls=api.calls.filter(call=>call.path.startsWith('/api/social/me/stay-invitations'));
+ expect(invitationCalls.every(call=>call.auth==='Bearer synthetic-customer-token')).toBe(true);
+});
+
+test('a failing invitation lookup leaves the feed untouched',async({page})=>{
+ await signIn(page,reader,'CUSTOMER');
+ await mockApi(page,(route,url)=>{
+  if(url.pathname==='/api/social/posts')return json(route,{items:[post(9)],nextCursor:null});
+  if(url.pathname==='/api/social/me/stay-invitations')return json(route,{status:503,error:'UNAVAILABLE'},503);
+  return unexpected(route,url);
+ });
+ await page.goto('/community');
+ await expect(page.getByTestId('post-card')).toHaveCount(1);
+ await expect(page.getByTestId('stay-invitations')).toHaveCount(0);
+ await expect(page.getByText('Dịch vụ đang tạm gián đoạn. Vui lòng thử lại sau.')).toHaveCount(0);
+ await expect(page.getByText('Không tải được bài viết')).toHaveCount(0);
+});
 
 test('composer rejects unsupported photo files before uploading',async({page})=>{
  await signIn(page,reader,'CUSTOMER');

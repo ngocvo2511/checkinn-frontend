@@ -54,7 +54,7 @@ export default function EditPostPage() {
               Bài viết đang bị ẩn bởi kiểm duyệt. Bạn vẫn có thể chỉnh sửa, nhưng bài sẽ tiếp tục bị ẩn cho đến khi được khôi phục.
             </p>
           )}
-          <PostComposer token={token} initial={post}
+          <PostComposer token={token} initial={post} userId={user?.userId ?? null}
             onSaved={saved => router.push(saved.status === 'HIDDEN' ? '/community?view=mine' : `/community/posts/${saved.id}`)}
             onCancel={() => router.back()} />
         </>

@@ -1,6 +1,6 @@
 import type {
   LikeState, PlaceRating, PostInput, ReportGroup, ReportReason, ReportTargetType,
-  SocialComment, SocialPage, SocialPost, UploadedMedia,
+  SocialComment, SocialPage, SocialPost, StayInvitation, UploadedMedia,
 } from '../../types/social.ts';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
@@ -28,6 +28,8 @@ const FIELD_MESSAGES: Record<string, string> = {
   body: 'Nội dung chưa hợp lệ.',
   rating: 'Điểm đánh giá chưa hợp lệ.',
   placeId: 'Địa điểm đã chọn không tồn tại.',
+  hotelId: 'Khách sạn đã chọn hiện không khả dụng.',
+  stayBookingId: 'Không thể gắn kỳ lưu trú này vào bài viết.',
   mediaIds: 'Ảnh không hợp lệ hoặc đã được dùng cho bài khác.',
   file: 'Ảnh không hợp lệ. Chỉ nhận JPEG, PNG hoặc WebP tối đa 5 MB.',
   note: 'Ghi chú chưa hợp lệ.',
@@ -36,16 +38,28 @@ const FIELD_MESSAGES: Record<string, string> = {
   limit: 'Số lượng mỗi trang chưa hợp lệ.',
 };
 
+/** Server error codes the UI reacts to specifically; any other code is ignored. */
+const KNOWN_SERVER_CODES = ['STAY_ALREADY_SHARED', 'BOOKING_SERVICE_UNAVAILABLE', 'HOTEL_SERVICE_UNAVAILABLE'] as const;
+export type SocialServerCode = typeof KNOWN_SERVER_CODES[number];
+
+const SERVER_CODE_MESSAGES: Record<SocialServerCode, string> = {
+  STAY_ALREADY_SHARED: 'Kỳ lưu trú này đã được chia sẻ trong một bài viết khác.',
+  BOOKING_SERVICE_UNAVAILABLE: 'Chưa thể xác minh kỳ lưu trú lúc này. Bạn có thể đăng bài không gắn kỳ lưu trú hoặc thử lại sau.',
+  HOTEL_SERVICE_UNAVAILABLE: 'Chưa thể kiểm tra khách sạn lúc này. Vui lòng thử lại sau.',
+};
+
 export class SocialApiError extends Error {
   readonly code: SocialErrorCode;
   readonly status: number;
   readonly fields: Record<string, string>;
-  constructor(code: SocialErrorCode, status = 0, fields: Record<string, string> = {}) {
-    super(Object.values(fields)[0] ?? MESSAGES[code]);
+  readonly serverCode: SocialServerCode | null;
+  constructor(code: SocialErrorCode, status = 0, fields: Record<string, string> = {}, serverCode: SocialServerCode | null = null) {
+    super(Object.values(fields)[0] ?? (serverCode ? SERVER_CODE_MESSAGES[serverCode] : MESSAGES[code]));
     this.name = 'SocialApiError';
     this.code = code;
     this.status = status;
     this.fields = fields;
+    this.serverCode = serverCode;
   }
 }
 
@@ -57,14 +71,17 @@ const STATUS_CODES: Record<number, SocialErrorCode> = {
 /** Server messages are English and may change; only the field names are trusted, and shown in Vietnamese. */
 async function toError(response: Response): Promise<SocialApiError> {
   const fields: Record<string, string> = {};
+  let serverCode: SocialServerCode | null = null;
   try {
     const body: unknown = await response.json();
     const raw = body && typeof body === 'object' ? (body as { fields?: unknown }).fields : null;
     if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
       for (const key of Object.keys(raw)) if (FIELD_MESSAGES[key]) fields[key] = FIELD_MESSAGES[key];
     }
+    const error = body && typeof body === 'object' ? (body as { error?: unknown }).error : null;
+    if (typeof error === 'string' && (KNOWN_SERVER_CODES as readonly string[]).includes(error)) serverCode = error as SocialServerCode;
   } catch { /* An empty or non-JSON error body still maps by status. */ }
-  return new SocialApiError(STATUS_CODES[response.status] ?? (response.status >= 500 ? 'UNAVAILABLE' : 'UNKNOWN'), response.status, fields);
+  return new SocialApiError(STATUS_CODES[response.status] ?? (response.status >= 500 ? 'UNAVAILABLE' : 'UNKNOWN'), response.status, fields, serverCode);
 }
 
 interface RequestOptions {
@@ -112,9 +129,17 @@ async function publicRead<T>(path: string, token: string | null | undefined, val
 const isObject = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
 const isText = (value: unknown): value is string => typeof value === 'string' && value.length > 0;
 
+const isOptionalText = (value: unknown) => value === null || value === undefined || isText(value);
+
+function isHotelRef(value: unknown): boolean {
+  return value === null || value === undefined || (isObject(value) && isText(value.id) && typeof value.name === 'string');
+}
+
 function isPost(value: unknown): boolean {
   return isObject(value) && isText(value.id) && typeof value.body === 'string' && isObject(value.author) && isText(value.author.id)
     && value.source === 'COMMUNITY' && value.verified === false && Array.isArray(value.media)
+    && isOptionalText(value.hotelId) && isHotelRef(value.hotel)
+    && (value.verifiedStay === undefined || typeof value.verifiedStay === 'boolean')
     && (value.rating === null || (Number.isInteger(value.rating) && (value.rating as number) >= 1 && (value.rating as number) <= 5))
     && Number.isInteger(value.likeCount) && Number.isInteger(value.commentCount) && isText(value.createdAt);
 }
@@ -146,8 +171,9 @@ export interface PageParams {
 }
 
 export const socialApi = {
-  feed: (params: PageParams & { placeId?: string | null } = {}, token?: string | null) =>
-    publicRead<SocialPage<SocialPost>>(`/posts${query({ placeId: params.placeId, cursor: params.cursor, limit: params.limit })}`, token, isPageOf(isPost)),
+  feed: (params: PageParams & { placeId?: string | null; hotelId?: string | null } = {}, token?: string | null) =>
+    publicRead<SocialPage<SocialPost>>(
+      `/posts${query({ placeId: params.placeId, hotelId: params.hotelId, cursor: params.cursor, limit: params.limit })}`, token, isPageOf(isPost)),
 
   search: (q: string, params: PageParams = {}, token?: string | null) =>
     publicRead<SocialPage<SocialPost>>(`/posts/search${query({ q: q.trim(), cursor: params.cursor, limit: params.limit })}`, token, isPageOf(isPost)),
@@ -203,6 +229,17 @@ export const socialApi = {
     form.append('file', file, fileName);
     return parse<UploadedMedia>(await send('/media', { method: 'POST', token, form, timeoutMs: 60000 }),
       value => isObject(value) && isText(value.id) && isText(value.url));
+  },
+
+  /** The caller's open stay invitations; there is at most one per completed booking. */
+  myInvitations: async (token: string) =>
+    (await parse<{ items: StayInvitation[] }>(await send('/me/stay-invitations', { token }),
+      value => isObject(value) && Array.isArray(value.items) && value.items.every(item =>
+        isObject(item) && isText(item.id) && isHotelRef(item.hotel) && isText(item.checkOutMonth)))).items,
+
+  dismissInvitation: async (token: string, invitationId: string): Promise<void> => {
+    const response = await send(`/me/stay-invitations/${id(invitationId)}/dismiss`, { method: 'POST', token });
+    if (!response.ok) throw await toError(response);
   },
 
   admin: {
